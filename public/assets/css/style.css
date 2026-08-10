@@ -1,0 +1,1816 @@
+/*
+ * Kravyo - Custom Design System & CSS Rules
+ * Palette: Warm Amber & Deep Charcoal (Homestyle Food Vibe)
+ */
+
+:root {
+    --kravyo-primary: #ff6b35;
+    --kravyo-primary-hover: #e85a26;
+    --kravyo-secondary: #f7c59f;
+    --kravyo-dark: #1a1a24;
+    --kravyo-light: #fefae0;
+    --kravyo-success: #2a9d8f;
+    --kravyo-card-bg: #ffffff;
+    --kravyo-border-radius: 12px;
+    --kravyo-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    background-color: #f8f9fa;
+    color: var(--kravyo-dark);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Custom Navbar */
+.navbar-kravyo {
+    background-color: var(--kravyo-dark);
+    padding: 0.8rem 1rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.navbar-kravyo .navbar-brand {
+    font-weight: 800;
+    font-size: 1.5rem;
+    color: var(--kravyo-primary);
+    letter-spacing: -0.5px;
+}
+
+.navbar-kravyo .nav-link {
+    color: #e0e0e0;
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.navbar-kravyo .nav-link:hover,
+.navbar-kravyo .nav-link.active {
+    color: var(--kravyo-primary);
+}
+
+/* Hero Section */
+.hero-section {
+    background: linear-gradient(135deg, #1a1a24 0%, #2b2b3a 100%);
+    color: white;
+    padding: 5rem 0;
+    border-radius: 0 0 30px 30px;
+}
+
+.hero-title {
+    font-weight: 800;
+    font-size: 2.75rem;
+    line-height: 1.2;
+}
+
+.hero-highlight {
+    color: var(--kravyo-primary);
+}
+
+/* Kravyo Cards */
+.kravyo-card {
+    background: var(--kravyo-card-bg);
+    border: none;
+    border-radius: var(--kravyo-border-radius);
+    box-shadow: var(--kravyo-shadow);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.kravyo-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.12);
+}
+
+/* Buttons */
+.btn-kravyo-primary {
+    background-color: var(--kravyo-primary);
+    color: white;
+    font-weight: 600;
+    border-radius: 8px;
+    border: none;
+    padding: 0.6rem 1.4rem;
+    transition: all 0.2s ease;
+}
+
+.btn-kravyo-primary:hover {
+    background-color: var(--kravyo-primary-hover);
+    color: white;
+    box-shadow: 0 4px 12px rgba(255, 107, 53, 0.35);
+}
+
+.btn-kravyo-outline {
+    border: 2px solid var(--kravyo-primary);
+    color: var(--kravyo-primary);
+    font-weight: 600;
+    border-radius: 8px;
+}
+
+.btn-kravyo-outline:hover {
+    background-color: var(--kravyo-primary);
+    color: white;
+}
+
+/* Hygiene & Authenticity Badges */
+.badge-hygiene {
+    background-color: var(--kravyo-success);
+    color: white;
+    font-weight: 600;
+    font-size: 0.75rem;
+    padding: 0.35em 0.7em;
+    border-radius: 20px;
+}
+
+.badge-zero-waste {
+    background-color: #e76f51;
+    color: white;
+    font-weight: 700;
+    font-size: 0.75rem;
+    padding: 0.35em 0.7em;
+    border-radius: 20px;
+}
+
+/* Footer */
+footer {
+    margin-top: auto;
+    background-color: var(--kravyo-dark);
+    color: #a0a0a0;
+    padding: 2.5rem 0 1.5rem;
+}
+
+footer a {
+    color: #e0e0e0;
+    text-decoration: none;
+}
+
+footer a:hover {
+    color: var(--kravyo-primary);
+}
+
+/* ============================================
+   Phase 3: Chef Dashboard & Admin Styles
+   ============================================ */
+
+/* Kitchen Status Banner */
+.kitchen-status-banner {
+    padding: 1.5rem 2rem;
+    border-radius: var(--kravyo-border-radius);
+    color: white;
+}
+
+.kitchen-status-banner.status-pending {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+}
+
+.kitchen-status-banner.status-approved {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+}
+
+.kitchen-status-banner.status-rejected {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.kitchen-status-banner a {
+    color: white;
+    text-decoration: underline;
+}
+
+/* Status Badges */
+.badge-status {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35em 0.85em;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.badge-status-pending {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.badge-status-approved {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.badge-status-rejected {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.badge-status-suspended {
+    background-color: #e5e7eb;
+    color: #374151;
+}
+
+/* Status Dots */
+.status-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-dot-pending {
+    background-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+
+.status-dot-approved {
+    background-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+.status-dot-rejected {
+    background-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+/* Stat Cards */
+.stat-card {
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    padding: 1.25rem;
+    box-shadow: var(--kravyo-shadow);
+    text-align: center;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+}
+
+.stat-card-orders::before {
+    background: linear-gradient(90deg, #3b82f6, #6366f1);
+}
+
+.stat-card-earnings::before {
+    background: linear-gradient(90deg, #10b981, #14b8a6);
+}
+
+.stat-card-menu::before {
+    background: linear-gradient(90deg, #f59e0b, #f97316);
+}
+
+.stat-card-reviews::before {
+    background: linear-gradient(90deg, #ec4899, #f43f5e);
+}
+
+.stat-card-users::before {
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+}
+
+.stat-card-chefs::before {
+    background: linear-gradient(90deg, #f59e0b, #f97316);
+}
+
+.stat-card-pending::before {
+    background: linear-gradient(90deg, #fbbf24, #f59e0b);
+}
+
+.stat-card-approved::before {
+    background: linear-gradient(90deg, #10b981, #34d399);
+}
+
+.stat-icon {
+    font-size: 1.75rem;
+    margin-bottom: 0.5rem;
+    color: var(--kravyo-primary);
+    opacity: 0.8;
+}
+
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--kravyo-dark);
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.78rem;
+    color: #6b7280;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 0.25rem;
+}
+
+/* Availability Toggle Switch */
+.availability-toggle-container {
+    display: inline-block;
+}
+
+.availability-label {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.availability-switch {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.toggle-track {
+    width: 56px;
+    height: 30px;
+    background-color: #d1d5db;
+    border-radius: 15px;
+    position: relative;
+    transition: background-color 0.3s ease;
+}
+
+.toggle-track.active {
+    background-color: #10b981;
+}
+
+.toggle-thumb {
+    width: 24px;
+    height: 24px;
+    background-color: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    transition: transform 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.toggle-track.active .toggle-thumb {
+    transform: translateX(26px);
+}
+
+.toggle-text {
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+
+/* Upload Areas */
+.upload-area {
+    border: 2px dashed #d1d5db;
+    border-radius: var(--kravyo-border-radius);
+    padding: 2rem;
+    text-align: center;
+    position: relative;
+    cursor: pointer;
+    transition: border-color 0.3s ease, background-color 0.3s ease;
+    min-height: 150px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload-area:hover {
+    border-color: var(--kravyo-primary);
+    background-color: rgba(255, 107, 53, 0.03);
+}
+
+.upload-area-large {
+    min-height: 250px;
+}
+
+.upload-input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.upload-preview-img {
+    max-width: 100%;
+    max-height: 200px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.upload-area-large .upload-preview-img {
+    max-height: 220px;
+}
+
+/* Admin Filter Tabs */
+.admin-filter-tabs {
+    background: white;
+    padding: 0.5rem;
+    border-radius: var(--kravyo-border-radius);
+    box-shadow: var(--kravyo-shadow);
+}
+
+.admin-filter-tabs .nav-link {
+    color: #6b7280;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 0.5rem 1rem;
+    transition: all 0.2s ease;
+}
+
+.admin-filter-tabs .nav-link:hover {
+    background-color: #f3f4f6;
+    color: var(--kravyo-dark);
+}
+
+.admin-filter-tabs .nav-link.active {
+    background-color: var(--kravyo-primary);
+    color: white;
+}
+
+.admin-filter-tabs .nav-link.active .badge {
+    background-color: rgba(255, 255, 255, 0.3) !important;
+    color: white !important;
+}
+
+/* Admin Kitchen Card */
+.admin-kitchen-card {
+    overflow: hidden;
+}
+
+.admin-kitchen-banner-placeholder {
+    height: 100px;
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+}
+
+/* Avatar Circle */
+.avatar-circle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--kravyo-primary), var(--kravyo-primary-hover));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    flex-shrink: 0;
+}
+
+/* ============================================
+   Phase 4: Menu Management & Food Catalog
+   ============================================ */
+
+/* Category Icons Placeholder */
+.category-icon-placeholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    font-size: 1.2rem;
+}
+
+/* Dish Card Styles */
+.dish-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dish-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+}
+
+.dish-card-image {
+    position: relative;
+    height: 160px;
+    overflow: hidden;
+    background: #f3f4f6;
+    border-top-left-radius: var(--kravyo-border-radius);
+    border-top-right-radius: var(--kravyo-border-radius);
+}
+
+.dish-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.dish-card:hover .dish-card-image img {
+    transform: scale(1.05);
+}
+
+.dish-image-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: #d1d5db;
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+}
+
+.dish-price-badge {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(26, 26, 36, 0.85);
+    color: white;
+    font-weight: 700;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.dish-unavailable-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+/* Dietary Badges */
+.dietary-badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.2rem 0.5rem;
+    border-radius: 12px;
+    border: 1px solid transparent;
+}
+
+.dietary-veg {
+    background-color: #f0fdf4;
+    color: #166534;
+    border-color: #bbf7d0;
+}
+
+.dietary-veg i {
+    color: #16a34a;
+}
+
+.dietary-nonveg {
+    background-color: #fef2f2;
+    color: #991b1b;
+    border-color: #fecaca;
+}
+
+.dietary-nonveg i {
+    color: #dc2626;
+}
+
+.dietary-jain {
+    background-color: #fdf4ff;
+    color: #86198f;
+    border-color: #f5d0fe;
+}
+
+.dietary-jain i {
+    color: #d946ef;
+}
+
+.dietary-diabetic {
+    background-color: #eff6ff;
+    color: #1e40af;
+    border-color: #bfdbfe;
+}
+
+.dietary-diabetic i {
+    color: #3b82f6;
+}
+
+
+/* ============================================
+   Phase 5: Customer Discovery, Cart & Customization
+   ============================================ */
+
+/* Kitchen Browse Hero */
+.kitchen-browse-hero {
+    background: linear-gradient(135deg, #1a1a24 0%, #2b2b3a 100%);
+    padding: 2.5rem 0;
+    margin-bottom: 0;
+}
+
+/* Filter Bar */
+.kitchen-filter-bar {
+    background: white;
+    padding: 1.25rem 1.5rem;
+    border-radius: var(--kravyo-border-radius);
+    box-shadow: var(--kravyo-shadow);
+}
+
+.filter-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6b7280;
+    margin-bottom: 0.35rem;
+    display: block;
+}
+
+.filter-input {
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    transition: border-color 0.2s ease;
+    font-size: 0.9rem;
+}
+
+.filter-input:focus {
+    border-color: var(--kravyo-primary);
+    box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+}
+
+.filter-checkbox .form-check-input:checked {
+    background-color: var(--kravyo-primary);
+    border-color: var(--kravyo-primary);
+}
+
+/* Kitchen Browse Cards */
+.kitchen-browse-card {
+    border: none;
+    border-radius: var(--kravyo-border-radius);
+    box-shadow: var(--kravyo-shadow);
+    overflow: hidden;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.kitchen-browse-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 18px 40px rgba(0, 0, 0, 0.14);
+}
+
+.kitchen-card-banner {
+    height: 160px;
+    overflow: hidden;
+    position: relative;
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+}
+
+.kitchen-card-banner-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.4s ease;
+}
+
+.kitchen-browse-card:hover .kitchen-card-banner-img {
+    transform: scale(1.08);
+}
+
+.kitchen-card-banner-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    color: #d1d5db;
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+}
+
+.kitchen-status-pill {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    backdrop-filter: blur(6px);
+}
+
+.kitchen-status-pill i {
+    font-size: 0.4rem;
+}
+
+.kitchen-status-pill.status-open {
+    background: rgba(16, 185, 129, 0.9);
+    color: white;
+}
+
+.kitchen-status-pill.status-closed {
+    background: rgba(239, 68, 68, 0.9);
+    color: white;
+}
+
+.kitchen-hygiene-pill {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    background: rgba(42, 157, 143, 0.9);
+    color: white;
+    backdrop-filter: blur(6px);
+}
+
+.star-sm {
+    font-size: 0.8rem;
+}
+
+/* Chef Profile Hero */
+.chef-profile-hero {
+    background: linear-gradient(135deg, #1a1a24 0%, #2b2b3a 100%);
+    padding: 2.5rem 0 2rem;
+}
+
+.chef-banner-wrap {
+    border-radius: var(--kravyo-border-radius);
+    overflow: hidden;
+    max-height: 220px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.chef-banner-img {
+    width: 100%;
+    height: 220px;
+    object-fit: cover;
+}
+
+.chef-banner-placeholder {
+    width: 100%;
+    height: 180px;
+    background: linear-gradient(135deg, #374151, #4b5563);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    gap: 0.5rem;
+}
+
+.chef-stats-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: var(--kravyo-border-radius);
+    padding: 1.5rem;
+}
+
+.chef-stat-value {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: white;
+    line-height: 1.2;
+}
+
+.chef-stat-label {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+/* Chef Story Card */
+.chef-story-card {
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--kravyo-shadow);
+    border-left: 4px solid var(--kravyo-primary);
+}
+
+/* Chef Detail Tabs */
+.chef-detail-tabs {
+    background: white;
+    padding: 0.4rem;
+    border-radius: var(--kravyo-border-radius);
+    box-shadow: var(--kravyo-shadow);
+}
+
+.chef-detail-tabs .nav-link {
+    color: #6b7280;
+    font-weight: 600;
+    border-radius: 8px;
+    padding: 0.5rem 1.25rem;
+    transition: all 0.2s ease;
+}
+
+.chef-detail-tabs .nav-link:hover {
+    background-color: #f3f4f6;
+    color: var(--kravyo-dark);
+}
+
+.chef-detail-tabs .nav-link.active {
+    background-color: var(--kravyo-primary);
+    color: white;
+}
+
+.chef-detail-tabs .nav-link.active .badge {
+    background-color: rgba(255, 255, 255, 0.3) !important;
+    color: white !important;
+}
+
+.category-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--kravyo-primary);
+    flex-shrink: 0;
+}
+
+.dish-desc-truncate {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Review Cards */
+.review-card {
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    padding: 1.25rem;
+    box-shadow: var(--kravyo-shadow);
+    transition: transform 0.2s ease;
+}
+
+.review-card:hover {
+    transform: translateY(-2px);
+}
+
+/* Menu Filter Sidebar */
+.menu-filter-sidebar {
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--kravyo-shadow);
+    position: sticky;
+    top: 80px;
+}
+
+/* Dish Detail Page */
+.dish-detail-image-wrap {
+    border-radius: var(--kravyo-border-radius);
+    overflow: hidden;
+    box-shadow: var(--kravyo-shadow);
+}
+
+.dish-detail-img {
+    width: 100%;
+    height: 380px;
+    object-fit: cover;
+}
+
+.dish-detail-placeholder {
+    width: 100%;
+    height: 380px;
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 4rem;
+    color: #d1d5db;
+    gap: 0.5rem;
+}
+
+.dish-detail-placeholder span {
+    font-size: 1rem;
+}
+
+.kitchen-info-card {
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    padding: 1rem 1.25rem;
+    box-shadow: var(--kravyo-shadow);
+    transition: transform 0.2s ease;
+}
+
+.kitchen-info-card:hover {
+    transform: translateY(-2px);
+}
+
+.dish-detail-price {
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: var(--kravyo-primary);
+}
+
+/* Customization Form */
+.customization-form {
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--kravyo-shadow);
+}
+
+.customization-heading {
+    color: var(--kravyo-dark);
+    border-bottom: 2px solid #f3f4f6;
+    padding-bottom: 0.75rem;
+}
+
+.customization-label {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #374151;
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.customization-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.customization-option {
+    cursor: pointer;
+}
+
+.customization-btn {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #374151;
+    background: white;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.customization-btn:hover {
+    border-color: var(--kravyo-primary);
+    color: var(--kravyo-primary);
+}
+
+.btn-check:checked+.customization-btn {
+    background: var(--kravyo-primary);
+    border-color: var(--kravyo-primary);
+    color: white;
+    box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+}
+
+.btn-check:checked+.customization-btn.spice-low {
+    background: #10b981;
+    border-color: #10b981;
+}
+
+.btn-check:checked+.customization-btn.spice-high {
+    background: #ef4444;
+    border-color: #ef4444;
+}
+
+/* Quantity Selector */
+.quantity-selector {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.qty-btn {
+    width: 44px;
+    height: 44px;
+    border: none;
+    background: #f9fafb;
+    color: var(--kravyo-dark);
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.qty-btn:hover {
+    background: var(--kravyo-primary);
+    color: white;
+}
+
+.qty-input {
+    width: 50px;
+    height: 44px;
+    border: none;
+    text-align: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    background: white;
+    color: var(--kravyo-dark);
+    -moz-appearance: textfield;
+}
+
+.qty-input::-webkit-outer-spin-button,
+.qty-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Cart Page */
+.cart-kitchen-header {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    padding: 0.75rem 1.25rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+}
+
+.cart-item-card {
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    box-shadow: var(--kravyo-shadow);
+    overflow: hidden;
+    transition: transform 0.2s ease;
+}
+
+.cart-item-card:hover {
+    transform: translateX(3px);
+}
+
+.cart-item-img {
+    width: 110px;
+    height: 110px;
+    flex-shrink: 0;
+}
+
+.cart-item-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cart-item-img-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    color: #d1d5db;
+}
+
+.cart-item-body {
+    padding: 0.75rem 1rem;
+}
+
+.cart-custom-tag {
+    display: inline-flex;
+    align-items: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.2rem 0.55rem;
+    border-radius: 6px;
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.cart-custom-jain {
+    background: #fdf4ff;
+    color: #86198f;
+}
+
+.cart-remove-btn {
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
+}
+
+.cart-item-card:hover .cart-remove-btn {
+    opacity: 1;
+}
+
+/* Cart Quantity Controls (Small) */
+.cart-qty-controls {
+    display: inline-flex;
+    align-items: center;
+    gap: 0;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.qty-btn-sm,
+.qty-minus-sm,
+.qty-plus-sm {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #f9fafb;
+    color: var(--kravyo-dark);
+    font-size: 0.85rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.qty-minus-sm:hover,
+.qty-plus-sm:hover {
+    background: var(--kravyo-primary);
+    color: white;
+}
+
+.cart-qty-value {
+    width: 36px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+    background: white;
+}
+
+.cart-item-subtotal {
+    text-align: right;
+}
+
+/* Cart Summary Sidebar */
+.cart-summary-card {
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--kravyo-shadow);
+    position: sticky;
+    top: 80px;
+    border-top: 4px solid var(--kravyo-primary);
+}
+
+.cart-summary-rows {
+    max-height: 200px;
+    overflow-y: auto;
+}
+
+/* Empty State */
+.empty-state-icon {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: #9ca3af;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+
+    .kitchen-browse-hero,
+    .chef-profile-hero {
+        padding: 1.5rem 0;
+    }
+
+    .dish-detail-img,
+    .dish-detail-placeholder {
+        height: 240px;
+    }
+
+    .chef-banner-wrap {
+        max-height: 150px;
+    }
+
+    .chef-banner-img {
+        height: 150px;
+    }
+
+    .cart-item-img {
+        width: 80px;
+        height: 80px;
+    }
+
+    .menu-filter-sidebar {
+        position: static;
+        margin-bottom: 1rem;
+    }
+
+    .cart-summary-card {
+        position: static;
+    }
+
+    .hero-title {
+        font-size: 2rem;
+    }
+}
+
+
+/* ============================================
+   Phase 6: Order Placement & Status Tracking
+   ============================================ */
+
+/* Checkout Page Sections */
+.checkout-section {
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--kravyo-shadow);
+}
+
+.checkout-section-title {
+    font-weight: 700;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #f3f4f6;
+}
+
+.checkout-summary {
+    border-top: 4px solid var(--kravyo-primary);
+}
+
+.checkout-kitchen-badge {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+}
+
+/* Address Cards */
+.saved-addresses {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.address-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.address-card:hover {
+    border-color: var(--kravyo-primary);
+    background: rgba(255, 107, 53, 0.02);
+}
+
+.address-card.selected {
+    border-color: var(--kravyo-primary);
+    background: rgba(255, 107, 53, 0.04);
+    box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+}
+
+.address-radio {
+    display: none;
+}
+
+.address-card-inner {
+    flex-grow: 1;
+}
+
+.address-check {
+    color: #d1d5db;
+    font-size: 1.25rem;
+    transition: color 0.2s ease;
+}
+
+.address-card.selected .address-check {
+    color: var(--kravyo-primary);
+}
+
+/* New Address Form */
+.new-address-form {
+    background: #f9fafb;
+    border-radius: 10px;
+    padding: 1.25rem;
+    border: 1px dashed #d1d5db;
+}
+
+/* Payment Method Cards */
+.payment-methods {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.payment-method-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.payment-method-card:hover {
+    border-color: var(--kravyo-primary);
+}
+
+.payment-method-card.selected {
+    border-color: var(--kravyo-primary);
+    background: rgba(255, 107, 53, 0.04);
+    box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
+}
+
+.payment-radio {
+    display: none;
+}
+
+.payment-card-inner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-grow: 1;
+}
+
+.payment-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+}
+
+.payment-icon.upi-icon {
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+}
+
+.payment-check {
+    color: #d1d5db;
+    font-size: 1.25rem;
+    transition: color 0.2s ease;
+}
+
+.payment-method-card.selected .payment-check {
+    color: var(--kravyo-primary);
+}
+
+/* Order Tracking Timeline */
+.order-timeline {
+    position: relative;
+    padding: 1.5rem;
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    box-shadow: var(--kravyo-shadow);
+}
+
+.timeline-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 1.25rem;
+    position: relative;
+    padding-bottom: 2rem;
+}
+
+.timeline-step:last-child {
+    padding-bottom: 0;
+}
+
+/* Vertical connector line */
+.timeline-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 22px;
+    top: 48px;
+    width: 3px;
+    bottom: 0;
+    background: #e5e7eb;
+    border-radius: 2px;
+}
+
+.timeline-step.completed:not(:last-child)::after {
+    background: linear-gradient(180deg, #10b981, #10b981);
+}
+
+.timeline-step.active:not(:last-child)::after {
+    background: linear-gradient(180deg, var(--kravyo-primary), #e5e7eb);
+}
+
+/* Timeline node */
+.timeline-node {
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+    z-index: 1;
+    transition: all 0.3s ease;
+}
+
+.timeline-step.pending .timeline-node {
+    background: #f3f4f6;
+    color: #9ca3af;
+    border: 2px solid #e5e7eb;
+}
+
+.timeline-step.active .timeline-node {
+    background: var(--kravyo-primary);
+    color: white;
+    border: 2px solid var(--kravyo-primary);
+    box-shadow: 0 0 0 6px rgba(255, 107, 53, 0.15);
+    animation: pulse-node 2s infinite;
+}
+
+.timeline-step.completed .timeline-node {
+    background: #10b981;
+    color: white;
+    border: 2px solid #10b981;
+}
+
+@keyframes pulse-node {
+
+    0%,
+    100% {
+        box-shadow: 0 0 0 6px rgba(255, 107, 53, 0.15);
+    }
+
+    50% {
+        box-shadow: 0 0 0 12px rgba(255, 107, 53, 0.08);
+    }
+}
+
+.timeline-content {
+    padding-top: 0.5rem;
+}
+
+.timeline-step.pending .timeline-content h6 {
+    color: #9ca3af;
+}
+
+.timeline-step.active .timeline-content h6 {
+    color: var(--kravyo-primary);
+}
+
+.timeline-step.completed .timeline-content h6 {
+    color: #10b981;
+}
+
+/* Cancelled Order Card */
+.order-cancelled-card {
+    background: #fef2f2;
+    border: 2px solid #fecaca;
+    border-radius: var(--kravyo-border-radius);
+    padding: 1.5rem;
+}
+
+.cancelled-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #fee2e2;
+    color: #ef4444;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.75rem;
+    flex-shrink: 0;
+}
+
+/* Order Track Items */
+.order-track-item {
+    padding: 0.75rem;
+    background: #f9fafb;
+    border-radius: 10px;
+}
+
+.order-track-item-img {
+    width: 60px;
+    height: 60px;
+    border-radius: 10px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.order-track-item-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.order-track-item-placeholder {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #e5e7eb, #d1d5db);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #9ca3af;
+    font-size: 1.3rem;
+}
+
+/* Order History Cards */
+.order-history-card {
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    padding: 1.25rem;
+    box-shadow: var(--kravyo-shadow);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.order-history-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.12);
+}
+
+.order-history-arrow {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #d1d5db;
+    font-size: 1.2rem;
+    transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.order-history-card:hover .order-history-arrow {
+    color: var(--kravyo-primary);
+    transform: translateY(-50%) translateX(4px);
+}
+
+/* Chef Order Dashboard Cards */
+.chef-order-card {
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    padding: 1.25rem;
+    box-shadow: var(--kravyo-shadow);
+    transition: transform 0.2s ease;
+    border-left: 4px solid transparent;
+}
+
+.chef-order-card:hover {
+    transform: translateY(-2px);
+}
+
+.chef-order-card.order-new {
+    border-left-color: #f59e0b;
+    background: linear-gradient(135deg, #fffbeb 0%, white 30%);
+    animation: highlight-new 2s ease-in-out;
+}
+
+@keyframes highlight-new {
+    0% {
+        box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+    }
+
+    50% {
+        box-shadow: 0 0 0 8px rgba(245, 158, 11, 0);
+    }
+
+    100% {
+        box-shadow: var(--kravyo-shadow);
+    }
+}
+
+.chef-order-items {
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+
+/* Pulse badge for new orders */
+.pulse-badge {
+    animation: pulse-badge 1.5s infinite;
+}
+
+@keyframes pulse-badge {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+/* Order Track Header */
+.order-track-header {
+    background: white;
+    border-radius: var(--kravyo-border-radius);
+    padding: 1.5rem;
+    box-shadow: var(--kravyo-shadow);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .chef-order-card {
+        border-left-width: 3px;
+    }
+
+    .timeline-node {
+        width: 38px;
+        height: 38px;
+        font-size: 0.9rem;
+    }
+
+    .timeline-step:not(:last-child)::after {
+        left: 18px;
+    }
+
+    .order-track-item-img {
+        width: 48px;
+        height: 48px;
+    }
+}
+
+/* ===================================================================
+   PHASE 7: Tiffin Subscription System Styles
+   =================================================================== */
+
+/* Subscription Hero Section */
+.subscription-hero {
+    background: linear-gradient(135deg, #1a1a24 0%, #2b2b3a 60%, #3a2a1a 100%);
+    padding: 3rem 0;
+    border-radius: 0 0 24px 24px;
+}
+
+/* Subscription Plan Cards */
+.subscription-card {
+    border: 1px solid #e9ecef;
+    border-radius: var(--kravyo-border-radius);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
+    overflow: hidden;
+}
+
+.subscription-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.1);
+    border-color: var(--kravyo-primary);
+}
+
+.subscription-card-active {
+    border-left: 4px solid var(--kravyo-success);
+}
+
+.subscription-card-inactive {
+    opacity: 0.7;
+    border-left: 4px solid #adb5bd;
+}
+
+/* Plan Type Badges */
+.plan-type-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.plan-type-weekly {
+    background-color: #e8f4fd;
+    color: #0d6efd;
+}
+
+.plan-type-monthly {
+    background-color: #fef3e2;
+    color: #e67e22;
+}
+
+/* Subscription Price Styling */
+.subscription-price {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--kravyo-primary);
+}
+
+.subscription-price-large {
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--kravyo-primary);
+}
+
+/* Subscription Status Badges */
+.subscription-status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-active {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.status-paused {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
+.status-cancelled {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.status-completed {
+    background-color: #e2e3e5;
+    color: #383d41;
+}
+
+/* Stat Icon Box */
+.stat-icon-box {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Feature Icons (Subscription Detail) */
+.feature-icon-sm {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Avatar Circle (Small) */
+.avatar-circle-sm {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--kravyo-primary), var(--kravyo-primary-hover));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+/* Category dot override for subscription sections */
+.category-dot.bg-success {
+    background-color: var(--kravyo-success) !important;
+}
+
+.category-dot.bg-secondary {
+    background-color: #6c757d !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .subscription-hero {
+        padding: 2rem 0;
+    }
+
+    .subscription-hero h1 {
+        font-size: 1.5rem;
+    }
+
+    .subscription-price-large {
+        font-size: 1.5rem;
+    }
+
+    .stat-icon-box {
+        width: 40px;
+        height: 40px;
+    }
+}
