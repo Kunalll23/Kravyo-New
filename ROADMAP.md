@@ -14,7 +14,7 @@ Phase 4: Menu Management & Food Category Catalog (COMPLETED ✅)
 Phase 5: Customer Discovery, Meal Customization & Cart System (COMPLETED ✅)
 Phase 6: Order Placement & Live Status Tracking (COMPLETED ✅)
 Phase 7: Weekly & Monthly Tiffin Subscription System (COMPLETED ✅)
-Phase 8: Zero Food Waste Module (End-of-Day Discounts)
+Phase 8: Zero Food Waste Module (COMPLETED ✅)
 Phase 9: Seller & Administrator Analytics Dashboards
 Phase 10: AI Recommendation Engine Integration & Final Polish
 ```
@@ -78,10 +78,10 @@ Phase 10: AI Recommendation Engine Integration & Final Polish
 
 ---
 
-### Phase 8: Zero Food Waste Module
-- [ ] **End-of-Day Listing:** Chefs list unsold cooked meals at discounted prices before closing
-- [ ] **Zero Waste Customer Showcase:** Dedicated section on homepage for discounted meals
-- [ ] **Auto-Expiration:** Automated status change when meal expiry time passes
+### Phase 8: Zero Food Waste Module (Completed ✅)
+- [x] **End-of-Day Listing:** Chefs list unsold cooked meals at discounted prices before closing
+- [x] **Zero Waste Customer Showcase:** Dedicated section on homepage for discounted meals
+- [x] **Auto-Expiration:** Automated status change when meal expiry time passes
 
 ---
 

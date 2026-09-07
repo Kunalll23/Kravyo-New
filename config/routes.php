@@ -51,7 +51,10 @@ return [
     'POST /chef/subscription/edit/{id}' => 'ChefController@editSubscriptionPlan',
     'POST /chef/subscription/delete/{id}' => 'ChefController@deleteSubscriptionPlan',
     'POST /chef/subscription/toggle/{id}' => 'ChefController@toggleSubscriptionPlan',
-    'GET /chef/zero-waste'      => 'ChefController@zeroWaste',
+    'GET /chef/zero-waste'               => 'ChefController@zeroWaste',
+    'POST /chef/zero-waste/add'          => 'ChefController@addZeroWasteItem',
+    'POST /chef/zero-waste/delete/{id}'  => 'ChefController@deleteZeroWasteItem',
+    'POST /chef/zero-waste/toggle/{id}'  => 'ChefController@toggleZeroWasteStatus',
     'POST /chef/toggle-availability' => 'ChefController@toggleAvailability',
 
     // --- Tiffin Subscription Routes (Customer) ---

@@ -701,7 +701,176 @@ class ChefController extends Controller {
         $this->redirect('/chef/subscriptions');
     }
 
+    /**
+     * Zero Waste Management Panel — list chef's own listings + add form
+     * GET /chef/zero-waste
+     */
     public function zeroWaste(): void {
-        $this->render('errors/500', ['error' => 'Zero Waste Module will be available in Phase 8.']);
+        require_once APP_PATH . '/models/ZeroWasteItem.php';
+
+        $userId  = Session::get('user_id');
+        $kitchen = $this->kitchenModel->findByUserId($userId);
+
+        if (!$kitchen) {
+            Session::setFlash('danger', 'Kitchen profile not found.');
+            $this->redirect('/chef/dashboard');
+            return;
+        }
+
+        $zeroWasteModel = new ZeroWasteItem();
+
+        // Auto-expire stale listings before display
+        $zeroWasteModel->markExpired();
+
+        $listings = $zeroWasteModel->findByKitchenId((int) $kitchen['id']);
+        $stats    = $zeroWasteModel->getStatsByKitchenId((int) $kitchen['id']);
+
+        // Get chef's own available menu items for the "Add Listing" form
+        $menuItems = $this->menuItemModel->findByKitchenId((int) $kitchen['id']);
+        $availableMenuItems = array_filter($menuItems, fn($item) => $item['is_available']);
+
+        $this->render('chef/zero_waste', [
+            'title'              => 'Zero Food Waste Listings',
+            'kitchen'            => $kitchen,
+            'listings'           => $listings,
+            'stats'              => $stats,
+            'availableMenuItems' => array_values($availableMenuItems),
+        ]);
+    }
+
+    /**
+     * Create a new zero waste listing
+     * POST /chef/zero-waste/add
+     */
+    public function addZeroWasteItem(): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/ZeroWasteItem.php';
+
+        $userId  = Session::get('user_id');
+        $kitchen = $this->kitchenModel->findByUserId($userId);
+
+        if (!$kitchen) {
+            Session::setFlash('danger', 'Kitchen not found.');
+            $this->redirect('/chef/dashboard');
+            return;
+        }
+
+        $menuItemId      = (int) ($_POST['menu_item_id'] ?? 0);
+        $discountedPrice = (float) ($_POST['discounted_price'] ?? 0);
+        $quantity        = (int) ($_POST['quantity_available'] ?? 1);
+        $expiryTime      = sanitize($_POST['expiry_time'] ?? '');
+
+        // Validate menu item belongs to this kitchen
+        if ($menuItemId <= 0 || !$this->menuItemModel->belongsToKitchen($menuItemId, (int) $kitchen['id'])) {
+            Session::setFlash('danger', 'Invalid menu item selected.');
+            $this->redirect('/chef/zero-waste');
+            return;
+        }
+
+        $menuItem = $this->menuItemModel->find($menuItemId);
+
+        if (!$menuItem) {
+            Session::setFlash('danger', 'Menu item not found.');
+            $this->redirect('/chef/zero-waste');
+            return;
+        }
+
+        // Validate price
+        if ($discountedPrice <= 0 || $discountedPrice >= (float) $menuItem['price']) {
+            Session::setFlash('danger', 'Discounted price must be greater than ₹0 and less than the original price (₹' . number_format($menuItem['price'], 2) . ').');
+            $this->redirect('/chef/zero-waste');
+            return;
+        }
+
+        // Validate quantity
+        if ($quantity < 1 || $quantity > 50) {
+            Session::setFlash('danger', 'Quantity must be between 1 and 50.');
+            $this->redirect('/chef/zero-waste');
+            return;
+        }
+
+        // Validate expiry time (must be in the future)
+        if (empty($expiryTime) || strtotime($expiryTime) <= time()) {
+            Session::setFlash('danger', 'Expiry time must be a future date and time.');
+            $this->redirect('/chef/zero-waste');
+            return;
+        }
+
+        $data = [
+            'menu_item_id'       => $menuItemId,
+            'kitchen_id'         => (int) $kitchen['id'],
+            'original_price'     => (float) $menuItem['price'],
+            'discounted_price'   => $discountedPrice,
+            'quantity_available' => $quantity,
+            'expiry_time'        => date('Y-m-d H:i:s', strtotime($expiryTime)),
+            'status'             => ZERO_WASTE_ACTIVE,
+        ];
+
+        try {
+            (new ZeroWasteItem())->createListing($data);
+            Session::setFlash('success', 'Zero waste listing for "' . sanitize($menuItem['item_name']) . '" is now live!');
+        } catch (Exception $e) {
+            Session::setFlash('danger', 'Failed to create listing. Please try again.');
+        }
+
+        $this->redirect('/chef/zero-waste');
+    }
+
+    /**
+     * Delete a zero waste listing
+     * POST /chef/zero-waste/delete/{id}
+     */
+    public function deleteZeroWasteItem(string $id): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/ZeroWasteItem.php';
+
+        $listingId      = (int) $id;
+        $userId         = Session::get('user_id');
+        $kitchen        = $this->kitchenModel->findByUserId($userId);
+        $zeroWasteModel = new ZeroWasteItem();
+
+        if (!$kitchen || !$zeroWasteModel->belongsToKitchen($listingId, (int) $kitchen['id'])) {
+            Session::setFlash('danger', 'Listing not found or access denied.');
+            $this->redirect('/chef/zero-waste');
+            return;
+        }
+
+        $zeroWasteModel->delete($listingId);
+        Session::setFlash('success', 'Zero waste listing removed.');
+        $this->redirect('/chef/zero-waste');
+    }
+
+    /**
+     * Toggle a zero waste listing active/sold_out
+     * POST /chef/zero-waste/toggle/{id}
+     */
+    public function toggleZeroWasteStatus(string $id): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/ZeroWasteItem.php';
+
+        $listingId      = (int) $id;
+        $userId         = Session::get('user_id');
+        $kitchen        = $this->kitchenModel->findByUserId($userId);
+        $zeroWasteModel = new ZeroWasteItem();
+
+        if (!$kitchen || !$zeroWasteModel->belongsToKitchen($listingId, (int) $kitchen['id'])) {
+            Session::setFlash('danger', 'Listing not found or access denied.');
+            $this->redirect('/chef/zero-waste');
+            return;
+        }
+
+        $listing   = $zeroWasteModel->find($listingId);
+        if (!$listing) {
+            Session::setFlash('danger', 'Listing not found.');
+            $this->redirect('/chef/zero-waste');
+            return;
+        }
+
+        $newStatus = ($listing['status'] === ZERO_WASTE_ACTIVE) ? ZERO_WASTE_SOLD_OUT : ZERO_WASTE_ACTIVE;
+        $zeroWasteModel->toggleStatus($listingId, $newStatus);
+
+        $label = ($newStatus === ZERO_WASTE_ACTIVE) ? 'reactivated' : 'marked as sold out';
+        Session::setFlash('success', 'Listing has been ' . $label . '.');
+        $this->redirect('/chef/zero-waste');
     }
 }

@@ -93,3 +93,87 @@
         </div>
     </div>
 </section>
+
+<!-- Phase 8: Zero Food Waste Teaser Section -->
+<?php
+// Load zero waste model to fetch homepage teaser deals
+require_once APP_PATH . '/models/ZeroWasteItem.php';
+$_zwModel       = new ZeroWasteItem();
+$_teaserDeals   = $_zwModel->findHomepageTeaser(3);
+$_activeCount   = $_zwModel->countActive();
+?>
+<?php if (!empty($_teaserDeals)): ?>
+<section class="py-5" style="background: linear-gradient(135deg, #0a3d1f 0%, #145a32 100%);">
+    <div class="container">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+            <div>
+                <span class="badge bg-success bg-opacity-75 text-white px-3 py-1 rounded-pill fw-bold mb-2 d-inline-block">
+                    <i class="bi bi-recycle me-1"></i>Zero Food Waste Initiative
+                </span>
+                <h2 class="fw-800 text-white mb-1">
+                    🏷️ End-of-Day Discounted Deals
+                </h2>
+                <p class="text-white-50 mb-0">
+                    Freshly cooked meals at massive discounts — expiring today!
+                    <strong class="text-warning"><?= $_activeCount ?> deal<?= $_activeCount !== 1 ? 's' : '' ?> live right now</strong>
+                </p>
+            </div>
+            <a href="<?= url('/zero-waste') ?>" class="btn btn-warning fw-bold mt-3 mt-md-0">
+                <i class="bi bi-tag-fill me-1"></i>View All Deals
+            </a>
+        </div>
+
+        <div class="row g-4">
+            <?php foreach ($_teaserDeals as $_deal): ?>
+                <?php
+                    $_min = (int) $_deal['minutes_remaining'];
+                    $_urgencyClass = $_min <= 30 ? 'danger' : ($_min <= 90 ? 'warning' : 'success');
+                    $_timeText = $_min < 60 ? $_min . 'm left' : floor($_min/60) . 'h ' . ($_min%60) . 'm left';
+                ?>
+                <div class="col-md-4">
+                    <div class="card border-0 shadow-sm h-100 overflow-hidden position-relative" style="border-radius:16px;">
+                        <!-- Discount Badge -->
+                        <div class="position-absolute top-0 start-0 m-2 z-1">
+                            <span class="badge bg-success fw-800 fs-6 px-3 py-2 rounded-pill shadow">
+                                <?= (int) $_deal['discount_pct'] ?>% OFF
+                            </span>
+                        </div>
+                        <!-- Urgency -->
+                        <div class="position-absolute top-0 end-0 m-2 z-1">
+                            <span class="badge bg-<?= $_urgencyClass ?> px-2 py-1 rounded-pill small">
+                                <i class="bi bi-alarm me-1"></i><?= $_timeText ?>
+                            </span>
+                        </div>
+
+                        <?php if (!empty($_deal['dish_image'])): ?>
+                            <img src="<?= url('/uploads/dishes/' . $_deal['dish_image']) ?>"
+                                 alt="<?= sanitize($_deal['item_name']) ?>"
+                                 class="card-img-top object-fit-cover" style="height: 160px;">
+                        <?php else: ?>
+                            <div class="d-flex align-items-center justify-content-center bg-light" style="height:160px;font-size:3rem;">🍱</div>
+                        <?php endif; ?>
+
+                        <div class="card-body p-3">
+                            <h6 class="fw-bold mb-1"><?= sanitize($_deal['item_name']) ?></h6>
+                            <p class="text-muted small mb-2">
+                                <i class="bi bi-shop me-1"></i><?= sanitize($_deal['kitchen_name']) ?>
+                                · <i class="bi bi-geo-alt me-1"></i><?= sanitize($_deal['city']) ?>
+                            </p>
+                            <div class="d-flex align-items-center justify-content-between">
+                                <div>
+                                    <span class="text-muted text-decoration-line-through small">₹<?= number_format((float)$_deal['original_price'], 2) ?></span>
+                                    <div class="fw-800 text-success fs-5">₹<?= number_format((float)$_deal['discounted_price'], 2) ?></div>
+                                </div>
+                                <a href="<?= url('/zero-waste') ?>" class="btn btn-sm btn-success fw-semibold">
+                                    <i class="bi bi-cart-plus me-1"></i>Grab Deal
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
+

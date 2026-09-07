@@ -159,12 +159,33 @@ class CustomerController extends Controller {
     }
 
     /**
-     * Zero Waste deals page (placeholder — full implementation in Phase 8)
+     * Zero Waste deals showcase — live discounted end-of-day meals
      * GET /zero-waste
      */
     public function zeroWasteDeals(): void {
+        require_once APP_PATH . '/models/ZeroWasteItem.php';
+        require_once APP_PATH . '/models/Kitchen.php';
+
+        $zeroWasteModel = new ZeroWasteItem();
+        $kitchenModel   = new Kitchen();
+
+        // Build filters from query string
+        $filters = [
+            'is_veg' => isset($_GET['veg']) ? 1 : 0,
+            'city'   => trim($_GET['city'] ?? ''),
+            'sort'   => $_GET['sort'] ?? 'expiry',
+        ];
+
+        $deals  = $zeroWasteModel->findActiveAll($filters);
+        $cities = $kitchenModel->getDistinctCities();
+        $totalActive = $zeroWasteModel->countActive();
+
         $this->render('customer/zero_waste', [
-            'title' => 'Zero Waste Deals — Discounted Meals',
+            'title'       => 'Zero Waste Deals — Discounted End-of-Day Meals',
+            'deals'       => $deals,
+            'cities'      => $cities,
+            'filters'     => $filters,
+            'totalActive' => $totalActive,
         ]);
     }
 }
