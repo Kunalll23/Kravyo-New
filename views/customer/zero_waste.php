@@ -191,7 +191,7 @@
                                     <!-- Add to Cart -->
                                     <?php if (Session::get('user_id') && Session::get('user_role') === 'customer'): ?>
                                         <form action="<?= url('/cart/add') ?>" method="POST">
-                                            <?= csrfField() ?>
+                                            <?= csrf_field() ?>
                                             <input type="hidden" name="menu_item_id" value="<?= (int) $deal['menu_item_id'] ?>">
                                             <input type="hidden" name="quantity" value="1">
                                             <input type="hidden" name="override_price" value="<?= number_format((float)$deal['discounted_price'], 2, '.', '') ?>">
