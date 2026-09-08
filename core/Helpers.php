@@ -4,8 +4,45 @@
  */
 
 if (!function_exists('sanitize')) {
+    /**
+     * Escape a string for safe HTML output.
+     * Phase 10: Added ENT_SUBSTITUTE to handle malformed Unicode without stripping.
+     */
     function sanitize(string $input): string {
-        return htmlspecialchars(trim($input), ENT_QUOTES, 'UTF-8');
+        return htmlspecialchars(trim($input), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+}
+
+if (!function_exists('sanitizeInput')) {
+    /**
+     * Phase 10: Batch-sanitise an associative array of user inputs (e.g. $_POST, $_GET).
+     * Recursively trims and escapes all string values.
+     *
+     * @param array $data  Raw input array
+     * @return array       Sanitised copy — safe for HTML output
+     */
+    function sanitizeInput(array $data): array {
+        $clean = [];
+        foreach ($data as $key => $value) {
+            $cleanKey = htmlspecialchars((string) $key, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            if (is_array($value)) {
+                $clean[$cleanKey] = sanitizeInput($value);
+            } else {
+                $clean[$cleanKey] = htmlspecialchars(trim((string) $value), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            }
+        }
+        return $clean;
+    }
+}
+
+if (!function_exists('sanitizeInt')) {
+    /**
+     * Phase 10: Safely cast a value to a non-negative integer.
+     * Returns 0 if the value is not a valid positive integer.
+     */
+    function sanitizeInt(mixed $value, int $min = 0): int {
+        $int = (int) $value;
+        return max($min, $int);
     }
 }
 

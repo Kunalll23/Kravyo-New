@@ -24,6 +24,7 @@ return [
     'GET /menu'                 => 'CustomerController@browseMenu',
     'GET /dish/{id}'            => 'CustomerController@viewDish',
     'GET /zero-waste'           => 'CustomerController@zeroWasteDeals',
+    'GET /recommendations'      => 'CustomerController@recommendations',
 
     // --- Cart & Checkout Routes ---
     'GET /cart'                 => 'CartController@index',

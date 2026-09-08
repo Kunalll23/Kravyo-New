@@ -159,6 +159,39 @@ class CustomerController extends Controller {
     }
 
     /**
+     * Phase 10: Personalised "Recommended For You" dish page
+     * GET /recommendations
+     */
+    public function recommendations(): void {
+        require_once APP_PATH . '/models/Recommendation.php';
+
+        $recModel = new Recommendation();
+
+        $customerId  = (int) Session::get('user_id', 0);
+        $isLoggedIn  = $customerId > 0 && Session::get('user_role') === ROLE_CUSTOMER;
+
+        if ($isLoggedIn) {
+            $dishes    = $recModel->getForCustomer($customerId, 16);
+            $pageTitle = 'Recommended For You';
+            $subtitle  = 'Personalised dishes based on your taste & order history';
+            $isPersonalised = true;
+        } else {
+            $dishes    = $recModel->getPopularDishes(16);
+            $pageTitle = 'Popular Picks';
+            $subtitle  = 'Most-loved dishes ordered by our customers';
+            $isPersonalised = false;
+        }
+
+        $this->render('customer/recommendations', [
+            'title'          => $pageTitle . ' — Kravyo',
+            'dishes'         => $dishes,
+            'pageTitle'      => $pageTitle,
+            'subtitle'       => $subtitle,
+            'isPersonalised' => $isPersonalised,
+        ]);
+    }
+
+    /**
      * Zero Waste deals showcase — live discounted end-of-day meals
      * GET /zero-waste
      */

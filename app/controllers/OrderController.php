@@ -127,8 +127,18 @@ class OrderController extends Controller {
             // Clear the cart
             Session::remove('cart');
 
+            // Phase 10: Refresh AI recommendation preference profile
+            try {
+                require_once APP_PATH . '/models/Recommendation.php';
+                $recModel = new Recommendation();
+                $recModel->refreshPreferences($userId);
+            } catch (Exception $ignored) {
+                // Non-critical; don't block the order success flow
+            }
+
             Session::setFlash('success', 'Order placed successfully! Your order number is ' . $orderData['order_number']);
             $this->redirect('/order/track/' . $orderId);
+
         } catch (Exception $e) {
             Session::setFlash('danger', 'Failed to place order. Please try again.');
             $this->redirect('/checkout');

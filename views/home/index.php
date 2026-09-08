@@ -177,3 +177,104 @@ $_activeCount   = $_zwModel->countActive();
 </section>
 <?php endif; ?>
 
+<!-- ═══════════════════════════════════════════════════════════
+     Phase 10: AI Recommendation Teaser (Homepage)
+     Personalised for logged-in customers; popular picks for guests
+     ════════════════════════════════════════════════════════════ -->
+<?php
+require_once APP_PATH . '/models/Recommendation.php';
+$_recModel  = new Recommendation();
+$_custId    = (int) Session::get('user_id', 0);
+$_isCustomer = $_custId > 0 && Session::get('user_role') === ROLE_CUSTOMER;
+
+if ($_isCustomer) {
+    $_recDishes  = $_recModel->getForCustomer($_custId, 4);
+    $_recTitle   = '🎯 Recommended For You';
+    $_recSubtitle = 'Personalised dishes matched to your taste';
+    $_recBadge   = '<i class="bi bi-stars me-1 text-warning"></i> AI-Personalised';
+    $_recHref    = url('/recommendations');
+} else {
+    $_recDishes  = $_recModel->getPopularDishes(4);
+    $_recTitle   = '🔥 Popular Picks';
+    $_recSubtitle = 'Most-loved dishes by our community';
+    $_recBadge   = '<i class="bi bi-fire me-1 text-warning"></i> Platform Favourites';
+    $_recHref    = url('/menu');
+}
+?>
+<?php if (!empty($_recDishes)): ?>
+<section class="py-5" style="background: linear-gradient(135deg, #f3e8ff 0%, #fdf4ff 100%);">
+    <div class="container">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+            <div>
+                <span class="badge px-3 py-1 rounded-pill fw-bold mb-2 d-inline-block"
+                      style="background:rgba(106,13,173,0.12); color:#6a0dad; border:1px solid rgba(106,13,173,0.2);">
+                    <?= $_recBadge ?>
+                </span>
+                <h2 class="fw-800 mb-1" style="color:#2d0050;"><?= $_recTitle ?></h2>
+                <p class="text-muted mb-0"><?= sanitize($_recSubtitle) ?></p>
+            </div>
+            <a href="<?= $_recHref ?>" class="btn fw-bold mt-3 mt-md-0"
+               style="background:linear-gradient(135deg,#6a0dad,#9b30ff); color:#fff; border:none;">
+                <i class="bi bi-arrow-right me-1"></i>
+                <?= $_isCustomer ? 'View All Picks' : 'Browse All Dishes' ?>
+            </a>
+        </div>
+
+        <div class="row g-4">
+            <?php foreach ($_recDishes as $_rd): ?>
+                <div class="col-lg-3 col-md-6">
+                    <div class="card dish-card h-100 position-relative"
+                         style="border:1px solid rgba(106,13,173,0.12); box-shadow: 0 4px 20px rgba(106,13,173,0.08);">
+
+                        <?php if ($_isCustomer && isset($_rd['score']) && $_rd['score'] > 0): ?>
+                            <div class="position-absolute top-0 end-0 m-2 z-1">
+                                <span class="badge rounded-pill px-2 py-1 small fw-semibold"
+                                      style="background: linear-gradient(135deg,#6a0dad,#9b30ff); color:#fff; font-size:0.65rem;">
+                                    <i class="bi bi-stars me-1"></i>Match
+                                </span>
+                            </div>
+                        <?php endif; ?>
+
+                        <a href="<?= url('/dish/' . $_rd['id']) ?>" class="text-decoration-none">
+                            <div class="dish-card-image">
+                                <?php if (!empty($_rd['image'])): ?>
+                                    <img src="<?= UPLOAD_URL . '/dishes/' . $_rd['image'] ?>"
+                                         alt="<?= sanitize($_rd['item_name']) ?>">
+                                <?php else: ?>
+                                    <div class="dish-image-placeholder"><i class="bi bi-egg-fried"></i></div>
+                                <?php endif; ?>
+                                <span class="dish-price-badge"><?= format_currency($_rd['price']) ?></span>
+                            </div>
+                        </a>
+
+                        <div class="card-body p-3">
+                            <a href="<?= url('/dish/' . $_rd['id']) ?>" class="text-decoration-none">
+                                <h6 class="fw-bold mb-1 text-dark"><?= sanitize($_rd['item_name']) ?></h6>
+                            </a>
+                            <p class="text-muted small mb-2">
+                                <i class="bi bi-shop me-1"></i><?= sanitize($_rd['kitchen_name']) ?>
+                                <span class="mx-1">·</span>
+                                <i class="bi bi-geo-alt me-1"></i><?= sanitize($_rd['city']) ?>
+                            </p>
+                            <div class="d-flex flex-wrap gap-1 mb-3">
+                                <?php if ($_rd['is_veg']): ?>
+                                    <span class="dietary-badge dietary-veg"><i class="bi bi-circle-fill me-1"></i>Veg</span>
+                                <?php else: ?>
+                                    <span class="dietary-badge dietary-nonveg"><i class="bi bi-circle-fill me-1"></i>Non-Veg</span>
+                                <?php endif; ?>
+                                <?php if ($_rd['is_jain_available']): ?>
+                                    <span class="dietary-badge dietary-jain"><i class="bi bi-flower1 me-1"></i>Jain</span>
+                                <?php endif; ?>
+                            </div>
+                            <a href="<?= url('/dish/' . $_rd['id']) ?>" class="btn btn-sm w-100 fw-semibold"
+                               style="background:linear-gradient(135deg,#6a0dad,#9b30ff); color:#fff; border:none;">
+                                <i class="bi bi-cart-plus me-1"></i> View &amp; Order
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</section>
+<?php endif; ?>

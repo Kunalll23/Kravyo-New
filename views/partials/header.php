@@ -29,6 +29,14 @@
                             <i class="bi bi-tag-fill me-1"></i> Zero Waste Deals
                         </a>
                     </li>
+                    <?php if (Session::get('user_role') === ROLE_CUSTOMER): ?>
+                    <li class="nav-item">
+                        <a class="nav-link fw-semibold" href="<?= url('/recommendations') ?>"
+                           style="background: linear-gradient(135deg,#6a0dad,#9b30ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                            <i class="bi bi-stars me-1" style="-webkit-text-fill-color: #9b30ff;"></i> For You
+                        </a>
+                    </li>
+                    <?php endif; ?>
                 </ul>
 
                 <div class="d-flex align-items-center gap-3">
