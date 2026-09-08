@@ -6,6 +6,7 @@
 // Load Configurations
 require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../config/constants.php';
+require_once __DIR__ . '/../config/smtp.php';
 
 // Autoload Core Framework Classes
 require_once CORE_PATH . '/Database.php';

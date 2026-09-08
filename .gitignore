@@ -1,1 +1,7 @@
 .vscode/
+
+# SMTP credentials — NEVER commit this file
+config/smtp.php
+
+# PHPMailer vendor files (downloaded manually, not via Composer)
+vendor/

@@ -47,7 +47,7 @@
                             <label for="phone" class="form-label fw-semibold">Phone Number</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light border-end-0"><i class="bi bi-telephone text-muted"></i></span>
-                                <input type="tel" class="form-control form-control-lg border-start-0" id="phone" name="phone" placeholder="Enter your mobile number" pattern="[0-9]{10}" title="Please enter a valid 10-digit phone number" required>
+                                <input type="tel" class="form-control form-control-lg border-start-0" id="phone" name="phone" placeholder="Enter your 10-digit mobile number" pattern="[6-9][0-9]{9}" title="Please enter a valid Indian mobile number starting with 6, 7, 8, or 9" required>
                             </div>
                         </div>
                         

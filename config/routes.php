@@ -17,6 +17,14 @@ return [
     'POST /register'            => 'AuthController@register',
     'POST /logout'              => 'AuthController@logout',
     'GET /forgot-password'      => 'AuthController@showForgotPasswordForm',
+    'POST /forgot-password'     => 'AuthController@forgotPassword',
+    'GET /reset-password'       => 'AuthController@showResetPasswordForm',
+    'POST /reset-password'      => 'AuthController@resetPassword',
+    'POST /resend-reset-otp'    => 'AuthController@resendResetOtp',
+    // --- Email OTP Verification Routes ---
+    'GET /verify-email'         => 'AuthController@showVerifyEmail',
+    'POST /verify-email'        => 'AuthController@verifyEmail',
+    'POST /resend-email-otp'    => 'AuthController@resendOtp',
 
     // --- Food Discovery Routes ---
     'GET /kitchens'             => 'CustomerController@browseKitchens',

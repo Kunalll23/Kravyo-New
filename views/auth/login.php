@@ -14,7 +14,8 @@
                         
                         <div class="mb-3">
                             <label for="email" class="form-label fw-semibold">Email address</label>
-                            <input type="email" class="form-control form-control-lg" id="email" name="email" placeholder="Enter your email address" required autofocus>
+                            <?php $oldEmail = Session::get('_old_email', ''); Session::remove('_old_email'); ?>
+                            <input type="email" class="form-control form-control-lg" id="email" name="email" placeholder="Enter your email address" value="<?= sanitize($oldEmail) ?>" required autofocus>
                         </div>
                         
                         <div class="mb-4">
