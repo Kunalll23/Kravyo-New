@@ -22,22 +22,52 @@ class ChefController extends Controller {
     }
 
     /**
-     * Chef Dashboard — Overview of kitchen status & quick stats
+     * Chef Dashboard — Overview with real analytics (Phase 9)
      */
     public function dashboard(): void {
-        $userId = Session::get('user_id');
+        require_once APP_PATH . '/models/Order.php';
+        require_once APP_PATH . '/models/Review.php';
+
+        $orderModel  = new Order();
+        $reviewModel = new Review();
+
+        $userId  = Session::get('user_id');
         $kitchen = $this->kitchenModel->findByUserId($userId);
 
-        // Get real menu item count for the dashboard stat
-        $menuItemCount = 0;
-        if ($kitchen) {
-            $menuItemCount = $this->menuItemModel->countByKitchenId($kitchen['id']);
+        $kitchenId     = $kitchen ? (int) $kitchen['id'] : 0;
+        $menuItemCount = $kitchen ? $this->menuItemModel->countByKitchenId($kitchenId) : 0;
+
+        // Real analytics data
+        $totalOrders     = $kitchen ? $orderModel->countByKitchenId($kitchenId) : 0;
+        $totalEarnings   = $kitchen ? $orderModel->totalEarnings($kitchenId) : 0.0;
+        $avgRating       = $kitchen ? $reviewModel->getAverageRating($kitchenId) : 0.0;
+        $reviewCount     = $kitchen ? $reviewModel->countByKitchenId($kitchenId) : 0;
+        $topDishes       = $kitchen ? $orderModel->getTopSellingItems($kitchenId, 5) : [];
+        $earnings7Days   = $kitchen ? $orderModel->getEarningsLast7Days($kitchenId) : [];
+        $monthlyEarnings = $kitchen ? $orderModel->getMonthlyEarningsComparison($kitchenId) : ['this_month' => 0, 'last_month' => 0];
+        $recentReviews   = $kitchen ? $reviewModel->findRecentByKitchenId($kitchenId, 3) : [];
+
+        // Month-over-month trend %
+        $monthTrend = 0;
+        if ($monthlyEarnings['last_month'] > 0) {
+            $monthTrend = round((($monthlyEarnings['this_month'] - $monthlyEarnings['last_month']) / $monthlyEarnings['last_month']) * 100, 1);
+        } elseif ($monthlyEarnings['this_month'] > 0) {
+            $monthTrend = 100; // 100% growth from nothing
         }
 
         $this->render('chef/dashboard', [
-            'title' => 'Chef Dashboard',
-            'kitchen' => $kitchen,
-            'menuItemCount' => $menuItemCount
+            'title'           => 'Chef Dashboard',
+            'kitchen'         => $kitchen,
+            'menuItemCount'   => $menuItemCount,
+            'totalOrders'     => $totalOrders,
+            'totalEarnings'   => $totalEarnings,
+            'avgRating'       => $avgRating,
+            'reviewCount'     => $reviewCount,
+            'topDishes'       => $topDishes,
+            'earnings7Days'   => $earnings7Days,
+            'monthlyEarnings' => $monthlyEarnings,
+            'monthTrend'      => $monthTrend,
+            'recentReviews'   => $recentReviews,
         ]);
     }
 

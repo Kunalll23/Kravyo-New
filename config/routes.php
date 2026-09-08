@@ -35,6 +35,7 @@ return [
     'GET /order/track/{id}'     => 'OrderController@trackOrder',
     'POST /order/cancel'        => 'OrderController@cancelOrder',
     'GET /orders/history'       => 'OrderController@history',
+    'POST /review/submit'       => 'OrderController@submitReview',
 
     // --- Home Chef / Seller Routes ---
     'GET /chef/dashboard'       => 'ChefController@dashboard',

@@ -19,32 +19,46 @@
 
     <!-- Stats Cards Row -->
     <div class="row g-3 mb-4">
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg-2">
             <div class="stat-card stat-card-users">
                 <div class="stat-icon"><i class="bi bi-people-fill"></i></div>
                 <div class="stat-value"><?= $stats['total_users'] ?? 0 ?></div>
                 <div class="stat-label">Total Users</div>
             </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg-2">
             <div class="stat-card stat-card-chefs">
                 <div class="stat-icon"><i class="bi bi-shop"></i></div>
                 <div class="stat-value"><?= $stats['total_chefs'] ?? 0 ?></div>
-                <div class="stat-label">Registered Chefs</div>
+                <div class="stat-label">Chefs</div>
             </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg-2">
             <div class="stat-card stat-card-pending">
                 <div class="stat-icon"><i class="bi bi-hourglass-split"></i></div>
                 <div class="stat-value"><?= $stats['pending_kitchens'] ?? 0 ?></div>
                 <div class="stat-label">Pending Approval</div>
             </div>
         </div>
-        <div class="col-6 col-lg-3">
+        <div class="col-6 col-lg-2">
             <div class="stat-card stat-card-approved">
                 <div class="stat-icon"><i class="bi bi-check-circle-fill"></i></div>
                 <div class="stat-value"><?= $stats['approved_kitchens'] ?? 0 ?></div>
                 <div class="stat-label">Approved Kitchens</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="stat-card" style="background:linear-gradient(135deg,#4361ee,#3a0ca3);color:#fff;">
+                <div class="stat-icon"><i class="bi bi-bag-check"></i></div>
+                <div class="stat-value"><?= $stats['total_orders'] ?? 0 ?></div>
+                <div class="stat-label">Total Orders</div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-2">
+            <div class="stat-card" style="background:linear-gradient(135deg,#2a9d8f,#264653);color:#fff;">
+                <div class="stat-icon"><i class="bi bi-currency-rupee"></i></div>
+                <div class="stat-value">₹<?= number_format((float)($stats['platform_revenue'] ?? 0), 0) ?></div>
+                <div class="stat-label">Platform Revenue</div>
             </div>
         </div>
     </div>
@@ -138,7 +152,7 @@
                 <div class="card-body p-4 text-center">
                     <i class="bi bi-graph-up display-4 text-success d-block mb-2"></i>
                     <h6 class="fw-bold">Analytics & Reports</h6>
-                    <p class="text-muted small mb-0">Revenue & platform insights (Phase 9)</p>
+                    <p class="text-muted small mb-0">Revenue, order trends & top kitchen insights</p>
                 </div>
             </a>
         </div>

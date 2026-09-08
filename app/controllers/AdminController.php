@@ -24,21 +24,31 @@ class AdminController extends Controller {
      * Admin Dashboard — Platform overview with key stats
      */
     public function dashboard(): void {
+        require_once APP_PATH . '/models/Order.php';
+        $orderModel = new Order();
+
+        $revenue = $orderModel->getPlatformRevenue();
+        $orderStats = $orderModel->getPlatformOrderStats();
+
         $stats = [
-            'total_users'      => $this->countUsers(),
-            'total_customers'  => $this->countUsers('customer'),
-            'total_chefs'      => $this->countUsers('chef'),
-            'pending_kitchens' => $this->kitchenModel->countByStatus(KITCHEN_STATUS_PENDING),
-            'approved_kitchens'=> $this->kitchenModel->countByStatus(KITCHEN_STATUS_APPROVED),
-            'total_kitchens'   => $this->kitchenModel->countAll(),
+            'total_users'       => $this->countUsers(),
+            'total_customers'   => $this->countUsers('customer'),
+            'total_chefs'       => $this->countUsers('chef'),
+            'pending_kitchens'  => $this->kitchenModel->countByStatus(KITCHEN_STATUS_PENDING),
+            'approved_kitchens' => $this->kitchenModel->countByStatus(KITCHEN_STATUS_APPROVED),
+            'total_kitchens'    => $this->kitchenModel->countAll(),
+            'total_orders'      => array_sum($orderStats),
+            'delivered_orders'  => $orderStats['delivered'] ?? 0,
+            'platform_revenue'  => $revenue['total'],
+            'revenue_this_month'=> $revenue['this_month'],
         ];
 
         $pendingKitchens = $this->kitchenModel->findPendingKitchens();
 
         $this->render('admin/dashboard', [
-            'title' => 'Admin Dashboard',
-            'stats' => $stats,
-            'pendingKitchens' => $pendingKitchens
+            'title'          => 'Admin Dashboard',
+            'stats'          => $stats,
+            'pendingKitchens'=> $pendingKitchens
         ]);
     }
 
@@ -164,8 +174,32 @@ class AdminController extends Controller {
 
     // ---- Placeholder methods for future phases ----
 
+    /**
+     * All platform orders listing with status filter
+     * GET /admin/orders
+     */
     public function orders(): void {
-        $this->render('errors/500', ['error' => 'Order Administration will be available in Phase 6.']);
+        require_once APP_PATH . '/models/Order.php';
+        $orderModel = new Order();
+
+        $statusFilter = sanitize($_GET['status'] ?? 'all');
+        $validStatuses = ['all', 'pending', 'accepted', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'];
+        if (!in_array($statusFilter, $validStatuses)) {
+            $statusFilter = 'all';
+        }
+
+        $filterStatus = ($statusFilter === 'all') ? null : $statusFilter;
+        $orders       = $orderModel->findAllWithDetails($filterStatus, 150);
+        $orderStats   = $orderModel->getPlatformOrderStats();
+        $totalOrders  = array_sum($orderStats);
+
+        $this->render('admin/orders', [
+            'title'        => 'Platform Orders',
+            'orders'       => $orders,
+            'statusFilter' => $statusFilter,
+            'orderStats'   => $orderStats,
+            'totalOrders'  => $totalOrders,
+        ]);
     }
 
     /**
@@ -332,7 +366,31 @@ class AdminController extends Controller {
         return ['success' => false, 'error' => 'Failed to upload image.'];
     }
 
+    /**
+     * Platform Analytics & Revenue Reports
+     * GET /admin/reports
+     */
     public function reports(): void {
-        $this->render('errors/500', ['error' => 'Reports & Analytics will be available in Phase 9.']);
+        require_once APP_PATH . '/models/Order.php';
+        $orderModel = new Order();
+
+        $revenue      = $orderModel->getPlatformRevenue();
+        $orderStats   = $orderModel->getPlatformOrderStats();
+        $topKitchens  = $orderModel->getTopKitchensByRevenue(5);
+        $monthlyTrend = $orderModel->getMonthlyOrderTrend(6);
+        $userStats    = [
+            'total'     => $this->countUsers(),
+            'customers' => $this->countUsers('customer'),
+            'chefs'     => $this->countUsers('chef'),
+        ];
+
+        $this->render('admin/reports', [
+            'title'        => 'Analytics & Reports',
+            'revenue'      => $revenue,
+            'orderStats'   => $orderStats,
+            'topKitchens'  => $topKitchens,
+            'monthlyTrend' => $monthlyTrend,
+            'userStats'    => $userStats,
+        ]);
     }
 }

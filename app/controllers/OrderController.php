@@ -251,4 +251,70 @@ class OrderController extends Controller {
         Session::setFlash('success', 'Order #' . $order['order_number'] . ' has been cancelled.');
         $this->redirect('/orders/history');
     }
+
+    /**
+     * Submit a customer review for a delivered order
+     * POST /review/submit
+     */
+    public function submitReview(): void {
+        Middleware::role(ROLE_CUSTOMER);
+        Middleware::verifyCsrf();
+
+        require_once APP_PATH . '/models/Order.php';
+        require_once APP_PATH . '/models/Review.php';
+
+        $orderModel  = new Order();
+        $reviewModel = new Review();
+
+        $orderId  = (int) ($_POST['order_id'] ?? 0);
+        $rating   = (int) ($_POST['rating']   ?? 0);
+        $text     = sanitize($_POST['review_text'] ?? '');
+        $userId   = (int) Session::get('user_id');
+
+        // Validate rating range
+        if ($rating < 1 || $rating > 5) {
+            Session::setFlash('danger', 'Please select a star rating between 1 and 5.');
+            $this->redirect('/order/track/' . $orderId);
+            return;
+        }
+
+        // Security: order must belong to this customer
+        if (!$orderModel->belongsToCustomer($orderId, $userId)) {
+            Session::setFlash('danger', 'Order not found.');
+            $this->redirect('/orders/history');
+            return;
+        }
+
+        $order = $orderModel->findWithDetails($orderId);
+
+        // Must be delivered
+        if (!$order || $order['order_status'] !== ORDER_STATUS_DELIVERED) {
+            Session::setFlash('warning', 'You can only review a delivered order.');
+            $this->redirect('/order/track/' . $orderId);
+            return;
+        }
+
+        // Prevent duplicate review
+        if ($reviewModel->hasReviewedOrder($orderId)) {
+            Session::setFlash('info', 'You have already reviewed this order.');
+            $this->redirect('/order/track/' . $orderId);
+            return;
+        }
+
+        try {
+            $reviewModel->submitReview([
+                'order_id'    => $orderId,
+                'customer_id' => $userId,
+                'kitchen_id'  => (int) $order['kitchen_id'],
+                'rating'      => $rating,
+                'review_text' => $text,
+            ]);
+            Session::setFlash('success', '⭐ Thank you for your review! Your feedback helps the chef improve.');
+        } catch (Exception $e) {
+            Session::setFlash('danger', 'Failed to submit review. Please try again.');
+        }
+
+        $this->redirect('/order/track/' . $orderId);
+    }
 }
+
