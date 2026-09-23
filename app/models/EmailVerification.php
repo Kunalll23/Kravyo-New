@@ -246,9 +246,9 @@ class EmailVerification extends Model {
         <table width="600" cellpadding="0" cellspacing="0"
                style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);max-width:600px;width:100%;">
           <tr>
-            <td style="background:linear-gradient(135deg,#1a1a2e 0%,#c0392b 100%);padding:36px 40px;text-align:center;">
-              <h1 style="margin:0;color:#ffffff;font-size:28px;font-weight:800;letter-spacing:1px;">🔥 Kravyo</h1>
-              <p style="margin:8px 0 0;color:rgba(255,255,255,0.75);font-size:13px;">Home-Cooked Food, Verified & Delivered</p>
+             <td style="background:#1a1f2e;padding:28px 40px;text-align:center;">
+              <img src="http://localhost/Kravyo/public/assets/images/kravyo-logo.png" alt="Kravyo" width="160" style="display:block;margin:0 auto;max-width:160px;height:auto;" />
+              <p style="margin:10px 0 0;color:rgba(255,255,255,0.65);font-size:13px;">Home-Cooked Food, Verified &amp; Delivered</p>
             </td>
           </tr>
           <tr>

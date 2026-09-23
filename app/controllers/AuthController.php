@@ -92,7 +92,8 @@ class AuthController extends Controller {
     public function register(): void {
         Middleware::verifyCsrf();
 
-        $fullName = sanitize(trim($_POST['full_name'] ?? ''));
+        $rawFullName = trim($_POST['full_name'] ?? '');
+        $fullName = sanitize($rawFullName);
         $email    = strtolower(trim($_POST['email']    ?? ''));
         $phone    = sanitize(trim($_POST['phone']      ?? ''));
         $password = $_POST['password']  ?? '';
@@ -101,6 +102,12 @@ class AuthController extends Controller {
         // ── Validation ────────────────────────────────────────────────────────
         if (empty($fullName) || empty($email) || empty($phone) || empty($password)) {
             Session::setFlash('danger', 'All fields are required.');
+            $this->redirect('/register');
+            return;
+        }
+
+        if (!preg_match('/^[A-Za-z][A-Za-z\' \-]{1,49}$/', $rawFullName)) {
+            Session::setFlash('danger', 'Please enter a valid name using letters, spaces, hyphens, or apostrophes only.');
             $this->redirect('/register');
             return;
         }

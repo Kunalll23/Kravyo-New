@@ -125,7 +125,7 @@
 
                             <?php if ($monthlyEarnings['last_month'] > 0 || $monthlyEarnings['this_month'] > 0): ?>
                                 <div class="d-flex align-items-center gap-2">
-                                    <span class="badge bg-<?= $monthTrend >= 0 ? 'success' : 'danger' ?> bg-opacity-15 text-<?= $monthTrend >= 0 ? 'success' : 'danger' ?> px-3 py-2 fw-bold">
+                                    <span class="badge bg-<?= $monthTrend >= 0 ? 'success' : 'danger' ?> text-white px-3 py-2 fw-bold">
                                         <i class="bi bi-arrow-<?= $monthTrend >= 0 ? 'up' : 'down' ?>-right me-1"></i>
                                         <?= abs($monthTrend) ?>% vs last month
                                     </span>

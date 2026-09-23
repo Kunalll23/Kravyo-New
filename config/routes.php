@@ -34,6 +34,13 @@ return [
     'GET /zero-waste'           => 'CustomerController@zeroWasteDeals',
     'GET /recommendations'      => 'CustomerController@recommendations',
 
+    // --- Customer Profile Routes ---
+    'GET /profile'                    => 'CustomerController@profile',
+    'POST /profile/update'            => 'CustomerController@updateProfile',
+    'POST /profile/address/add'       => 'CustomerController@addAddress',
+    'POST /profile/address/edit/{id}' => 'CustomerController@editAddress',
+    'POST /profile/address/delete/{id}' => 'CustomerController@deleteAddress',
+
     // --- Cart & Checkout Routes ---
     'GET /cart'                 => 'CartController@index',
     'POST /cart/add'            => 'CartController@add',
@@ -61,6 +68,9 @@ return [
     'POST /chef/subscription/edit/{id}' => 'ChefController@editSubscriptionPlan',
     'POST /chef/subscription/delete/{id}' => 'ChefController@deleteSubscriptionPlan',
     'POST /chef/subscription/toggle/{id}' => 'ChefController@toggleSubscriptionPlan',
+    'POST /chef/subscription/approve/{id}'=> 'ChefController@approveSubscription',
+    'POST /chef/subscription/reject/{id}' => 'ChefController@rejectSubscription',
+    'POST /chef/subscription/delivery/status' => 'ChefController@updateDeliveryStatus',
     'GET /chef/zero-waste'               => 'ChefController@zeroWaste',
     'POST /chef/zero-waste/add'          => 'ChefController@addZeroWasteItem',
     'POST /chef/zero-waste/delete/{id}'  => 'ChefController@deleteZeroWasteItem',
@@ -74,6 +84,18 @@ return [
     'GET /my-subscriptions'         => 'SubscriptionController@mySubscriptions',
     'POST /subscription/cancel'     => 'SubscriptionController@cancelSubscription',
 
+    // --- Notification Routes (Modules 1.13 & 2.8) ---
+    'GET /notifications'                => 'NotificationController@index',
+    'POST /notifications/mark-read'     => 'NotificationController@markRead',
+    'POST /notifications/mark-all'      => 'NotificationController@markAllRead',
+    'GET /notifications/count'          => 'NotificationController@count',
+    'GET /notifications/latest'         => 'NotificationController@latest',
+
+    // --- Admin Authentication Routes ---
+    'GET /admin/login'          => 'AdminAuthController@showLoginForm',
+    'POST /admin/login'         => 'AdminAuthController@login',
+    'POST /admin/logout'        => 'AdminAuthController@logout',
+
     // --- Admin Routes ---
     'GET /admin/dashboard'      => 'AdminController@dashboard',
     'GET /admin/users'          => 'AdminController@users',
@@ -81,9 +103,19 @@ return [
     'GET /admin/chefs'          => 'AdminController@chefs',
     'POST /admin/chef/verify'   => 'AdminController@verifyChef',
     'GET /admin/orders'         => 'AdminController@orders',
+    'GET /admin/subscriptions'  => 'AdminController@subscriptions',
+    'POST /admin/subscription/approve/{id}' => 'AdminController@approveSubscription',
+    'POST /admin/subscription/reject/{id}'  => 'AdminController@rejectSubscription',
     'GET /admin/categories'     => 'AdminController@categories',
     'POST /admin/category/add'  => 'AdminController@addCategory',
     'POST /admin/category/edit/{id}' => 'AdminController@editCategory',
     'POST /admin/category/delete/{id}' => 'AdminController@deleteCategory',
     'GET /admin/reports'        => 'AdminController@reports',
+    'GET /admin/reviews'        => 'AdminController@reviews',
+    'POST /admin/review/delete/{id}' => 'AdminController@deleteReview',
+    'GET /admin/zero-waste'     => 'AdminController@zeroWaste',
+    'GET /admin/ai-recommendations'   => 'AdminController@aiRecommendations',
+    'POST /admin/ai-config/update'    => 'AdminController@updateAiConfig',
+    'POST /admin/ai-test'             => 'AdminController@testAiRecommendation',
+    'POST /admin/broadcast'     => 'AdminController@broadcast',  // Module 3.11
 ];

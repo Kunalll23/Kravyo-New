@@ -4,19 +4,22 @@
  */
 
 require_once APP_PATH . '/models/Kitchen.php';
+require_once APP_PATH . '/models/Admin.php';
 require_once APP_PATH . '/models/User.php';
 require_once APP_PATH . '/models/Category.php';
 
 class AdminController extends Controller {
 
     private Kitchen $kitchenModel;
+    private Admin $adminModel;
     private User $userModel;
     private Category $categoryModel;
 
     public function __construct() {
-        Middleware::role(ROLE_ADMIN);
-        $this->kitchenModel = new Kitchen();
-        $this->userModel = new User();
+        Middleware::adminAuth();
+        $this->kitchenModel  = new Kitchen();
+        $this->adminModel    = new Admin();
+        $this->userModel     = new User();
         $this->categoryModel = new Category();
     }
 
@@ -189,7 +192,9 @@ class AdminController extends Controller {
         }
 
         $filterStatus = ($statusFilter === 'all') ? null : $statusFilter;
-        $orders       = $orderModel->findAllWithDetails($filterStatus, 150);
+        $searchQuery  = isset($_GET['search']) ? sanitize($_GET['search']) : null;
+        
+        $orders       = $orderModel->findAllWithDetails($filterStatus, $searchQuery, 150);
         $orderStats   = $orderModel->getPlatformOrderStats();
         $totalOrders  = array_sum($orderStats);
 
@@ -197,9 +202,57 @@ class AdminController extends Controller {
             'title'        => 'Platform Orders',
             'orders'       => $orders,
             'statusFilter' => $statusFilter,
+            'searchQuery'  => $searchQuery,
             'orderStats'   => $orderStats,
             'totalOrders'  => $totalOrders,
         ]);
+    }
+
+    /**
+     * Tiffin Subscriptions Management
+     */
+    public function subscriptions(): void {
+        require_once APP_PATH . '/models/CustomerSubscription.php';
+        $customerSubModel = new CustomerSubscription();
+
+        $statusFilter = $_GET['status'] ?? null;
+        $subscriptions = $customerSubModel->findAllWithDetails($statusFilter);
+
+        $this->render('admin/subscriptions', [
+            'title'         => 'Tiffin Subscriptions Management',
+            'subscriptions' => $subscriptions,
+            'statusFilter'  => $statusFilter,
+        ]);
+    }
+
+    public function approveSubscription(int $id): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/CustomerSubscription.php';
+        $customerSubModel = new CustomerSubscription();
+
+        $sub = $customerSubModel->findById($id);
+        if ($sub && $sub['status'] === SUBSCRIPTION_STATUS_PENDING) {
+            $customerSubModel->updateStatus($id, SUBSCRIPTION_STATUS_ACTIVE);
+            Session::setFlash('success', 'Subscription approved successfully.');
+        } else {
+            Session::setFlash('danger', 'Invalid subscription or already processed.');
+        }
+        $this->redirect('/admin/subscriptions');
+    }
+
+    public function rejectSubscription(int $id): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/CustomerSubscription.php';
+        $customerSubModel = new CustomerSubscription();
+
+        $sub = $customerSubModel->findById($id);
+        if ($sub && $sub['status'] === SUBSCRIPTION_STATUS_PENDING) {
+            $customerSubModel->updateStatus($id, SUBSCRIPTION_STATUS_CANCELLED);
+            Session::setFlash('success', 'Subscription rejected and cancelled.');
+        } else {
+            Session::setFlash('danger', 'Invalid subscription or already processed.');
+        }
+        $this->redirect('/admin/subscriptions');
     }
 
     /**
@@ -391,6 +444,242 @@ class AdminController extends Controller {
             'topKitchens'  => $topKitchens,
             'monthlyTrend' => $monthlyTrend,
             'userStats'    => $userStats,
+        ]);
+    }
+
+    /**
+     * Module 3.11 — Admin Broadcast Notification to all active users
+     * POST /admin/broadcast
+     */
+    public function broadcast(): void {
+        Middleware::verifyCsrf();
+
+        $title   = trim($_POST['title']   ?? '');
+        $message = trim($_POST['message'] ?? '');
+        $type    = $_POST['type'] ?? 'promotion';
+
+        $allowedTypes = ['promotion', 'system_alert', 'order_update', 'kitchen_update'];
+        if (!in_array($type, $allowedTypes, true)) {
+            $type = 'promotion';
+        }
+
+        if (empty($title) || empty($message)) {
+            Session::setFlash('danger', 'Title and message are required.');
+            $this->redirect('/admin/dashboard');
+            return;
+        }
+
+        require_once APP_PATH . '/models/Notification.php';
+        $notifModel = new Notification();
+        $count = $notifModel->broadcast($title, $message, $type);
+        Session::setFlash('success', 'Announcement broadcasted successfully to users.');
+        $this->redirect('/admin/dashboard');
+    }
+
+    // ─── Admin Review Management ────────────────────────────────────────────────
+
+    /**
+     * View all reviews across the platform
+     * GET /admin/reviews
+     */
+    public function reviews(): void {
+        require_once APP_PATH . '/models/Review.php';
+        $reviewModel = new Review();
+        
+        $reviews = $reviewModel->findAllWithDetails();
+
+        $this->render('admin/reviews', [
+            'title'   => 'Admin - Review Management',
+            'reviews' => $reviews
+        ]);
+    }
+
+    /**
+     * Safely delete a review
+     * POST /admin/review/delete/{id}
+     */
+    public function deleteReview(string $id): void {
+        Middleware::verifyCsrf();
+        
+        require_once APP_PATH . '/models/Review.php';
+        $reviewModel = new Review();
+        
+        $reviewId = (int)$id;
+        $review = $reviewModel->find($reviewId);
+        
+        if (!$review) {
+            Session::setFlash('danger', 'Review not found.');
+            $this->redirect('/admin/reviews');
+            return;
+        }
+
+        try {
+            $reviewModel->delete($reviewId);
+            Session::setFlash('success', 'Review deleted successfully.');
+        } catch (Exception $e) {
+            Session::setFlash('danger', 'Failed to delete review. Please ensure it is not locked by other records.');
+        }
+
+        $this->redirect('/admin/reviews');
+    }
+
+    // ─── Admin Zero Food Waste Management (Module 3.9) ─────────────────────────
+
+    /**
+     * Monitor all Zero Waste listings platform-wide + reporting stats
+     * GET /admin/zero-waste
+     */
+    public function zeroWaste(): void {
+        require_once APP_PATH . '/models/ZeroWasteItem.php';
+        $zwModel = new ZeroWasteItem();
+
+        // Optional status filter
+        $statusFilter = sanitize($_GET['status'] ?? 'all');
+        $validStatuses = ['all', 'active', 'sold_out', 'expired'];
+        if (!in_array($statusFilter, $validStatuses, true)) {
+            $statusFilter = 'all';
+        }
+
+        $filterParam = ($statusFilter === 'all') ? null : $statusFilter;
+
+        $listings    = $zwModel->findAllWithAdminDetails($filterParam);
+        $stats       = $zwModel->getPlatformStats();
+        $byKitchen   = $zwModel->getStatsByKitchen();
+
+        $this->render('admin/zero_waste', [
+            'title'        => 'Zero Waste Management',
+            'listings'     => $listings,
+            'stats'        => $stats,
+            'byKitchen'    => $byKitchen,
+            'statusFilter' => $statusFilter,
+        ]);
+    }
+
+    // ─── Admin AI Recommendation Management (Module 3.7) ──────────────────────
+
+    /**
+     * Main AI Recommendation dashboard
+     * GET /admin/ai-recommendations
+     */
+    public function aiRecommendations(): void {
+        require_once APP_PATH . '/models/Recommendation.php';
+        $recModel = new Recommendation();
+
+        $health    = $recModel->getAiHealth();
+        $aiConfig  = $recModel->getAiConfig();   // null when offline
+        $dataStats = $recModel->getAdminStats();
+
+        // Default/fallback config values shown when Python is offline
+        $defaultConfig = [
+            'similarity_weight' => 0.80,
+            'popularity_weight' => 0.20,
+            'default_limit'     => 8,
+        ];
+
+        $this->render('admin/ai_recommendations', [
+            'title'         => 'AI Recommendation Management',
+            'health'        => $health,
+            'aiConfig'      => $aiConfig ?? $defaultConfig,
+            'aiOnline'      => $health['online'],
+            'dataStats'     => $dataStats,
+            'configIsFresh' => ($aiConfig !== null),
+        ]);
+    }
+
+    /**
+     * Update AI config parameters — writes via Python /config endpoint
+     * POST /admin/ai-config/update
+     */
+    public function updateAiConfig(): void {
+        Middleware::verifyCsrf();
+
+        require_once APP_PATH . '/models/Recommendation.php';
+        $recModel = new Recommendation();
+
+        // Server-side validation — never trust client input
+        $sw  = (float)($_POST['similarity_weight'] ?? -1);
+        $pw  = (float)($_POST['popularity_weight']  ?? -1);
+        $lim = (int)($_POST['default_limit']         ?? -1);
+
+        if ($sw < 0 || $sw > 1 || $pw < 0 || $pw > 1) {
+            Session::setFlash('danger', 'Weights must each be between 0 and 1.');
+            $this->redirect('/admin/ai-recommendations');
+            return;
+        }
+        if (abs($sw + $pw - 1.0) > 0.01) {
+            Session::setFlash('danger', 'Similarity weight + Popularity weight must equal 1.0.');
+            $this->redirect('/admin/ai-recommendations');
+            return;
+        }
+        if ($lim < 1 || $lim > 20) {
+            Session::setFlash('danger', 'Recommendation limit must be between 1 and 20.');
+            $this->redirect('/admin/ai-recommendations');
+            return;
+        }
+
+        $result = $recModel->updateAiConfig([
+            'similarity_weight' => round($sw, 4),
+            'popularity_weight' => round($pw, 4),
+            'default_limit'     => $lim,
+        ]);
+
+        if ($result['success']) {
+            Session::setFlash('success', 'AI configuration updated successfully! New weights will apply on the next recommendation request.');
+        } else {
+            Session::setFlash('danger', 'Failed to update AI config: ' . ($result['error'] ?? 'Unknown error'));
+        }
+
+        $this->redirect('/admin/ai-recommendations');
+    }
+
+    /**
+     * Test recommendations for a given customer ID
+     * POST /admin/ai-test
+     */
+    public function testAiRecommendation(): void {
+        Middleware::verifyCsrf();
+
+        require_once APP_PATH . '/models/Recommendation.php';
+        $recModel = new Recommendation();
+
+        $rawUserId = trim($_POST['test_user_id'] ?? '');
+
+        // Validate: must be a positive integer
+        if (!ctype_digit($rawUserId) || (int)$rawUserId <= 0) {
+            Session::setFlash('danger', 'Invalid Customer ID. Please enter a positive integer.');
+            $this->redirect('/admin/ai-recommendations');
+            return;
+        }
+
+        $userId    = (int)$rawUserId;
+        $limit     = max(1, min(20, (int)($_POST['test_limit'] ?? 8)));
+
+        // Verify the user exists and is actually a customer
+        $userModel = $this->userModel;
+        $user      = $userModel->findById($userId);
+        if (!$user || $user['role'] !== 'customer') {
+            Session::setFlash('danger', 'Customer ID ' . $userId . ' not found or is not a customer account.');
+            $this->redirect('/admin/ai-recommendations');
+            return;
+        }
+
+        $result     = $recModel->testRecommendations($userId, $limit);
+        $health     = $recModel->getAiHealth();
+        $aiConfig   = $recModel->getAiConfig();
+        $dataStats  = $recModel->getAdminStats();
+        $defaultConfig = ['similarity_weight' => 0.80, 'popularity_weight' => 0.20, 'default_limit' => 8];
+
+        $this->render('admin/ai_recommendations', [
+            'title'         => 'AI Recommendation Management',
+            'health'        => $health,
+            'aiConfig'      => $aiConfig ?? $defaultConfig,
+            'aiOnline'      => $health['online'],
+            'dataStats'     => $dataStats,
+            'configIsFresh' => ($aiConfig !== null),
+            'testResult'    => $result,
+            'testUserId'    => $userId,
+            'testUserName'  => sanitize($user['full_name']),
+            'testLimit'     => $limit,
         ]);
     }
 }

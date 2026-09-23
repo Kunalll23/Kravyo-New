@@ -88,8 +88,11 @@
                                    class="form-control form-control-lg"
                                    id="new_password"
                                    name="new_password"
-                                   placeholder="Create a new password (min. 6 characters)"
+                                   placeholder="Create a 6-digit password"
                                    minlength="6"
+                                   maxlength="6"
+                                   pattern="[0-9]{6}"
+                                   oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);"
                                    required
                                    style="border-radius: 10px;">
                         </div>
@@ -103,8 +106,11 @@
                                    class="form-control form-control-lg"
                                    id="confirm_password"
                                    name="confirm_password"
-                                   placeholder="Re-enter your new password"
+                                   placeholder="Re-enter your 6-digit password"
                                    minlength="6"
+                                   maxlength="6"
+                                   pattern="[0-9]{6}"
+                                   oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);"
                                    required
                                    style="border-radius: 10px;">
                             <div id="passwordMatchMsg" class="form-text mt-1"></div>

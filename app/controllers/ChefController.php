@@ -526,6 +526,31 @@ class ChefController extends Controller {
         ];
 
         $label = $statusLabels[$newStatus] ?? 'updated';
+
+        // Module 1.13 — Notify customer of their order status change
+        try {
+            require_once APP_PATH . '/models/Notification.php';
+            $notifModel = new Notification();
+
+            $statusMessages = [
+                ORDER_STATUS_ACCEPTED         => 'Great news! Your order #' . $order['order_number'] . ' has been accepted by the chef and will be prepared soon.',
+                ORDER_STATUS_PREPARING        => 'Your order #' . $order['order_number'] . ' is now being freshly prepared.',
+                ORDER_STATUS_OUT_FOR_DELIVERY => 'Your order #' . $order['order_number'] . ' is on its way! Get ready to enjoy.',
+                ORDER_STATUS_DELIVERED        => 'Your order #' . $order['order_number'] . ' has been delivered. Bon appétit! 🍽️',
+                ORDER_STATUS_CANCELLED        => 'Unfortunately, your order #' . $order['order_number'] . ' has been rejected by the chef.',
+            ];
+
+            if (isset($statusMessages[$newStatus])) {
+                $notifModel->createForUser(
+                    (int) $order['customer_id'],
+                    'Order Update — #' . $order['order_number'],
+                    $statusMessages[$newStatus],
+                    'order_update',
+                    '/order/track/' . $orderId
+                );
+            }
+        } catch (Exception $ignored) {}
+
         Session::setFlash('success', 'Order #' . $order['order_number'] . ' has been ' . $label . '.');
         $this->redirect('/chef/orders');
     }
@@ -537,9 +562,11 @@ class ChefController extends Controller {
     public function subscriptions(): void {
         require_once APP_PATH . '/models/Subscription.php';
         require_once APP_PATH . '/models/CustomerSubscription.php';
+        require_once APP_PATH . '/models/SubscriptionDelivery.php';
 
         $subscriptionModel = new Subscription();
         $customerSubModel = new CustomerSubscription();
+        $deliveryModel = new SubscriptionDelivery();
 
         $userId = Session::get('user_id');
         $kitchen = $this->kitchenModel->findByUserId($userId);
@@ -553,14 +580,18 @@ class ChefController extends Controller {
         $kitchenId = (int) $kitchen['id'];
         $plans = $subscriptionModel->findByKitchenId($kitchenId);
         $activeSubscribers = $customerSubModel->findByKitchenId($kitchenId, SUBSCRIPTION_STATUS_ACTIVE);
-        $subscriberCount = $customerSubModel->countActiveByKitchenId($kitchenId);
+        $pendingSubscribers = $customerSubModel->findByKitchenId($kitchenId, SUBSCRIPTION_STATUS_PENDING);
+        $todaysDeliveries = $deliveryModel->getTodaysDeliveries($kitchenId);
+        $subscriberCount = count($activeSubscribers);
 
         $this->render('chef/subscriptions', [
-            'title'             => 'Tiffin Subscription Plans',
-            'kitchen'           => $kitchen,
-            'plans'             => $plans,
-            'activeSubscribers' => $activeSubscribers,
-            'subscriberCount'   => $subscriberCount,
+            'title'              => 'Tiffin Subscription Plans',
+            'kitchen'            => $kitchen,
+            'plans'              => $plans,
+            'activeSubscribers'  => $activeSubscribers,
+            'pendingSubscribers' => $pendingSubscribers,
+            'todaysDeliveries'   => $todaysDeliveries,
+            'subscriberCount'    => $subscriberCount,
         ]);
     }
 
@@ -726,8 +757,111 @@ class ChefController extends Controller {
         $newStatus = $plan['is_active'] ? 0 : 1;
         $subscriptionModel->toggleActive($planId, $newStatus);
 
-        $label = $newStatus ? 'activated' : 'deactivated';
-        Session::setFlash('success', 'Plan "' . sanitize($plan['plan_name']) . '" has been ' . $label . '.');
+        $msg = $newStatus ? 'Plan activated successfully.' : 'Plan deactivated successfully.';
+        Session::setFlash('success', $msg);
+        $this->redirect('/chef/subscriptions');
+    }
+
+    /**
+     * Approve a customer subscription
+     * POST /chef/subscription/approve/{id}
+     */
+    public function approveSubscription(string $id): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/CustomerSubscription.php';
+        
+        $customerSubModel = new CustomerSubscription();
+        $userId = Session::get('user_id');
+        $kitchen = $this->kitchenModel->findByUserId($userId);
+
+        if (!$kitchen) {
+            Session::setFlash('danger', 'Kitchen not found.');
+            $this->redirect('/chef/subscriptions');
+            return;
+        }
+
+        $kitchenId = (int) $kitchen['id'];
+        $subId = (int) $id;
+
+        $sub = $customerSubModel->find($subId);
+        if (!$sub || (int) $sub['kitchen_id'] !== $kitchenId || $sub['status'] !== SUBSCRIPTION_STATUS_PENDING) {
+            Session::setFlash('danger', 'Invalid subscription request.');
+            $this->redirect('/chef/subscriptions');
+            return;
+        }
+
+        $customerSubModel->updateStatus($subId, SUBSCRIPTION_STATUS_ACTIVE);
+        Session::setFlash('success', 'Subscription approved successfully!');
+        $this->redirect('/chef/subscriptions');
+    }
+
+    /**
+     * Reject a customer subscription
+     * POST /chef/subscription/reject/{id}
+     */
+    public function rejectSubscription(string $id): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/CustomerSubscription.php';
+        
+        $customerSubModel = new CustomerSubscription();
+        $userId = Session::get('user_id');
+        $kitchen = $this->kitchenModel->findByUserId($userId);
+
+        if (!$kitchen) {
+            Session::setFlash('danger', 'Kitchen not found.');
+            $this->redirect('/chef/subscriptions');
+            return;
+        }
+
+        $kitchenId = (int) $kitchen['id'];
+        $subId = (int) $id;
+
+        $sub = $customerSubModel->find($subId);
+        if (!$sub || (int) $sub['kitchen_id'] !== $kitchenId || $sub['status'] !== SUBSCRIPTION_STATUS_PENDING) {
+            Session::setFlash('danger', 'Invalid subscription request.');
+            $this->redirect('/chef/subscriptions');
+            return;
+        }
+
+        $customerSubModel->updateStatus($subId, SUBSCRIPTION_STATUS_CANCELLED);
+        Session::setFlash('success', 'Subscription request rejected.');
+        $this->redirect('/chef/subscriptions');
+    }
+
+    /**
+     * Update today's delivery status
+     * POST /chef/subscription/delivery/status
+     */
+    public function updateDeliveryStatus(): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/SubscriptionDelivery.php';
+        
+        $deliveryModel = new SubscriptionDelivery();
+        $userId = Session::get('user_id');
+        $kitchen = $this->kitchenModel->findByUserId($userId);
+
+        if (!$kitchen) {
+            Session::setFlash('danger', 'Kitchen not found.');
+            $this->redirect('/chef/subscriptions');
+            return;
+        }
+
+        $kitchenId = (int) $kitchen['id'];
+        $deliveryId = (int) ($_POST['delivery_id'] ?? 0);
+        $newStatus = $_POST['status'] ?? 'pending';
+
+        if (!in_array($newStatus, ['pending', 'dispatched', 'delivered'])) {
+            Session::setFlash('danger', 'Invalid status.');
+            $this->redirect('/chef/subscriptions');
+            return;
+        }
+
+        if ($deliveryModel->updateStatus($deliveryId, $newStatus, $kitchenId)) {
+            Session::setFlash('success', 'Delivery status updated.');
+        } else {
+            Session::setFlash('danger', 'Failed to update status.');
+        }
+
         $this->redirect('/chef/subscriptions');
     }
 

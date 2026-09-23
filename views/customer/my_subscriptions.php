@@ -42,9 +42,15 @@
                                             <?= ucfirst($sub['plan_type']) ?>
                                         </span>
                                     </div>
-                                    <span class="subscription-status-badge status-active">
-                                        <i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>Active
-                                    </span>
+                                    <?php if ($sub['status'] === SUBSCRIPTION_STATUS_PENDING): ?>
+                                        <span class="subscription-status-badge text-dark border-warning" style="background:#fff3cd; border:1px solid #ffe69c;">
+                                            <i class="bi bi-clock-history me-1" style="font-size: 0.8rem;"></i>Pending Approval
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="subscription-status-badge status-active">
+                                            <i class="bi bi-circle-fill me-1" style="font-size: 0.5rem;"></i>Active
+                                        </span>
+                                    <?php endif; ?>
                                 </div>
 
                                 <!-- Kitchen -->
@@ -60,17 +66,29 @@
                                 <!-- Dates & Details -->
                                 <div class="bg-light rounded-3 p-3 mb-3">
                                     <div class="row g-2 text-center">
-                                        <div class="col-4">
+                                        <div class="col-3">
                                             <div class="small text-muted">Start Date</div>
                                             <div class="fw-bold small"><?= date('M d, Y', strtotime($sub['start_date'])) ?></div>
                                         </div>
-                                        <div class="col-4">
+                                        <div class="col-3">
                                             <div class="small text-muted">End Date</div>
                                             <div class="fw-bold small"><?= date('M d, Y', strtotime($sub['end_date'])) ?></div>
                                         </div>
-                                        <div class="col-4">
+                                        <div class="col-3">
                                             <div class="small text-muted">Meals/Day</div>
                                             <div class="fw-bold small"><?= $sub['meals_per_day'] ?></div>
+                                        </div>
+                                        <div class="col-3">
+                                            <div class="small text-muted">Today's Tiffin</div>
+                                            <?php if ($sub['status'] === SUBSCRIPTION_STATUS_ACTIVE): ?>
+                                                <?php
+                                                    $tStatus = $sub['today_status'] ?? 'pending';
+                                                    $tColor = ['pending'=>'warning', 'dispatched'=>'info', 'delivered'=>'success'][$tStatus];
+                                                ?>
+                                                <div class="fw-bold small text-<?= $tColor ?>"><?= ucfirst($tStatus) ?></div>
+                                            <?php else: ?>
+                                                <div class="fw-bold small text-muted">-</div>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
                                 </div>

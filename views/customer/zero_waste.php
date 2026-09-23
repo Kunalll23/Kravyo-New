@@ -150,9 +150,12 @@
                                     <span class="badge bg-<?= $urgencyClass ?> bg-opacity-15 text-<?= $urgencyClass ?> fw-semibold small px-2 py-1">
                                         <i class="bi bi-alarm me-1"></i><?= $urgencyText ?>
                                     </span>
+                                    <span class="badge bg-secondary bg-opacity-15 text-secondary fw-semibold small px-2 py-1">
+                                        <?= (int) $deal['quantity_available'] ?> portion<?= $deal['quantity_available'] != 1 ? 's' : '' ?> left
+                                    </span>
                                     <?php if ($deal['quantity_available'] <= 3): ?>
-                                        <span class="badge bg-danger bg-opacity-15 text-danger fw-semibold small px-2 py-1">
-                                            Only <?= (int) $deal['quantity_available'] ?> left!
+                                        <span class="badge bg-danger fw-semibold small px-2 py-1 ms-1">
+                                            <i class="bi bi-fire me-1"></i>Almost Gone!
                                         </span>
                                     <?php endif; ?>
                                 </div>
@@ -188,16 +191,25 @@
                                         </div>
                                     </div>
 
-                                    <!-- Add to Cart -->
+                                    <!-- Add to Cart with Quantity Selector -->
                                     <?php if (Session::get('user_id') && Session::get('user_role') === 'customer'): ?>
-                                        <form action="<?= url('/cart/add') ?>" method="POST">
+                                        <?php $maxStock = (int) $deal['quantity_available']; ?>
+                                        <form action="<?= url('/cart/add') ?>" method="POST" class="d-flex align-items-center gap-2">
                                             <?= csrf_field() ?>
-                                            <input type="hidden" name="menu_item_id" value="<?= (int) $deal['menu_item_id'] ?>">
-                                            <input type="hidden" name="quantity" value="1">
-                                            <input type="hidden" name="override_price" value="<?= number_format((float)$deal['discounted_price'], 2, '.', '') ?>">
                                             <input type="hidden" name="zero_waste_id" value="<?= (int) $deal['id'] ?>">
+                                            <!-- Quantity stepper capped at available stock -->
+                                            <div class="input-group input-group-sm" style="width:90px;">
+                                                <button type="button" class="btn btn-outline-secondary px-2 zw-qty-minus" data-max="<?= $maxStock ?>">
+                                                    <i class="bi bi-dash"></i>
+                                                </button>
+                                                <input type="number" name="quantity" class="form-control text-center px-1 zw-qty-input fw-bold"
+                                                       value="1" min="1" max="<?= $maxStock ?>" readonly style="width:34px;">
+                                                <button type="button" class="btn btn-outline-secondary px-2 zw-qty-plus" data-max="<?= $maxStock ?>">
+                                                    <i class="bi bi-plus"></i>
+                                                </button>
+                                            </div>
                                             <button type="submit" class="btn btn-success btn-sm fw-semibold px-3">
-                                                <i class="bi bi-cart-plus me-1"></i>Add to Cart
+                                                <i class="bi bi-cart-plus me-1"></i>Add
                                             </button>
                                         </form>
                                     <?php elseif (!Session::get('user_id')): ?>
@@ -256,3 +268,35 @@
     box-shadow: 0 12px 32px rgba(0,0,0,0.12) !important;
 }
 </style>
+
+<script>
+// Zero Waste quantity stepper buttons
+document.querySelectorAll('.zw-qty-minus, .zw-qty-plus').forEach(btn => {
+    btn.addEventListener('click', function () {
+        const form   = this.closest('form');
+        const input  = form.querySelector('.zw-qty-input');
+        const max    = parseInt(this.dataset.max, 10);
+        let current  = parseInt(input.value, 10);
+
+        if (this.classList.contains('zw-qty-plus')) {
+            if (current < max) input.value = current + 1;
+        } else {
+            if (current > 1) input.value = current - 1;
+        }
+
+        // Disable/enable buttons at limits
+        form.querySelector('.zw-qty-minus').disabled = parseInt(input.value) <= 1;
+        form.querySelector('.zw-qty-plus').disabled  = parseInt(input.value) >= max;
+    });
+});
+
+// Initialise disabled state on load
+document.querySelectorAll('.zw-qty-minus').forEach(btn => {
+    const input = btn.closest('form').querySelector('.zw-qty-input');
+    btn.disabled = parseInt(input.value) <= 1;
+});
+document.querySelectorAll('.zw-qty-plus').forEach(btn => {
+    const input = btn.closest('form').querySelector('.zw-qty-input');
+    btn.disabled = parseInt(input.value) >= parseInt(btn.dataset.max, 10);
+});
+</script>

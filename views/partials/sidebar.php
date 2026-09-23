@@ -27,6 +27,9 @@
             <li class="nav-item">
                 <a class="nav-link text-white" href="<?= url('/admin/categories') ?>"><i class="bi bi-tags me-2"></i> Food Categories</a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link text-white" href="<?= url('/admin/subscriptions') ?>"><i class="bi bi-calendar2-check me-2"></i> Tiffin Subscriptions</a>
+            </li>
         <?php endif; ?>
     </ul>
 </div>

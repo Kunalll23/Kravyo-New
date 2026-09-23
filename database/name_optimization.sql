@@ -1,0 +1,13 @@
+-- 13. NAME FIELD SIZE — APPROVED TARGET: VARCHAR(50)
+
+SET FOREIGN_KEY_CHECKS=0;
+
+ALTER TABLE `users` MODIFY `full_name` VARCHAR(50) NOT NULL;
+ALTER TABLE `admins` MODIFY `full_name` VARCHAR(50) NOT NULL;
+ALTER TABLE `pending_registrations` MODIFY `full_name` VARCHAR(50) NOT NULL;
+ALTER TABLE `categories` MODIFY `category_name` VARCHAR(50) NOT NULL;
+ALTER TABLE `kitchens` MODIFY `kitchen_name` VARCHAR(50) NOT NULL;
+ALTER TABLE `menu_items` MODIFY `item_name` VARCHAR(50) NOT NULL;
+ALTER TABLE `tiffin_subscriptions` MODIFY `plan_name` VARCHAR(50) NOT NULL;
+
+SET FOREIGN_KEY_CHECKS=1;

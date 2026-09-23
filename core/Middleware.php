@@ -28,6 +28,17 @@ abstract class Middleware {
     }
 
     /**
+     * Ensure the request comes from an authenticated admin
+     * (checks the dedicated admin_id session key, not the users table role)
+     */
+    public static function adminAuth(): void {
+        if (!Session::has('admin_id')) {
+            Session::setFlash('warning', 'Please log in to access the admin panel.');
+            redirect('/admin/login');
+        }
+    }
+
+    /**
      * Verify CSRF Token on POST requests
      */
     public static function verifyCsrf(): void {

@@ -31,7 +31,7 @@
                             <label for="full_name" class="form-label fw-semibold">Full Name</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light border-end-0"><i class="bi bi-person text-muted"></i></span>
-                                <input type="text" class="form-control form-control-lg border-start-0" id="full_name" name="full_name" placeholder="Enter your full name" required>
+                                <input type="text" class="form-control form-control-lg border-start-0" id="full_name" name="full_name" placeholder="Enter your full name" pattern="^[A-Za-z][A-Za-z' \-]{1,49}$" title="Please enter a valid name using letters, spaces, hyphens, or apostrophes only." required>
                             </div>
                         </div>
 
@@ -47,7 +47,7 @@
                             <label for="phone" class="form-label fw-semibold">Phone Number</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light border-end-0"><i class="bi bi-telephone text-muted"></i></span>
-                                <input type="tel" class="form-control form-control-lg border-start-0" id="phone" name="phone" placeholder="Enter your 10-digit mobile number" pattern="[6-9][0-9]{9}" title="Please enter a valid Indian mobile number starting with 6, 7, 8, or 9" required>
+                                <input type="tel" class="form-control form-control-lg border-start-0" id="phone" name="phone" placeholder="Enter your 10-digit mobile number" pattern="[6-9][0-9]{9}" title="Please enter a valid Indian mobile number starting with 6, 7, 8, or 9" required maxlength="10" minlength="10" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 10);">
                             </div>
                         </div>
                         
@@ -55,7 +55,7 @@
                             <label for="password" class="form-label fw-semibold">Password</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock text-muted"></i></span>
-                                <input type="password" class="form-control form-control-lg border-start-0" id="password" name="password" placeholder="Create a password" minlength="6" required>
+                                <input type="password" class="form-control form-control-lg border-start-0" id="password" name="password" placeholder="Create a 6-digit password" minlength="6" maxlength="6" pattern="[0-9]{6}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);" required>
                             </div>
                         </div>
                         

@@ -147,6 +147,14 @@
 
                         <!-- Order Items -->
                         <div class="cart-summary-rows mb-3">
+                            <?php
+                                $checkoutSavings = 0;
+                                foreach ($cart['items'] as $item) {
+                                    if (!empty($item['is_zero_waste']) && !empty($item['original_price'])) {
+                                        $checkoutSavings += ($item['original_price'] - $item['price']) * $item['quantity'];
+                                    }
+                                }
+                            ?>
                             <?php foreach ($cart['items'] as $item): ?>
                                 <div class="checkout-item d-flex justify-content-between align-items-start mb-2">
                                     <div class="flex-grow-1">
@@ -156,15 +164,26 @@
                                             <?php else: ?>
                                                 <i class="bi bi-circle-fill text-danger me-1" style="font-size:0.5rem;"></i>
                                             <?php endif; ?>
+                                            <?php if (!empty($item['is_zero_waste'])): ?>
+                                                <i class="bi bi-recycle text-success me-1" title="Zero Waste Deal"></i>
+                                            <?php endif; ?>
                                             <?= sanitize($item['item_name']) ?> × <?= $item['quantity'] ?>
                                         </div>
-                                        <div class="d-flex gap-1 mt-1">
-                                            <span class="cart-custom-tag">🌶️ <?= sanitize($item['spice_level']) ?></span>
-                                            <span class="cart-custom-tag">🫒 <?= sanitize($item['oil_level']) ?></span>
-                                            <?php if ($item['is_jain']): ?>
-                                                <span class="cart-custom-tag cart-custom-jain">🌿 Jain</span>
-                                            <?php endif; ?>
-                                        </div>
+                                        <?php if (!empty($item['is_zero_waste'])): ?>
+                                            <div class="d-flex gap-1 mt-1">
+                                                <span class="badge bg-success bg-opacity-10 text-success" style="font-size:0.65rem;">
+                                                    <i class="bi bi-recycle me-1"></i>Zero Waste Deal
+                                                </span>
+                                            </div>
+                                        <?php else: ?>
+                                            <div class="d-flex gap-1 mt-1">
+                                                <span class="cart-custom-tag">🌶️ <?= sanitize($item['spice_level']) ?></span>
+                                                <span class="cart-custom-tag">🫒 <?= sanitize($item['oil_level']) ?></span>
+                                                <?php if ($item['is_jain']): ?>
+                                                    <span class="cart-custom-tag cart-custom-jain">🌿 Jain</span>
+                                                <?php endif; ?>
+                                            </div>
+                                        <?php endif; ?>
                                     </div>
                                     <span class="fw-600 small"><?= format_currency($item['price'] * $item['quantity']) ?></span>
                                 </div>
@@ -177,6 +196,14 @@
                             <span class="text-muted small">Subtotal</span>
                             <span class="fw-600"><?= format_currency($cartTotal) ?></span>
                         </div>
+                        <?php if ($checkoutSavings > 0): ?>
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <span class="text-success small fw-semibold">
+                                    <i class="bi bi-recycle me-1"></i>Zero Waste Savings
+                                </span>
+                                <span class="fw-600 text-success">−<?= format_currency($checkoutSavings) ?></span>
+                            </div>
+                        <?php endif; ?>
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <span class="text-muted small">Delivery</span>
                             <span class="fw-600 text-success">Free</span>

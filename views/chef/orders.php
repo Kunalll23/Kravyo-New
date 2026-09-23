@@ -1,5 +1,5 @@
 <!-- Phase 6: Chef Incoming Orders Dashboard -->
-<?php View::partial('sidebar'); ?>
+
 
 <section class="py-4">
     <div class="container">
@@ -118,9 +118,15 @@
                                                 <i class="bi bi-circle-fill text-danger me-1" style="font-size:0.45rem;"></i>
                                             <?php endif; ?>
                                             <?= sanitize($item['item_name']) ?> × <?= $item['quantity'] ?>
-                                            <span class="text-muted ms-1">
-                                                (🌶️<?= $item['spice_level'][0] ?> 🫒<?= $item['oil_level'][0] ?><?= $item['is_jain'] ? ' 🌿J' : '' ?>)
-                                            </span>
+                                            <?php if (!empty($item['is_zero_waste'])): ?>
+                                                <span class="badge bg-success bg-opacity-15 text-success ms-1 px-1" style="font-size:0.65rem;">
+                                                    <i class="bi bi-recycle"></i> ZW Deal
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="text-muted ms-1">
+                                                    (🌶️<?= $item['spice_level'][0] ?> 🫒<?= $item['oil_level'][0] ?><?= $item['is_jain'] ? ' 🌿J' : '' ?>)
+                                                </span>
+                                            <?php endif; ?>
                                         </span>
                                         <span class="fw-600"><?= format_currency($item['subtotal']) ?></span>
                                     </div>

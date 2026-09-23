@@ -26,21 +26,23 @@ class OrderItem extends Model {
      */
     public function createFromCart(int $orderId, array $cartItems): bool {
         $sql = "INSERT INTO {$this->table}
-                (order_id, menu_item_id, quantity, unit_price, subtotal, spice_level, oil_level, is_jain)
-                VALUES (:order_id, :menu_item_id, :quantity, :unit_price, :subtotal, :spice_level, :oil_level, :is_jain)";
+                (order_id, menu_item_id, quantity, unit_price, subtotal, spice_level, oil_level, is_jain, is_zero_waste, zero_waste_id)
+                VALUES (:order_id, :menu_item_id, :quantity, :unit_price, :subtotal, :spice_level, :oil_level, :is_jain, :is_zero_waste, :zero_waste_id)";
         $stmt = $this->db->prepare($sql);
 
         foreach ($cartItems as $item) {
             $subtotal = round($item['price'] * $item['quantity'], 2);
             $stmt->execute([
-                'order_id'     => $orderId,
-                'menu_item_id' => $item['menu_item_id'],
-                'quantity'     => $item['quantity'],
-                'unit_price'   => $item['price'],
-                'subtotal'     => $subtotal,
-                'spice_level'  => $item['spice_level'] ?? 'Medium',
-                'oil_level'    => $item['oil_level'] ?? 'Normal',
-                'is_jain'      => $item['is_jain'] ?? 0,
+                'order_id'       => $orderId,
+                'menu_item_id'   => $item['menu_item_id'],
+                'quantity'       => $item['quantity'],
+                'unit_price'     => $item['price'],
+                'subtotal'       => $subtotal,
+                'spice_level'    => $item['spice_level'] ?? 'Medium',
+                'oil_level'      => $item['oil_level'] ?? 'Normal',
+                'is_jain'        => $item['is_jain'] ?? 0,
+                'is_zero_waste'  => !empty($item['is_zero_waste']) ? 1 : 0,
+                'zero_waste_id'  => !empty($item['zero_waste_id']) ? (int) $item['zero_waste_id'] : null,
             ]);
         }
 

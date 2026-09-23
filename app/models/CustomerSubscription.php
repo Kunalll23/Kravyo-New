@@ -125,4 +125,28 @@ class CustomerSubscription extends Model {
         $stmt->execute(['id' => $subId, 'customer_id' => $customerId]);
         return $stmt->fetch() !== false;
     }
+
+    /**
+     * Find all subscriptions with details (for Admin)
+     */
+    public function findAllWithDetails(?string $status = null): array {
+        $sql = "SELECT cs.*, s.plan_name, s.plan_type, s.meals_per_day, s.price AS plan_price,
+                       k.kitchen_name, k.city AS kitchen_city,
+                       u.full_name AS customer_name, u.phone AS customer_phone
+                FROM {$this->table} cs
+                JOIN tiffin_subscriptions s ON cs.subscription_plan_id = s.id
+                JOIN kitchens k ON cs.kitchen_id = k.id
+                JOIN users u ON cs.customer_id = u.id";
+        $params = [];
+
+        if ($status !== null) {
+            $sql .= " WHERE cs.status = :status";
+            $params['status'] = $status;
+        }
+
+        $sql .= " ORDER BY cs.created_at DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
 }

@@ -113,4 +113,18 @@ class Review extends Model {
         }
         return $dist;
     }
+
+    /**
+     * Get all reviews platform-wide with customer and kitchen names (Admin use)
+     */
+    public function findAllWithDetails(): array {
+        $sql = "SELECT r.*, u.full_name AS customer_name, k.kitchen_name
+                FROM {$this->table} r
+                JOIN users u ON r.customer_id = u.id
+                JOIN kitchens k ON r.kitchen_id = k.id
+                ORDER BY r.created_at DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
 }

@@ -28,8 +28,8 @@ try {
     $mail->Username   = SMTP_USERNAME;
     $mail->Password   = str_replace(' ', '', SMTP_PASSWORD);
     
-    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-    $mail->Port       = SMTP_PORT;
+    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+    $mail->Port       = 465;
 
     $mail->setFrom(SMTP_FROM_EMAIL, SMTP_FROM_NAME);
     $mail->addAddress('test@example.com', 'Test User');

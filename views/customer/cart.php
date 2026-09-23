@@ -46,6 +46,7 @@
                     </div>
 
                     <?php foreach ($cart['items'] as $itemKey => $item): ?>
+                        <?php $isZeroWaste = !empty($item['is_zero_waste']); ?>
                         <div class="cart-item-card mb-3" id="cartItem_<?= sanitize($itemKey) ?>">
                             <div class="row g-0 align-items-center">
                                 <!-- Item Image -->
@@ -76,18 +77,24 @@
                                                     <?= sanitize($item['item_name']) ?>
                                                 </h6>
 
-                                                <!-- Customization Tags -->
+                                                <!-- Tags / Badges -->
                                                 <div class="d-flex flex-wrap gap-1 mb-2">
-                                                    <span class="cart-custom-tag">
-                                                        🌶️ <?= sanitize($item['spice_level']) ?>
-                                                    </span>
-                                                    <span class="cart-custom-tag">
-                                                        🫒 <?= sanitize($item['oil_level']) ?>
-                                                    </span>
-                                                    <?php if ($item['is_jain']): ?>
-                                                        <span class="cart-custom-tag cart-custom-jain">
-                                                            🌿 Jain Prep
+                                                    <?php if ($isZeroWaste): ?>
+                                                        <span class="badge bg-success bg-opacity-15 text-success fw-semibold small px-2 py-1 border border-success border-opacity-25">
+                                                            <i class="bi bi-recycle me-1"></i>Zero Waste Deal
                                                         </span>
+                                                    <?php else: ?>
+                                                        <span class="cart-custom-tag">
+                                                            🌶️ <?= sanitize($item['spice_level']) ?>
+                                                        </span>
+                                                        <span class="cart-custom-tag">
+                                                            🫒 <?= sanitize($item['oil_level']) ?>
+                                                        </span>
+                                                        <?php if ($item['is_jain']): ?>
+                                                            <span class="cart-custom-tag cart-custom-jain">
+                                                                🌿 Jain Prep
+                                                            </span>
+                                                        <?php endif; ?>
                                                     <?php endif; ?>
                                                 </div>
                                             </div>
@@ -118,17 +125,30 @@
                                                 <form method="POST" action="<?= url('/cart/update') ?>" class="d-inline cart-update-form">
                                                     <?= csrf_field() ?>
                                                     <input type="hidden" name="item_key" value="<?= sanitize($itemKey) ?>">
-                                                    <input type="hidden" name="quantity" value="<?= min(10, $item['quantity'] + 1) ?>">
-                                                    <button type="submit" class="qty-btn qty-plus-sm" <?= $item['quantity'] >= 10 ? 'disabled' : '' ?>>
+                                                    <?php
+                                                        $maxAllowed = $isZeroWaste ? (int)($item['max_qty'] ?? 50) : 10;
+                                                    ?>
+                                                    <input type="hidden" name="quantity" value="<?= min($maxAllowed, $item['quantity'] + 1) ?>">
+                                                    <button type="submit" class="qty-btn qty-plus-sm" <?= $item['quantity'] >= $maxAllowed ? 'disabled' : '' ?>>
                                                         <i class="bi bi-plus"></i>
                                                     </button>
                                                 </form>
                                             </div>
 
-                                            <!-- Item Subtotal -->
-                                            <div class="cart-item-subtotal">
-                                                <small class="text-muted"><?= format_currency($item['price']) ?> × <?= $item['quantity'] ?></small>
-                                                <div class="fw-bold text-dark"><?= format_currency($item['price'] * $item['quantity']) ?></div>
+                                            <!-- Item Subtotal (with savings for zero-waste) -->
+                                            <div class="cart-item-subtotal text-end">
+                                                <?php if ($isZeroWaste && !empty($item['original_price'])): ?>
+                                                    <small class="text-muted text-decoration-line-through d-block">
+                                                        <?= format_currency($item['original_price']) ?> × <?= $item['quantity'] ?>
+                                                    </small>
+                                                    <div class="fw-bold text-success"><?= format_currency($item['price'] * $item['quantity']) ?></div>
+                                                    <small class="text-success fw-semibold">
+                                                        You save <?= format_currency(($item['original_price'] - $item['price']) * $item['quantity']) ?>
+                                                    </small>
+                                                <?php else: ?>
+                                                    <small class="text-muted"><?= format_currency($item['price']) ?> × <?= $item['quantity'] ?></small>
+                                                    <div class="fw-bold text-dark"><?= format_currency($item['price'] * $item['quantity']) ?></div>
+                                                <?php endif; ?>
                                             </div>
                                         </div>
                                     </div>
@@ -137,11 +157,22 @@
                         </div>
                     <?php endforeach; ?>
 
+
                     <!-- Continue Shopping -->
                     <div class="mt-3">
-                        <a href="<?= url('/kitchen/' . $cart['kitchen_id']) ?>" class="btn btn-kravyo-outline btn-sm">
-                            <i class="bi bi-plus-circle me-1"></i> Add More from <?= sanitize($cart['kitchen_name'] ?? 'this kitchen') ?>
-                        </a>
+                        <?php
+                            // Detect if this cart is a zero-waste order
+                            $cartHasZeroWaste = !empty(array_filter($cart['items'], fn($i) => !empty($i['is_zero_waste'])));
+                        ?>
+                        <?php if ($cartHasZeroWaste): ?>
+                            <a href="<?= url('/zero-waste') ?>" class="btn btn-kravyo-outline btn-sm">
+                                <i class="bi bi-recycle me-1"></i> Browse More Zero Waste Deals
+                            </a>
+                        <?php else: ?>
+                            <a href="<?= url('/kitchen/' . $cart['kitchen_id']) ?>" class="btn btn-kravyo-outline btn-sm">
+                                <i class="bi bi-plus-circle me-1"></i> Add More from <?= sanitize($cart['kitchen_name'] ?? 'this kitchen') ?>
+                            </a>
+                        <?php endif; ?>
                     </div>
                 </div>
 
@@ -151,15 +182,37 @@
                         <h5 class="fw-bold mb-3"><i class="bi bi-receipt me-2"></i>Order Summary</h5>
 
                         <div class="cart-summary-rows">
+                            <?php
+                                $totalSavings = 0;
+                                foreach ($cart['items'] as $item) {
+                                    if (!empty($item['is_zero_waste']) && !empty($item['original_price'])) {
+                                        $totalSavings += ($item['original_price'] - $item['price']) * $item['quantity'];
+                                    }
+                                }
+                            ?>
                             <?php foreach ($cart['items'] as $item): ?>
                                 <div class="d-flex justify-content-between small mb-2">
-                                    <span class="text-muted"><?= sanitize($item['item_name']) ?> × <?= $item['quantity'] ?></span>
+                                    <span class="text-muted">
+                                        <?php if (!empty($item['is_zero_waste'])): ?>
+                                            <i class="bi bi-recycle text-success me-1"></i>
+                                        <?php endif; ?>
+                                        <?= sanitize($item['item_name']) ?> × <?= $item['quantity'] ?>
+                                    </span>
                                     <span class="fw-600"><?= format_currency($item['price'] * $item['quantity']) ?></span>
                                 </div>
                             <?php endforeach; ?>
                         </div>
 
                         <hr class="my-3">
+
+                        <?php if ($totalSavings > 0): ?>
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-success small fw-semibold">
+                                    <i class="bi bi-recycle me-1"></i>Zero Waste Savings
+                                </span>
+                                <span class="fw-600 text-success">−<?= format_currency($totalSavings) ?></span>
+                            </div>
+                        <?php endif; ?>
 
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <span class="fw-bold fs-6">Grand Total</span>

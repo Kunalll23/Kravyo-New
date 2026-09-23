@@ -158,3 +158,60 @@
         </div>
     </div>
 </div>
+
+<!-- Module 3.11 — Admin Broadcast Notification -->
+<div class="container pb-5">
+    <div class="row">
+        <div class="col-lg-8 offset-lg-2">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-dark text-white d-flex align-items-center gap-2">
+                    <i class="bi bi-megaphone-fill text-warning"></i>
+                    <span class="fw-bold">Broadcast Notification to All Users</span>
+                    <span class="badge bg-warning text-dark ms-auto">Module 3.11</span>
+                </div>
+                <div class="card-body p-4">
+                    <form action="<?= url('/admin/broadcast') ?>" method="POST">
+                        <?= csrf_field() ?>
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label class="form-label fw-semibold" for="bc_title">Notification Title</label>
+                                <input type="text"
+                                       id="bc_title"
+                                       name="title"
+                                       class="form-control"
+                                       maxlength="100"
+                                       placeholder="e.g. Weekend Special Discount!"
+                                       required>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold" for="bc_type">Type</label>
+                                <select id="bc_type" name="type" class="form-select">
+                                    <option value="promotion">🎉 Promotion</option>
+                                    <option value="system_alert">⚠️ System Alert</option>
+                                    <option value="kitchen_update">🍳 Kitchen Update</option>
+                                </select>
+                            </div>
+                            <div class="col-12">
+                                <label class="form-label fw-semibold" for="bc_message">Message</label>
+                                <textarea id="bc_message"
+                                          name="message"
+                                          class="form-control"
+                                          rows="3"
+                                          maxlength="500"
+                                          placeholder="Write your announcement here…"
+                                          required></textarea>
+                                <div class="form-text text-muted">This will be sent to all active customers and chefs.</div>
+                            </div>
+                            <div class="col-12 text-end">
+                                <button type="submit" class="btn btn-warning fw-bold px-4"
+                                        onclick="return confirm('Send this broadcast to ALL active users?')">
+                                    <i class="bi bi-send-fill me-2"></i>Send Broadcast
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

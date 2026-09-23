@@ -24,7 +24,7 @@
                                 <!-- Forgot password link placeholder for future implementation -->
                                 <a href="<?= url('/forgot-password') ?>" class="text-decoration-none small text-muted">Forgot password?</a>
                             </div>
-                            <input type="password" class="form-control form-control-lg mt-2" id="password" name="password" placeholder="Enter your password" required>
+                            <input type="password" class="form-control form-control-lg mt-2" id="password" name="password" placeholder="Enter your 6-digit password" minlength="6" maxlength="6" pattern="[0-9]{6}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);" required>
                         </div>
                         
                         <div class="d-grid gap-2">

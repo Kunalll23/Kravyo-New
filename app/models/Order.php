@@ -232,8 +232,8 @@ class Order extends Model {
      */
     public function getMonthlyEarningsComparison(int $kitchenId): array {
         $sql = "SELECT
-                    SUM(CASE WHEN MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) THEN total_amount ELSE 0 END) AS this_month,
-                    SUM(CASE WHEN MONTH(created_at) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) AND YEAR(created_at) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) THEN total_amount ELSE 0 END) AS last_month
+                    SUM(CASE WHEN created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN total_amount ELSE 0 END) AS this_month,
+                    SUM(CASE WHEN created_at >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01') AND created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN total_amount ELSE 0 END) AS last_month
                 FROM {$this->table}
                 WHERE kitchen_id = :kitchen_id AND order_status = 'delivered'";
         $stmt = $this->db->prepare($sql);
@@ -251,8 +251,8 @@ class Order extends Model {
     public function getPlatformRevenue(): array {
         $sql = "SELECT
                     SUM(total_amount) AS total,
-                    SUM(CASE WHEN MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE()) THEN total_amount ELSE 0 END) AS this_month,
-                    SUM(CASE WHEN MONTH(created_at) = MONTH(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) AND YEAR(created_at) = YEAR(DATE_SUB(CURDATE(), INTERVAL 1 MONTH)) THEN total_amount ELSE 0 END) AS last_month,
+                    SUM(CASE WHEN created_at >= DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN total_amount ELSE 0 END) AS this_month,
+                    SUM(CASE WHEN created_at >= DATE_FORMAT(DATE_SUB(CURDATE(), INTERVAL 1 MONTH), '%Y-%m-01') AND created_at < DATE_FORMAT(CURDATE(), '%Y-%m-01') THEN total_amount ELSE 0 END) AS last_month,
                     COUNT(*) AS total_orders,
                     AVG(total_amount) AS avg_order_value
                 FROM {$this->table}
@@ -321,16 +321,24 @@ class Order extends Model {
     /**
      * All platform orders for admin listing with details
      */
-    public function findAllWithDetails(?string $status = null, int $limit = 100): array {
+    public function findAllWithDetails(?string $status = null, ?string $search = null, int $limit = 100): array {
         $sql = "SELECT o.*, k.kitchen_name, u.full_name AS customer_name
                 FROM {$this->table} o
                 JOIN kitchens k ON o.kitchen_id = k.id
-                JOIN users u    ON o.customer_id = u.id";
+                JOIN users u    ON o.customer_id = u.id
+                WHERE 1=1";
         $params = [];
 
         if ($status !== null) {
-            $sql .= " WHERE o.order_status = :status";
+            $sql .= " AND o.order_status = :status";
             $params['status'] = $status;
+        }
+
+        if ($search !== null && trim($search) !== '') {
+            // Strip any leading text if user enters "Order ID: 15" or just "15"
+            // Let's just do a basic LIKE match on order_number
+            $sql .= " AND o.order_number LIKE :search";
+            $params['search'] = '%' . trim($search) . '%';
         }
 
         $sql .= " ORDER BY o.created_at DESC LIMIT {$limit}";

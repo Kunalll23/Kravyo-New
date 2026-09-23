@@ -41,6 +41,7 @@ define('SUBSCRIPTION_WEEKLY', 'weekly');
 define('SUBSCRIPTION_MONTHLY', 'monthly');
 
 // Subscription Statuses
+define('SUBSCRIPTION_STATUS_PENDING', 'pending');
 define('SUBSCRIPTION_STATUS_ACTIVE', 'active');
 define('SUBSCRIPTION_STATUS_PAUSED', 'paused');
 define('SUBSCRIPTION_STATUS_CANCELLED', 'cancelled');

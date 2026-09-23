@@ -176,4 +176,117 @@ class ZeroWasteItem extends Model {
         $result = $stmt->fetch();
         return (int) ($result['total'] ?? 0);
     }
+
+    // ─── Admin methods ──────────────────────────────────────────────────────────
+
+    /**
+     * Get ALL zero waste listings platform-wide with full context (Admin view).
+     * Auto-expires stale listings first, then fetches with optional status filter.
+     */
+    public function findAllWithAdminDetails(?string $statusFilter = null): array {
+        $this->markExpired();
+
+        $sql = "SELECT
+                    z.id, z.status, z.quantity_available AS quantity, z.original_price, z.discounted_price,
+                    z.expiry_time, z.created_at,
+                    m.item_name,
+                    k.kitchen_name, k.city,
+                    ROUND(((z.original_price - z.discounted_price) / z.original_price) * 100) AS discount_pct
+                FROM {$this->table} z
+                JOIN menu_items m ON z.menu_item_id = m.id
+                JOIN kitchens k   ON z.kitchen_id   = k.id";
+
+        $params = [];
+        if ($statusFilter && in_array($statusFilter, ['active', 'sold_out', 'expired'], true)) {
+            $sql .= " WHERE z.status = :status";
+            $params['status'] = $statusFilter;
+        }
+
+        $sql .= " ORDER BY z.created_at DESC";
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
+    }
+
+    /**
+     * Get platform-wide Zero Waste statistics for Admin reporting.
+     */
+    public function getPlatformStats(): array {
+        $sql = "SELECT
+                    COUNT(*) AS total_listings,
+                    SUM(CASE WHEN status = 'active' AND expiry_time > NOW() THEN 1 ELSE 0 END) AS active_listings,
+                    SUM(CASE WHEN status = 'sold_out' THEN 1 ELSE 0 END) AS sold_out_listings,
+                    SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) AS expired_listings,
+                    SUM(CASE WHEN status = 'active' AND expiry_time > NOW() THEN quantity_available ELSE 0 END) AS total_active_qty,
+                    SUM(original_price * quantity_available) AS total_original_value,
+                    SUM(discounted_price * quantity_available) AS total_discounted_value
+                FROM {$this->table}";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        $row = $stmt->fetch();
+
+        $row['potential_savings'] = ($row['total_original_value'] ?? 0) - ($row['total_discounted_value'] ?? 0);
+        return $row ?: [];
+    }
+
+    /**
+     * Fetch a single active, non-expired zero waste listing by its ID.
+     * Returns null if the listing does not exist, is expired, or is not active.
+     */
+    public function findActiveById(int $id): ?array {
+        $sql = "SELECT
+                    z.*,
+                    m.item_name, m.image AS dish_image, m.is_veg, m.price AS original_menu_price,
+                    k.kitchen_name, k.city, k.id AS kitchen_id,
+                    TIMESTAMPDIFF(MINUTE, NOW(), z.expiry_time) AS minutes_remaining
+                FROM {$this->table} z
+                JOIN menu_items m ON z.menu_item_id = m.id
+                JOIN kitchens k   ON z.kitchen_id   = k.id
+                WHERE z.id = :id
+                  AND z.status = 'active'
+                  AND z.expiry_time > NOW()
+                  AND k.approval_status = 'approved'
+                LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['id' => $id]);
+        $result = $stmt->fetch();
+        return $result ?: null;
+    }
+
+    /**
+     * Atomically decrement available quantity after a purchase.
+     * Automatically marks the listing as 'sold_out' when quantity reaches 0.
+     */
+    public function decrementQuantity(int $id, int $qty): void {
+        $sql = "UPDATE {$this->table}
+                SET quantity_available = GREATEST(0, quantity_available - :qty),
+                    status = CASE
+                        WHEN (quantity_available - :qty2) <= 0 THEN 'sold_out'
+                        ELSE status
+                    END
+                WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['qty' => $qty, 'qty2' => $qty, 'id' => $id]);
+    }
+
+    /**
+     * Get per-kitchen Zero Waste listing summary for Admin reporting.
+     */
+    public function getStatsByKitchen(): array {
+        $sql = "SELECT
+                    k.kitchen_name,
+                    k.city,
+                    COUNT(z.id) AS total_listings,
+                    SUM(CASE WHEN z.status = 'active' AND z.expiry_time > NOW() THEN 1 ELSE 0 END) AS active_listings,
+                    SUM(CASE WHEN z.status = 'sold_out' THEN 1 ELSE 0 END) AS sold_out_listings,
+                    SUM(CASE WHEN z.status = 'active' AND z.expiry_time > NOW() THEN z.quantity_available ELSE 0 END) AS active_qty
+                FROM {$this->table} z
+                JOIN kitchens k ON z.kitchen_id = k.id
+                GROUP BY z.kitchen_id, k.kitchen_name, k.city
+                ORDER BY total_listings DESC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
 }

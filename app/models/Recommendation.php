@@ -2,77 +2,106 @@
 /**
  * Kravyo - Recommendation Model (Phase 10: AI Engine)
  *
- * Weighted-scoring recommendation engine — fully server-side PHP.
- * No external API or ML library required.
+ * Architecture:
+ *   PHP calls Python Flask microservice (http://127.0.0.1:5000/recommend)
+ *   The Python server uses Pandas + Scikit-learn + NumPy to compute
+ *   content-based TF-IDF cosine-similarity recommendations.
  *
- * Scoring formula per candidate dish:
- *   score = (category_affinity × 3)
- *         + (dietary_match     × 2)
- *         + (platform_popularity × 1)
- *         - (recent_order_penalty × 5)
+ * Scoring formula (in Python):
+ *   final_score = 0.80 × cosine_similarity  +  0.20 × popularity_score
+ *   (both components are Min-Max normalised to [0, 1])
  *
- * The model builds a preference profile from the customer's
- * completed order history, then scores every available dish
- * against that profile.
+ * Fallback:
+ *   If the Python server is unavailable (connection refused, timeout,
+ *   or invalid JSON), the model falls back to the existing PHP
+ *   popularity-ranked query so the website never crashes.
+ *
+ * Public methods (preserved for existing controllers & views):
+ *   getForCustomer(int $customerId, int $limit = 8): array
+ *   getPopularDishes(int $limit = 8): array
+ *   refreshPreferences(int $customerId): void
  */
 
 class Recommendation extends Model {
     protected string $table = 'menu_items';
 
+    /** Base URL of the Python Flask AI server */
+    private const PYTHON_API_URL = 'http://127.0.0.1:5000/recommend';
+
+    /** cURL timeout in seconds — keep short so fallback is fast */
+    private const REQUEST_TIMEOUT = 3;
+
     // ─── Public API ───────────────────────────────────────────────────────────
 
     /**
      * Get top-N personalised recommendations for a logged-in customer.
-     * Falls back to platform-wide popularity if the user has no order history.
+     *
+     * Workflow:
+     *   1. Call Python AI server → receive ranked menu_item_ids
+     *   2. Fetch full dish records from MariaDB for those IDs
+     *   3. Preserve Python ranking order + attach `score` field
+     *
+     * Falls back to getPopularDishes() if:
+     *   - Python server is unreachable
+     *   - Customer has no order history (cold-start — handled by Python too)
+     *   - Any error occurs
      *
      * @param int $customerId
      * @param int $limit
      * @return array  Array of menu_item rows, each with an extra `score` field
      */
     public function getForCustomer(int $customerId, int $limit = 8): array {
-        $profile = $this->buildProfile($customerId);
+        // 1. Call Python AI API
+        $aiResult = $this->callPythonApi($customerId, $limit);
 
-        if ($profile['order_count'] === 0) {
-            // Cold-start: return platform-popular dishes
+        if ($aiResult === null || empty($aiResult['recommendations'])) {
+            // Python unavailable or cold-start returned nothing → PHP fallback
             return $this->getPopularDishes($limit);
         }
 
-        return $this->scoredRecommendations($customerId, $profile, $limit);
+        // 2. Extract ordered list of menu_item_ids and score map
+        $recommendations = $aiResult['recommendations'];
+        $scoreMap        = [];
+        $orderedIds      = [];
+        foreach ($recommendations as $rec) {
+            $id               = (int) $rec['menu_item_id'];
+            $orderedIds[]     = $id;
+            $scoreMap[$id]    = (float) $rec['final_score'];
+        }
+
+        if (empty($orderedIds)) {
+            return $this->getPopularDishes($limit);
+        }
+
+        // 3. Fetch full dish records from MariaDB for those IDs
+        $dishes = $this->fetchDishesByIds($orderedIds);
+
+        if (empty($dishes)) {
+            return $this->getPopularDishes($limit);
+        }
+
+        // 4. Build an id→row map
+        $dishMap = [];
+        foreach ($dishes as $dish) {
+            $dishMap[(int) $dish['id']] = $dish;
+        }
+
+        // 5. Reorder to match Python ranking, attach `score`
+        $ordered = [];
+        foreach ($orderedIds as $id) {
+            if (isset($dishMap[$id])) {
+                $row          = $dishMap[$id];
+                $row['score'] = $scoreMap[$id];
+                $ordered[]    = $row;
+            }
+        }
+
+        return empty($ordered) ? $this->getPopularDishes($limit) : $ordered;
     }
 
     /**
-     * Upsert the stored preference snapshot for a customer.
-     * Called after every successful order placement.
-     */
-    public function refreshPreferences(int $customerId): void {
-        $profile = $this->buildProfile($customerId);
-
-        $sql = "INSERT INTO user_preferences
-                    (user_id, preferred_category_id, prefers_veg, prefers_jain,
-                     prefers_diabetic, order_count_snapshot)
-                VALUES
-                    (:uid, :cat, :veg, :jain, :diab, :cnt)
-                ON DUPLICATE KEY UPDATE
-                    preferred_category_id = VALUES(preferred_category_id),
-                    prefers_veg           = VALUES(prefers_veg),
-                    prefers_jain          = VALUES(prefers_jain),
-                    prefers_diabetic      = VALUES(prefers_diabetic),
-                    order_count_snapshot  = VALUES(order_count_snapshot)";
-
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([
-            'uid'  => $customerId,
-            'cat'  => $profile['top_category_id'],
-            'veg'  => $profile['prefers_veg']      ? 1 : 0,
-            'jain' => $profile['prefers_jain']      ? 1 : 0,
-            'diab' => $profile['prefers_diabetic']  ? 1 : 0,
-            'cnt'  => $profile['order_count'],
-        ]);
-    }
-
-    /**
-     * Get platform-popular dishes (cold-start / guest mode).
-     * Returns top-N dishes by platform-wide order count.
+     * Get platform-popular dishes (cold-start / guest mode / PHP fallback).
+     * Returns top-N dishes by platform-wide delivered order count.
      */
     public function getPopularDishes(int $limit = 8): array {
         $sql = "SELECT m.*, c.category_name,
@@ -102,172 +131,262 @@ class Recommendation extends Model {
         return $stmt->fetchAll();
     }
 
+    /**
+     * Upsert the stored preference snapshot for a customer.
+     * Called after every successful order placement (OrderController).
+     * Preserved exactly — no change needed; Python reads live DB each request.
+     */
+    public function refreshPreferences(int $customerId): void {
+        // Python reads the live kravyo_db on every /recommend call, so no
+        // snapshot table is needed. This method is kept for backward
+        // compatibility with OrderController which calls it post-order.
+        // It is intentionally a no-op now.
+    }
+
     // ─── Private Helpers ──────────────────────────────────────────────────────
 
     /**
-     * Build a lightweight preference profile from a customer's order history.
+     * Call the Python Flask AI server via cURL.
+     *
+     * Returns the decoded JSON array on success, or null on any failure.
+     * NEVER throws — all errors are caught and null is returned.
      */
-    private function buildProfile(int $customerId): array {
-        // 1. How many delivered orders does this user have?
-        $sql = "SELECT COUNT(*) AS cnt FROM orders
-                WHERE customer_id = :uid AND order_status = 'delivered'";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute(['uid' => $customerId]);
-        $orderCount = (int) $stmt->fetchColumn();
-
-        if ($orderCount === 0) {
-            return [
-                'order_count'      => 0,
-                'top_category_id'  => null,
-                'category_counts'  => [],
-                'prefers_veg'      => false,
-                'prefers_jain'     => false,
-                'prefers_diabetic' => false,
-                'recent_item_ids'  => [],
-            ];
+    private function callPythonApi(int $customerId, int $limit): ?array {
+        if (!function_exists('curl_init')) {
+            return null;
         }
 
-        // 2. Category affinity — count ordered items per category
-        $sql = "SELECT mi.category_id, COUNT(*) AS cnt
-                FROM order_items oi
-                JOIN orders o     ON oi.order_id     = o.id
-                JOIN menu_items mi ON oi.menu_item_id = mi.id
-                WHERE o.customer_id   = :uid
-                  AND o.order_status  = 'delivered'
-                GROUP BY mi.category_id
-                ORDER BY cnt DESC";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute(['uid' => $customerId]);
-        $catRows = $stmt->fetchAll();
+        $url = self::PYTHON_API_URL
+             . '?user_id=' . $customerId
+             . '&limit='   . $limit;
 
-        $categoryCounts = [];
-        $topCategoryId  = null;
-        foreach ($catRows as $row) {
-            $categoryCounts[(int) $row['category_id']] = (int) $row['cnt'];
-            if ($topCategoryId === null) {
-                $topCategoryId = (int) $row['category_id'];
-            }
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => self::REQUEST_TIMEOUT,
+            CURLOPT_CONNECTTIMEOUT => self::REQUEST_TIMEOUT,
+            CURLOPT_HTTPGET        => true,
+            CURLOPT_FAILONERROR    => false,
+        ]);
+
+        $raw      = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error    = curl_error($ch);
+        curl_close($ch);
+
+        if ($error || $raw === false || $httpCode !== 200) {
+            // Server offline or timeout — caller will use PHP fallback
+            return null;
         }
 
-        // 3. Dietary preference — majority vote across all ordered items
-        $sql = "SELECT
-                    SUM(mi.is_veg)              AS veg_count,
-                    SUM(mi.is_jain_available)   AS jain_count,
-                    SUM(mi.is_diabetic_friendly) AS diab_count,
-                    COUNT(*)                    AS total
-                FROM order_items oi
-                JOIN orders o     ON oi.order_id     = o.id
-                JOIN menu_items mi ON oi.menu_item_id = mi.id
-                WHERE o.customer_id  = :uid
-                  AND o.order_status = 'delivered'";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute(['uid' => $customerId]);
-        $diet = $stmt->fetch();
+        $data = json_decode($raw, true);
+        if (!is_array($data) || empty($data['success'])) {
+            return null;
+        }
 
-        $total      = max(1, (int) $diet['total']);
-        $prefersVeg      = ((int) $diet['veg_count']  / $total) >= 0.6;
-        $prefersJain     = ((int) $diet['jain_count'] / $total) >= 0.5;
-        $prefersDiabetic = ((int) $diet['diab_count'] / $total) >= 0.5;
-
-        // 4. Items ordered in the last 7 days (to avoid repeating them)
-        $sql = "SELECT DISTINCT oi.menu_item_id
-                FROM order_items oi
-                JOIN orders o ON oi.order_id = o.id
-                WHERE o.customer_id  = :uid
-                  AND o.created_at  >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute(['uid' => $customerId]);
-        $recentItemIds = array_column($stmt->fetchAll(), 'menu_item_id');
-
-        return [
-            'order_count'      => $orderCount,
-            'top_category_id'  => $topCategoryId,
-            'category_counts'  => $categoryCounts,
-            'prefers_veg'      => $prefersVeg,
-            'prefers_jain'     => $prefersJain,
-            'prefers_diabetic' => $prefersDiabetic,
-            'recent_item_ids'  => array_map('intval', $recentItemIds),
-        ];
+        return $data;
     }
 
     /**
-     * Fetch all available dishes and score each one against the user profile.
-     * Returns top-N items sorted by score DESC.
+     * Fetch full dish rows for a given list of menu_item_ids,
+     * preserving kitchen and category join exactly as the view expects.
+     *
+     * @param int[] $ids
+     * @return array
      */
-    private function scoredRecommendations(
-        int   $customerId,
-        array $profile,
-        int   $limit
-    ): array {
-        // Fetch all currently-available dishes with platform popularity count
+    private function fetchDishesByIds(array $ids): array {
+        if (empty($ids)) {
+            return [];
+        }
+
+        // Build a safe IN clause with integer casting
+        $ids      = array_map('intval', $ids);
+        $placeholders = implode(',', $ids);   // safe — all integers
+
         $sql = "SELECT m.*, c.category_name,
                        k.kitchen_name, k.city, k.id AS kitchen_id,
-                       k.hygiene_badge, u.full_name AS chef_name,
-                       COALESCE(pop.order_count, 0) AS platform_popularity
+                       k.hygiene_badge, u.full_name AS chef_name
                 FROM menu_items m
                 JOIN categories c ON m.category_id = c.id
                 JOIN kitchens k   ON m.kitchen_id  = k.id
                 JOIN users u      ON k.user_id      = u.id
-                LEFT JOIN (
-                    SELECT oi.menu_item_id, COUNT(*) AS order_count
-                    FROM order_items oi
-                    JOIN orders o ON oi.order_id = o.id
-                    WHERE o.order_status = 'delivered'
-                    GROUP BY oi.menu_item_id
-                ) pop ON pop.menu_item_id = m.id
-                WHERE k.approval_status = 'approved'
+                WHERE m.id IN ($placeholders)
+                  AND k.approval_status = 'approved'
                   AND k.is_open        = 1
                   AND m.is_available   = 1";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
-        $dishes = $stmt->fetchAll();
+        return $stmt->fetchAll();
+    }
 
-        // Normalise platform popularity to 0–10 scale for fair weighting
-        $maxPop = 1;
-        foreach ($dishes as $d) {
-            $maxPop = max($maxPop, (int) $d['platform_popularity']);
+    // ─── Admin API Methods (Module 3.7) ────────────────────────────────────────
+
+    /** Base URL of the Python AI server (shared with admin methods) */
+    private const PYTHON_BASE_URL  = 'http://127.0.0.1:5000';
+
+    /**
+     * Call the Python /health endpoint. Returns status array:
+     * ['online' => bool, 'latency_ms' => float|null, 'service' => string]
+     */
+    public function getAiHealth(): array {
+        $start = microtime(true);
+        $raw   = $this->curlGet(self::PYTHON_BASE_URL . '/health', 3);
+        $ms    = round((microtime(true) - $start) * 1000, 1);
+
+        if ($raw === null) {
+            return ['online' => false, 'latency_ms' => null, 'service' => ''];
+        }
+        $data = json_decode($raw, true);
+        return [
+            'online'     => (is_array($data) && ($data['status'] ?? '') === 'ok'),
+            'latency_ms' => $ms,
+            'service'    => $data['service'] ?? 'Unknown',
+        ];
+    }
+
+    /**
+     * Fetch current AI config from Python /config endpoint.
+     * Returns assoc array or null if server is offline.
+     */
+    public function getAiConfig(): ?array {
+        $raw = $this->curlGet(self::PYTHON_BASE_URL . '/config', 3);
+        if ($raw === null) return null;
+        $data = json_decode($raw, true);
+        return (is_array($data) && !empty($data['success'])) ? $data['config'] : null;
+    }
+
+    /**
+     * POST updated config to Python /config endpoint.
+     * Returns ['success' => bool, 'error' => string|null, 'config' => array|null]
+     */
+    public function updateAiConfig(array $cfg): array {
+        $url     = self::PYTHON_BASE_URL . '/config';
+        $payload = json_encode($cfg);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 5,
+            CURLOPT_CONNECTTIMEOUT => 5,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_HTTPHEADER     => ['Content-Type: application/json'],
+        ]);
+        $raw      = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $error    = curl_error($ch);
+        curl_close($ch);
+
+        if ($error || $raw === false) {
+            return ['success' => false, 'error' => 'Python AI server is offline.', 'config' => null];
+        }
+        $data = json_decode($raw, true);
+        if (!is_array($data)) {
+            return ['success' => false, 'error' => 'Invalid response from AI server.', 'config' => null];
+        }
+        return [
+            'success' => !empty($data['success']),
+            'error'   => $data['error'] ?? null,
+            'config'  => $data['config'] ?? null,
+        ];
+    }
+
+    /**
+     * Run a real recommendation for a given user_id and return enriched dish rows.
+     * Used by the Admin Test Recommendations feature.
+     */
+    public function testRecommendations(int $userId, int $limit = 8): array {
+        $aiResult = $this->callPythonApi($userId, $limit);
+        if ($aiResult === null) {
+            return ['error' => 'Python AI server is offline. Cannot generate test recommendations.', 'items' => []];
+        }
+        if (empty($aiResult['recommendations'])) {
+            return ['error' => null, 'items' => [], 'cold_start' => true];
         }
 
-        // Score each dish
-        $scored = [];
-        foreach ($dishes as $dish) {
-            $catId    = (int) $dish['category_id'];
-            $dishId   = (int) $dish['id'];
-
-            // ① Category affinity (0–3 pts × count)
-            $catAffinity = isset($profile['category_counts'][$catId])
-                ? min($profile['category_counts'][$catId], 10) * 3
-                : 0;
-
-            // ② Dietary match (0–2 pts each flag)
-            $dietScore = 0;
-            if ($profile['prefers_veg']      && $dish['is_veg'])              $dietScore += 2;
-            if ($profile['prefers_jain']     && $dish['is_jain_available'])   $dietScore += 2;
-            if ($profile['prefers_diabetic'] && $dish['is_diabetic_friendly']) $dietScore += 2;
-
-            // ③ Platform popularity (0–10 pts normalised)
-            $popScore = (int) round(
-                ((int) $dish['platform_popularity'] / $maxPop) * 10
-            );
-
-            // ④ Recency penalty (−5 if ordered in last 7 days)
-            $recentPenalty = in_array($dishId, $profile['recent_item_ids'], true) ? 5 : 0;
-
-            $totalScore = $catAffinity + $dietScore + $popScore - $recentPenalty;
-
-            $dish['score'] = $totalScore;
-            $scored[]      = $dish;
+        $recs      = $aiResult['recommendations'];
+        $scoreMap  = [];
+        $simMap    = [];
+        $popMap    = [];
+        $orderedIds = [];
+        foreach ($recs as $rec) {
+            $id              = (int)$rec['menu_item_id'];
+            $orderedIds[]    = $id;
+            $scoreMap[$id]   = round((float)$rec['final_score'], 4);
+            $simMap[$id]     = round((float)$rec['similarity_score'], 4);
+            $popMap[$id]     = round((float)$rec['popularity_score'], 4);
         }
 
-        // Sort by score DESC, then name ASC as tiebreaker
-        usort($scored, static function (array $a, array $b): int {
-            if ($b['score'] !== $a['score']) {
-                return $b['score'] <=> $a['score'];
+        $dishes   = $this->fetchDishesByIds($orderedIds);
+        $dishMap  = [];
+        foreach ($dishes as $dish) { $dishMap[(int)$dish['id']] = $dish; }
+
+        $ordered = [];
+        foreach ($orderedIds as $id) {
+            if (isset($dishMap[$id])) {
+                $row                   = $dishMap[$id];
+                $row['final_score']    = $scoreMap[$id];
+                $row['sim_score']      = $simMap[$id];
+                $row['pop_score']      = $popMap[$id];
+                $ordered[]             = $row;
             }
-            return $a['item_name'] <=> $b['item_name'];
-        });
+        }
 
-        return array_slice($scored, 0, $limit);
+        return ['error' => null, 'items' => $ordered, 'cold_start' => false, 'algorithm' => $aiResult['algorithm'] ?? ''];
+    }
+
+    /**
+     * Return platform-wide AI data statistics for the admin overview panel.
+     */
+    public function getAdminStats(): array {
+        $stats = [];
+
+        $stmt = $this->db->query(
+            "SELECT COUNT(*) FROM menu_items m
+             JOIN kitchens k ON m.kitchen_id = k.id
+             WHERE m.is_available = 1 AND k.approval_status = 'approved' AND k.is_open = 1"
+        );
+        $stats['available_menu_items'] = (int)$stmt->fetchColumn();
+
+        $stmt = $this->db->query("SELECT COUNT(*) FROM orders");
+        $stats['total_orders'] = (int)$stmt->fetchColumn();
+
+        $stmt = $this->db->query("SELECT COUNT(*) FROM order_items");
+        $stats['total_order_items'] = (int)$stmt->fetchColumn();
+
+        $stmt = $this->db->query(
+            "SELECT COUNT(DISTINCT customer_id) FROM orders WHERE order_status = 'delivered'"
+        );
+        $stats['customers_with_history'] = (int)$stmt->fetchColumn();
+
+        $stmt = $this->db->query(
+            "SELECT COUNT(*) FROM kitchens WHERE approval_status = 'approved' AND is_open = 1"
+        );
+        $stats['active_kitchens'] = (int)$stmt->fetchColumn();
+
+        $stmt = $this->db->query("SELECT COUNT(*) FROM users WHERE role = 'customer'");
+        $stats['total_customers'] = (int)$stmt->fetchColumn();
+
+        return $stats;
+    }
+
+    // ─── Internal cURL Helper ─────────────────────────────────────────────────
+
+    /** Perform a simple GET request. Returns raw body string or null on failure. */
+    private function curlGet(string $url, int $timeout): ?string {
+        if (!function_exists('curl_init')) return null;
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => $timeout,
+            CURLOPT_CONNECTTIMEOUT => $timeout,
+            CURLOPT_HTTPGET        => true,
+        ]);
+        $raw   = curl_exec($ch);
+        $error = curl_error($ch);
+        $code  = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        return ($error || $raw === false || $code !== 200) ? null : $raw;
     }
 }

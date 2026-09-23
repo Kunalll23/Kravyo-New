@@ -1,0 +1,5 @@
+{
+    "similarity_weight": 0.7,
+    "popularity_weight": 0.3,
+    "default_limit": 6
+}

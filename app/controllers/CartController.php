@@ -28,6 +28,15 @@ class CartController extends Controller {
     public function add(): void {
         Middleware::verifyCsrf();
 
+        // ── Determine if this is a Zero Waste Deal add ─────────────────────
+        $zeroWasteId = (int) ($_POST['zero_waste_id'] ?? 0);
+
+        if ($zeroWasteId > 0) {
+            $this->addZeroWasteDeal($zeroWasteId);
+            return;
+        }
+
+        // ── Regular menu item flow (unchanged) ─────────────────────────────
         require_once APP_PATH . '/models/MenuItem.php';
         $menuItemModel = new MenuItem();
 
@@ -54,9 +63,7 @@ class CartController extends Controller {
         $kitchenId = (int) $dish['kitchen_id'];
 
         // SINGLE-KITCHEN ENFORCEMENT
-        // Check if cart already has items from a different kitchen
         if (!empty($cart['items']) && $cart['kitchen_id'] !== $kitchenId) {
-            // Return JSON for AJAX requests
             if ($this->isAjax()) {
                 $this->json([
                     'success'          => false,
@@ -72,32 +79,29 @@ class CartController extends Controller {
             return;
         }
 
-        // Build unique cart item key (same dish + same customization = same line item)
+        // Build unique cart item key
         $itemKey = $menuItemId . '_' . $spiceLevel . '_' . $oilLevel . '_' . $isJain;
 
         if (isset($cart['items'][$itemKey])) {
-            // Same dish with same customization — increment quantity
             $cart['items'][$itemKey]['quantity'] = min(10, $cart['items'][$itemKey]['quantity'] + $quantity);
         } else {
-            // New line item
             $cart['items'][$itemKey] = [
-                'menu_item_id' => $menuItemId,
-                'item_name'    => $dish['item_name'],
-                'image'        => $dish['image'] ?? null,
-                'price'        => (float) $dish['price'],
-                'quantity'     => $quantity,
-                'spice_level'  => $spiceLevel,
-                'oil_level'    => $oilLevel,
-                'is_jain'      => $isJain,
-                'is_veg'       => (int) $dish['is_veg'],
-                'category_name'=> $dish['category_name'] ?? '',
+                'menu_item_id'  => $menuItemId,
+                'item_name'     => $dish['item_name'],
+                'image'         => $dish['image'] ?? null,
+                'price'         => (float) $dish['price'],
+                'quantity'      => $quantity,
+                'spice_level'   => $spiceLevel,
+                'oil_level'     => $oilLevel,
+                'is_jain'       => $isJain,
+                'is_veg'        => (int) $dish['is_veg'],
+                'category_name' => $dish['category_name'] ?? '',
+                'is_zero_waste' => false,
             ];
         }
 
-        // Set kitchen context for the cart
+        // Set kitchen context
         $cart['kitchen_id'] = $kitchenId;
-
-        // Fetch kitchen name if not already set
         if (empty($cart['kitchen_name'])) {
             require_once APP_PATH . '/models/Kitchen.php';
             $kitchenModel = new Kitchen();
@@ -122,16 +126,121 @@ class CartController extends Controller {
     }
 
     /**
+     * Add a Zero Waste Deal item to the cart at its discounted price.
+     * Validates that the deal is still active, not expired, and has enough stock.
+     */
+    private function addZeroWasteDeal(int $zeroWasteId): void {
+        require_once APP_PATH . '/models/ZeroWasteItem.php';
+
+        $zeroWasteModel = new ZeroWasteItem();
+        $deal = $zeroWasteModel->findActiveById($zeroWasteId);
+
+        if (!$deal) {
+            Session::setFlash('danger', 'This deal is no longer available or has expired.');
+            $this->redirect('/zero-waste');
+            return;
+        }
+
+        $requestedQty = max(1, (int) ($_POST['quantity'] ?? 1));
+        $maxQty = (int) $deal['quantity_available'];
+
+        if ($requestedQty > $maxQty) {
+            Session::setFlash('danger', 'Only ' . $maxQty . ' portion' . ($maxQty !== 1 ? 's' : '') . ' available for this deal.');
+            $this->redirect('/zero-waste');
+            return;
+        }
+
+        $cart      = $this->getCart();
+        $kitchenId = (int) $deal['kitchen_id'];
+
+        // Single-kitchen enforcement applies equally to zero-waste deals
+        if (!empty($cart['items']) && $cart['kitchen_id'] !== $kitchenId) {
+            if ($this->isAjax()) {
+                $this->json([
+                    'success'          => false,
+                    'kitchen_conflict' => true,
+                    'message'          => 'Your cart has items from a different kitchen. Clear cart to add this deal.',
+                    'current_kitchen'  => $cart['kitchen_name'] ?? 'Another Kitchen',
+                ]);
+                return;
+            }
+            Session::setFlash('warning', 'Your cart has items from "' . sanitize($cart['kitchen_name'] ?? 'another kitchen') . '". Please clear your cart first.');
+            $this->redirect('/zero-waste');
+            return;
+        }
+
+        // Cart key is unique per zero-waste listing
+        $itemKey = 'zwi_' . $zeroWasteId;
+
+        if (isset($cart['items'][$itemKey])) {
+            $newQty = $cart['items'][$itemKey]['quantity'] + $requestedQty;
+            if ($newQty > $maxQty) {
+                Session::setFlash('danger', 'You already have ' . $cart['items'][$itemKey]['quantity'] . ' in your cart. Only ' . $maxQty . ' available.');
+                $this->redirect('/zero-waste');
+                return;
+            }
+            $cart['items'][$itemKey]['quantity'] = $newQty;
+        } else {
+            $cart['items'][$itemKey] = [
+                'menu_item_id'   => (int) $deal['menu_item_id'],
+                'item_name'      => $deal['item_name'],
+                'image'          => $deal['dish_image'] ?? null,
+                'price'          => (float) $deal['discounted_price'],
+                'original_price' => (float) $deal['original_price'],
+                'quantity'       => $requestedQty,
+                'spice_level'    => 'Medium',
+                'oil_level'      => 'Normal',
+                'is_jain'        => 0,
+                'is_veg'         => (int) $deal['is_veg'],
+                'category_name'  => '',
+                'is_zero_waste'  => true,
+                'zero_waste_id'  => $zeroWasteId,
+                'max_qty'        => $maxQty,
+            ];
+        }
+
+        // Set kitchen context for the cart
+        $cart['kitchen_id'] = $kitchenId;
+        if (empty($cart['kitchen_name'])) {
+            $cart['kitchen_name'] = $deal['kitchen_name'];
+        }
+
+        $this->saveCart($cart);
+
+        if ($this->isAjax()) {
+            $this->json([
+                'success'    => true,
+                'message'    => '"' . $deal['item_name'] . '" added to your cart at the discounted price!',
+                'cart_count' => $this->getCartItemCount(),
+                'cart_total' => $this->calculateTotal($cart),
+            ]);
+            return;
+        }
+
+        $saving = number_format($deal['original_price'] - $deal['discounted_price'], 2);
+        Session::setFlash('success', '♻️ "' . sanitize($deal['item_name']) . '" added at ₹' . number_format($deal['discounted_price'], 2) . '! You saved ₹' . $saving . '.');
+        $this->redirect('/cart');
+    }
+
+    /**
      * Update item quantity in cart
      * POST /cart/update
      */
     public function update(): void {
         Middleware::verifyCsrf();
 
-        $itemKey = $_POST['item_key'] ?? '';
-        $quantity = max(0, min(10, (int) ($_POST['quantity'] ?? 0)));
+        $itemKey  = $_POST['item_key'] ?? '';
+        $rawQty   = max(0, (int) ($_POST['quantity'] ?? 0));
 
         $cart = $this->getCart();
+
+        // For zero-waste items, cap quantity at the listing's available stock
+        if (isset($cart['items'][$itemKey]) && !empty($cart['items'][$itemKey]['is_zero_waste'])) {
+            $maxQty   = (int) ($cart['items'][$itemKey]['max_qty'] ?? 50);
+            $quantity = min($rawQty, $maxQty);
+        } else {
+            $quantity = min($rawQty, 10);
+        }
 
         if (!isset($cart['items'][$itemKey])) {
             if ($this->isAjax()) {

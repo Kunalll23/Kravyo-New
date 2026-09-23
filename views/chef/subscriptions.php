@@ -229,6 +229,163 @@
         </div>
     </div>
 
+    <!-- Pending Subscription Requests -->
+    <?php if (!empty($pendingSubscribers)): ?>
+        <div class="card kravyo-card border-warning mb-4">
+            <div class="card-header bg-warning bg-opacity-10 border-bottom py-3">
+                <h5 class="fw-bold mb-0 text-warning-emphasis">
+                    <i class="bi bi-clock-history me-2"></i>Pending Requests
+                    <span class="badge bg-warning ms-2"><?= count($pendingSubscribers) ?></span>
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Customer</th>
+                                <th>Plan Requested</th>
+                                <th>Duration</th>
+                                <th>Delivery Address</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($pendingSubscribers as $sub): ?>
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold"><?= sanitize($sub['customer_name']) ?></div>
+                                        <small class="text-muted"><?= sanitize($sub['customer_phone']) ?></small>
+                                    </td>
+                                    <td>
+                                        <span class="fw-semibold"><?= sanitize($sub['plan_name']) ?></span>
+                                        <br>
+                                        <span class="plan-type-badge plan-type-<?= $sub['plan_type'] ?> small">
+                                            <?= ucfirst($sub['plan_type']) ?>
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small>
+                                            <?= date('M d', strtotime($sub['start_date'])) ?> — <?= date('M d, Y', strtotime($sub['end_date'])) ?>
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            <?= sanitize($sub['street_address']) ?>, <?= sanitize($sub['delivery_city']) ?>
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <form action="<?= url('/chef/subscription/approve/' . $sub['id']) ?>" method="POST" class="d-inline">
+                                            <?= csrf_field() ?>
+                                            <button type="submit" class="btn btn-sm btn-success">
+                                                <i class="bi bi-check-lg"></i> Approve
+                                            </button>
+                                        </form>
+                                        <form action="<?= url('/chef/subscription/reject/' . $sub['id']) ?>" method="POST" class="d-inline ms-1" onsubmit="return confirm('Reject this subscription request?');">
+                                            <?= csrf_field() ?>
+                                            <button type="submit" class="btn btn-sm btn-danger">
+                                                <i class="bi bi-x-lg"></i> Reject
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <!-- Today's Deliveries Manifest -->
+    <div class="card kravyo-card border-0 mb-4">
+        <div class="card-header bg-transparent border-bottom py-3">
+            <h5 class="fw-bold mb-0">
+                <i class="bi bi-bicycle text-primary me-2"></i>Today's Tiffin Deliveries
+                <span class="badge bg-primary ms-2"><?= count($todaysDeliveries) ?></span>
+            </h5>
+        </div>
+        <div class="card-body p-4">
+            <?php if (empty($todaysDeliveries)): ?>
+                <div class="text-center py-4">
+                    <div class="empty-state-icon mb-3"><i class="bi bi-check-circle text-success"></i></div>
+                    <h5 class="text-muted fw-bold">No Deliveries Today</h5>
+                    <p class="text-muted">You have no active subscriptions requiring a tiffin delivery today.</p>
+                </div>
+            <?php else: ?>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Customer</th>
+                                <th>Tiffin Details</th>
+                                <th>Address</th>
+                                <th>Instructions</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($todaysDeliveries as $delivery): ?>
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold"><?= sanitize($delivery['customer_name']) ?></div>
+                                        <small class="text-muted"><?= sanitize($delivery['customer_phone']) ?></small>
+                                    </td>
+                                    <td>
+                                        <span class="fw-semibold"><?= sanitize($delivery['plan_name']) ?></span><br>
+                                        <small class="text-muted"><?= $delivery['meals_per_day'] ?> meals</small>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            <?= sanitize($delivery['street_address']) ?><br>
+                                            <?= sanitize($delivery['delivery_city']) ?>
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($delivery['special_instructions'])): ?>
+                                            <small class="text-danger"><i class="bi bi-exclamation-circle me-1"></i><?= sanitize($delivery['special_instructions']) ?></small>
+                                        <?php else: ?>
+                                            <small class="text-muted">None</small>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php
+                                            $badgeClass = 'bg-secondary';
+                                            if ($delivery['status'] === 'pending') $badgeClass = 'bg-warning text-dark';
+                                            if ($delivery['status'] === 'dispatched') $badgeClass = 'bg-info text-dark';
+                                            if ($delivery['status'] === 'delivered') $badgeClass = 'bg-success';
+                                        ?>
+                                        <span class="badge <?= $badgeClass ?>"><?= ucfirst($delivery['status']) ?></span>
+                                    </td>
+                                    <td>
+                                        <?php if ($delivery['status'] === 'pending'): ?>
+                                            <form action="<?= url('/chef/subscription/delivery/status') ?>" method="POST">
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="delivery_id" value="<?= $delivery['id'] ?>">
+                                                <input type="hidden" name="status" value="dispatched">
+                                                <button type="submit" class="btn btn-sm btn-info text-white"><i class="bi bi-bicycle me-1"></i>Dispatch</button>
+                                            </form>
+                                        <?php elseif ($delivery['status'] === 'dispatched'): ?>
+                                            <form action="<?= url('/chef/subscription/delivery/status') ?>" method="POST">
+                                                <?= csrf_field() ?>
+                                                <input type="hidden" name="delivery_id" value="<?= $delivery['id'] ?>">
+                                                <input type="hidden" name="status" value="delivered">
+                                                <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-check-circle me-1"></i>Deliver</button>
+                                            </form>
+                                        <?php else: ?>
+                                            <span class="text-muted small"><i class="bi bi-check-all text-success fs-5"></i> Done</span>
+                                        <?php endif; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
     <!-- Active Subscribers Section -->
     <div class="card kravyo-card border-0">
         <div class="card-header bg-transparent border-bottom py-3">

@@ -93,7 +93,7 @@
                     </div>
                 <?php else: ?>
                     <form action="<?= url('/chef/zero-waste/add') ?>" method="POST" id="addZeroWasteForm">
-                        <?= csrfField() ?>
+                        <?= csrf_field() ?>
                         <div class="row g-3">
 
                             <!-- Dish Selector -->
@@ -283,7 +283,7 @@
                                             <?php if (!$isExpired && $effectiveStatus !== 'expired'): ?>
                                                 <!-- Toggle Status -->
                                                 <form action="<?= url('/chef/zero-waste/toggle/' . $listing['id']) ?>" method="POST">
-                                                    <?= csrfField() ?>
+                                                    <?= csrf_field() ?>
                                                     <button type="submit"
                                                             class="btn btn-sm <?= $status === 'active' ? 'btn-outline-warning' : 'btn-outline-success' ?>"
                                                             title="<?= $status === 'active' ? 'Mark Sold Out' : 'Reactivate' ?>">
@@ -294,7 +294,7 @@
                                             <!-- Delete -->
                                             <form action="<?= url('/chef/zero-waste/delete/' . $listing['id']) ?>" method="POST"
                                                   onsubmit="return confirm('Remove this listing? This cannot be undone.')">
-                                                <?= csrfField() ?>
+                                                <?= csrf_field() ?>
                                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Remove Listing">
                                                     <i class="bi bi-trash3"></i>
                                                 </button>

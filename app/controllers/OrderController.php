@@ -124,6 +124,19 @@ class OrderController extends Controller {
             // Create order items from cart
             $orderItemModel->createFromCart($orderId, $cart['items']);
 
+            // Decrement Zero Waste listing stock for any deal items in this order
+            try {
+                require_once APP_PATH . '/models/ZeroWasteItem.php';
+                $zwModel = new ZeroWasteItem();
+                foreach ($cart['items'] as $item) {
+                    if (!empty($item['is_zero_waste']) && !empty($item['zero_waste_id'])) {
+                        $zwModel->decrementQuantity((int) $item['zero_waste_id'], (int) $item['quantity']);
+                    }
+                }
+            } catch (Exception $ignored) {
+                // Non-critical — don't fail the order if this step errors
+            }
+
             // Clear the cart
             Session::remove('cart');
 
@@ -134,6 +147,39 @@ class OrderController extends Controller {
                 $recModel->refreshPreferences($userId);
             } catch (Exception $ignored) {
                 // Non-critical; don't block the order success flow
+            }
+
+            // Module 1.13 & 2.8 — Fire notifications
+            try {
+                require_once APP_PATH . '/models/Notification.php';
+                $notifModel = new Notification();
+
+                // 1.13: Notify the customer that their order was placed
+                $notifModel->createForUser(
+                    $userId,
+                    'Order Placed Successfully!',
+                    'Your order #' . $orderData['order_number'] . ' has been placed. Your home chef will confirm it shortly.',
+                    'order_update',
+                    '/order/track/' . $orderId
+                );
+
+                // 2.8: Notify the chef about the new incoming order
+                $kitchenId = (int) $cart['kitchen_id'];
+                require_once APP_PATH . '/models/Kitchen.php';
+                $kitchenModel = new Kitchen();
+                $kitchen = $kitchenModel->find($kitchenId);
+                if ($kitchen) {
+                    $chefUserId = (int) $kitchen['user_id'];
+                    $notifModel->createForUser(
+                        $chefUserId,
+                        'New Order Received!',
+                        'You have a new order #' . $orderData['order_number'] . ' worth ' . format_currency($totalAmount) . '. Please accept it promptly.',
+                        'order_update',
+                        '/chef/orders'
+                    );
+                }
+            } catch (Exception $ignored) {
+                // Non-critical; don't block the order flow
             }
 
             Session::setFlash('success', 'Order placed successfully! Your order number is ' . $orderData['order_number']);

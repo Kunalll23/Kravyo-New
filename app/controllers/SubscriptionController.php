@@ -143,7 +143,7 @@ class SubscriptionController extends Controller {
             'address_id'           => $addressId,
             'start_date'           => $startDate,
             'end_date'             => $endDate,
-            'status'               => SUBSCRIPTION_STATUS_ACTIVE,
+            'status'               => SUBSCRIPTION_STATUS_PENDING,
             'payment_method'       => $paymentMethod,
             'payment_status'       => ($paymentMethod === 'cod') ? PAYMENT_STATUS_PENDING : PAYMENT_STATUS_COMPLETED,
             'total_paid'           => (float) $plan['price'],
@@ -152,7 +152,7 @@ class SubscriptionController extends Controller {
 
         try {
             $customerSubModel->create($data);
-            Session::setFlash('success', 'You have successfully subscribed to "' . sanitize($plan['plan_name']) . '"! Your tiffin deliveries start on ' . date('M d, Y', strtotime($startDate)) . '.');
+            Session::setFlash('success', 'You have successfully requested to subscribe to "' . sanitize($plan['plan_name']) . '"! It is currently pending Admin approval.');
             $this->redirect('/my-subscriptions');
         } catch (Exception $e) {
             Session::setFlash('danger', 'Failed to subscribe. Please try again.');
@@ -168,20 +168,31 @@ class SubscriptionController extends Controller {
         Middleware::role(ROLE_CUSTOMER);
 
         require_once APP_PATH . '/models/CustomerSubscription.php';
+        require_once APP_PATH . '/models/SubscriptionDelivery.php';
+        
         $customerSubModel = new CustomerSubscription();
+        $deliveryModel = new SubscriptionDelivery();
 
         $customerId = (int) Session::get('user_id');
-        $activeSubscriptions = $customerSubModel->findByCustomerId($customerId, SUBSCRIPTION_STATUS_ACTIVE);
-        $pastSubscriptions = $customerSubModel->findByCustomerId($customerId);
+        $allSubscriptions = $customerSubModel->findByCustomerId($customerId);
 
-        // Filter out active ones from past list
-        $pastSubscriptions = array_filter($pastSubscriptions, function ($sub) {
-            return $sub['status'] !== SUBSCRIPTION_STATUS_ACTIVE;
-        });
+        $activeSubscriptions = [];
+        $pastSubscriptions = [];
+        
+        foreach ($allSubscriptions as $sub) {
+            if (in_array($sub['status'], [SUBSCRIPTION_STATUS_ACTIVE, SUBSCRIPTION_STATUS_PENDING])) {
+                if ($sub['status'] === SUBSCRIPTION_STATUS_ACTIVE) {
+                    $sub['today_status'] = $deliveryModel->getTodaysStatusForSubscription((int) $sub['id']);
+                }
+                $activeSubscriptions[] = $sub;
+            } else {
+                $pastSubscriptions[] = $sub;
+            }
+        }
 
         $this->render('customer/my_subscriptions', [
             'title'               => 'My Tiffin Subscriptions',
-            'activeSubscriptions' => $activeSubscriptions,
+            'activeSubscriptions' => array_values($activeSubscriptions),
             'pastSubscriptions'   => array_values($pastSubscriptions),
         ]);
     }

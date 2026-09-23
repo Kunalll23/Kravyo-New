@@ -50,6 +50,25 @@
         </div>
     </div>
 
+    <!-- Search Bar -->
+    <div class="mb-3 d-flex justify-content-end">
+        <form action="<?= url('/admin/orders') ?>" method="GET" class="d-flex w-100" style="max-width: 400px;">
+            <?php if (!empty($statusFilter)): ?>
+                <input type="hidden" name="status" value="<?= $statusFilter ?>">
+            <?php endif; ?>
+            <div class="input-group shadow-sm">
+                <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-muted"></i></span>
+                <input type="text" name="search" class="form-control border-start-0 ps-0" placeholder="Search by Order ID (e.g. 15)" value="<?= sanitize($_GET['search'] ?? '') ?>">
+                <button type="submit" class="btn btn-primary px-3">Search</button>
+                <?php if (!empty($_GET['search'])): ?>
+                    <a href="<?= url('/admin/orders' . (!empty($statusFilter) && $statusFilter !== 'all' ? '?status=' . $statusFilter : '')) ?>" class="btn btn-outline-secondary px-3" title="Clear Search">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
+                <?php endif; ?>
+            </div>
+        </form>
+    </div>
+
     <!-- Orders Table -->
     <div class="card kravyo-card border-0">
         <div class="card-body p-0">
@@ -100,7 +119,7 @@
                                         <span class="fw-bold">₹<?= number_format((float)$order['total_amount'], 2) ?></span>
                                     </td>
                                     <td>
-                                        <span class="badge bg-<?= $order['payment_status'] === 'completed' ? 'success' : 'warning' ?> bg-opacity-15 text-<?= $order['payment_status'] === 'completed' ? 'success' : 'warning' ?> fw-semibold">
+                                        <span class="badge bg-<?= $order['payment_status'] === 'completed' ? 'success' : 'warning' ?> text-<?= $order['payment_status'] === 'completed' ? 'white' : 'dark' ?> rounded-pill px-3">
                                             <?= ucfirst($order['payment_status']) ?>
                                         </span>
                                     </td>
