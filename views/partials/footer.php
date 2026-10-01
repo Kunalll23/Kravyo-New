@@ -12,9 +12,9 @@
             <div class="col-6 col-lg-3">
                 <h6 class="text-white fw-bold mb-3">Quick Links</h6>
                 <ul class="list-unstyled small">
-                    <li class="mb-2"><a href="<?= url('/kitchens') ?>">Explore Kitchens</a></li>
-                    <li class="mb-2"><a href="<?= url('/menu') ?>">Dish Catalog</a></li>
-                    <li class="mb-2"><a href="<?= url('/zero-waste') ?>">Zero Waste Section</a></li>
+                    <li class="mb-2"><a href="<?= $_navKitchens ?? url('/kitchens') ?>">Explore Kitchens</a></li>
+                    <li class="mb-2"><a href="<?= $_navMenu ?? url('/menu') ?>">Dish Catalog</a></li>
+                    <li class="mb-2"><a href="<?= $_navZeroWaste ?? url('/zero-waste') ?>">Zero Waste Section</a></li>
                     <li class="mb-2"><a href="<?= url('/admin/login') ?>" class="text-white-50"><i class="bi bi-shield-lock"></i> Admin Portal</a></li>
                 </ul>
             </div>

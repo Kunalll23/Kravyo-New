@@ -128,7 +128,7 @@
                             <?php endif; ?>
 
                             <!-- Dish Image -->
-                            <a href="<?= url('/dish/' . $dish['id']) ?>" class="text-decoration-none">
+                            <a href="<?= ctx_url('/dish/' . $dish['id']) ?>" class="text-decoration-none">
                                 <div class="dish-card-image">
                                     <?php if (!empty($dish['image'])): ?>
                                         <img src="<?= UPLOAD_URL . '/dishes/' . $dish['image'] ?>"
@@ -143,12 +143,12 @@
                             </a>
 
                             <div class="card-body p-3 d-flex flex-column">
-                                <a href="<?= url('/dish/' . $dish['id']) ?>" class="text-decoration-none">
+                                <a href="<?= ctx_url('/dish/' . $dish['id']) ?>" class="text-decoration-none">
                                     <h6 class="fw-bold mb-1 text-dark"><?= sanitize($dish['item_name']) ?></h6>
                                 </a>
 
                                 <p class="text-muted small mb-2">
-                                    <a href="<?= url('/kitchen/' . $dish['kitchen_id']) ?>"
+                                    <a href="<?= ctx_url('/kitchen/' . $dish['kitchen_id']) ?>"
                                        class="text-decoration-none text-muted">
                                         <i class="bi bi-shop me-1"></i><?= sanitize($dish['kitchen_name']) ?>
                                     </a>
@@ -176,7 +176,7 @@
                                     <?php endif; ?>
                                 </div>
 
-                                <a href="<?= url('/dish/' . $dish['id']) ?>"
+                                <a href="<?= ctx_url('/dish/' . $dish['id']) ?>"
                                    class="btn btn-kravyo-primary btn-sm w-100 mt-auto">
                                     <i class="bi bi-cart-plus me-1"></i> View &amp; Order
                                 </a>
@@ -190,13 +190,13 @@
             <div class="text-center mt-5 pt-3">
                 <p class="text-muted mb-3">Want to explore more options?</p>
                 <div class="d-flex flex-wrap gap-3 justify-content-center">
-                    <a href="<?= url('/menu') ?>" class="btn btn-outline-secondary">
+                    <a href="<?= ctx_url('/menu') ?>" class="btn btn-outline-secondary">
                         <i class="bi bi-journal-text me-1"></i> Browse Full Catalog
                     </a>
-                    <a href="<?= url('/kitchens') ?>" class="btn btn-outline-secondary">
+                    <a href="<?= ctx_url('/kitchens') ?>" class="btn btn-outline-secondary">
                         <i class="bi bi-shop me-1"></i> Explore Kitchens
                     </a>
-                    <a href="<?= url('/zero-waste') ?>" class="btn btn-outline-success">
+                    <a href="<?= ctx_url('/zero-waste') ?>" class="btn btn-outline-success">
                         <i class="bi bi-tag-fill me-1"></i> Zero Waste Deals
                     </a>
                 </div>

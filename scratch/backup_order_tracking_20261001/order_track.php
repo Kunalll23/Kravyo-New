@@ -26,22 +26,12 @@ $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
                 </div>
                 <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
                     <?php
-                    // Customer-friendly status labels and colors
-                    // Backend 'accepted' is shown as 'Confirmed' to the customer
-                    $customerStatusLabels = [
-                        'pending'          => 'Order Confirmed',
-                        'accepted'         => 'Order Confirmed',
-                        'preparing'        => 'Preparing',
-                        'out_for_delivery' => 'Out for Delivery',
-                        'delivered'        => 'Delivered',
-                        'cancelled'        => 'Cancelled',
-                    ];
                     $statusColors = [
                         'pending' => 'warning', 'accepted' => 'info', 'preparing' => 'primary',
                         'out_for_delivery' => 'success', 'delivered' => 'success', 'cancelled' => 'danger'
                     ];
                     $statusColor = $statusColors[$order['order_status']] ?? 'secondary';
-                    $statusLabel = $customerStatusLabels[$order['order_status']] ?? ucwords(str_replace('_', ' ', $order['order_status']));
+                    $statusLabel = ucwords(str_replace('_', ' ', $order['order_status']));
                     ?>
                     <span class="badge bg-<?= $statusColor ?> px-3 py-2 fs-6 rounded-pill">
                         <?= $statusLabel ?>
@@ -67,18 +57,16 @@ $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
                         </div>
                     </div>
                 <?php else: ?>
-                    <!-- Simplified 4-Step Status Timeline -->
+                    <!-- Status Timeline -->
                     <div class="order-timeline mb-4">
                         <?php
-                        // Customer-facing timeline order (4 steps)
-                        $timelineOrder = ['confirmed', 'preparing', 'out_for_delivery', 'delivered'];
-                        $currentIndex = array_search($customerStep, $timelineOrder);
-                        if ($currentIndex === false) $currentIndex = 0;
+                        $statusOrder = ['pending', 'accepted', 'preparing', 'out_for_delivery', 'delivered'];
+                        $currentIndex = array_search($order['order_status'], $statusOrder);
                         ?>
 
-                        <?php foreach ($statusTimeline as $stepKey => $step): ?>
+                        <?php foreach ($statusTimeline as $statusKey => $step): ?>
                             <?php
-                            $stepIndex = array_search($stepKey, $timelineOrder);
+                            $stepIndex = array_search($statusKey, $statusOrder);
                             $isCompleted = $stepIndex < $currentIndex;
                             $isActive = $stepIndex === $currentIndex;
                             $isPending = $stepIndex > $currentIndex;

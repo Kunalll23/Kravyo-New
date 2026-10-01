@@ -1,4 +1,4 @@
-<?php /* Phase 9: Admin — Platform-Wide Orders Management */ ?>
+﻿<?php /* Phase 9 + Intervention: Admin — Platform-Wide Orders Management */ ?>
 <div class="container py-4">
 
     <!-- Header -->
@@ -90,6 +90,7 @@
                                 <th>Payment</th>
                                 <th>Status</th>
                                 <th>Placed</th>
+                                <th class="text-center pe-4">Action</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -116,7 +117,7 @@
                                         <span class="small"><?= sanitize($order['kitchen_name']) ?></span>
                                     </td>
                                     <td>
-                                        <span class="fw-bold">₹<?= number_format((float)$order['total_amount'], 2) ?></span>
+                                        <span class="fw-bold">&#8377;<?= number_format((float)$order['total_amount'], 2) ?></span>
                                     </td>
                                     <td>
                                         <span class="badge bg-<?= $order['payment_status'] === 'completed' ? 'success' : 'warning' ?> text-<?= $order['payment_status'] === 'completed' ? 'white' : 'dark' ?> rounded-pill px-3">
@@ -131,6 +132,23 @@
                                     <td>
                                         <span class="text-muted small"><?= date('d M, h:i A', strtotime($order['created_at'])) ?></span>
                                     </td>
+                                    <td class="text-center pe-4">
+                                        <?php if ($order['order_status'] !== 'delivered' && $order['order_status'] !== 'cancelled'): ?>
+                                            <button
+                                                class="btn btn-sm btn-outline-danger fw-semibold intervene-btn"
+                                                title="Admin Intervention"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#interveneModal"
+                                                data-order-id="<?= (int)$order['id'] ?>"
+                                                data-order-number="<?= sanitize($order['order_number']) ?>"
+                                                data-current-status="<?= sanitize($order['order_status']) ?>"
+                                            >
+                                                <i class="bi bi-shield-exclamation me-1"></i>Intervene
+                                            </button>
+                                        <?php else: ?>
+                                            <span class="text-muted small">&#8212;</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -140,3 +158,77 @@
         </div>
     </div>
 </div>
+
+<!-- Admin Intervention Modal -->
+<div class="modal fade" id="interveneModal" tabindex="-1" aria-labelledby="interveneModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg" style="border-radius:16px; overflow:hidden;">
+            <div class="modal-header border-0 py-3 px-4" style="background: linear-gradient(135deg,#7b2d8b,#c0392b);">
+                <h5 class="modal-title fw-bold text-white" id="interveneModalLabel">
+                    <i class="bi bi-shield-exclamation me-2"></i>Admin Order Intervention
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body px-4 py-4">
+                <div class="alert alert-warning border-0 rounded-3 small mb-4 py-2">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    <strong>Admin action.</strong> This will override the current order status and notify the customer.
+                </div>
+                <p class="mb-3 small text-muted">
+                    Intervening on order:
+                    <strong id="modalOrderNumber" class="text-primary"></strong>
+                    &nbsp;|&nbsp;Current status:
+                    <span id="modalCurrentStatus" class="badge bg-secondary rounded-pill px-2"></span>
+                </p>
+                <form action="<?= url('/admin/order/intervene') ?>" method="POST" id="interveneForm">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="order_id" id="modalOrderId">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold small">Set New Status <span class="text-danger">*</span></label>
+                        <select name="new_status" id="newStatusSelect" class="form-select" required>
+                            <option value="">&#8212; Select a status &#8212;</option>
+                            <option value="pending">Pending</option>
+                            <option value="accepted">Accepted</option>
+                            <option value="preparing">Preparing</option>
+                            <option value="out_for_delivery">Out for Delivery</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold small">Reason for Intervention <span class="text-danger">*</span></label>
+                        <textarea
+                            name="reason"
+                            id="interventionReason"
+                            class="form-control"
+                            rows="3"
+                            placeholder="e.g. Order stuck in Preparing for 3+ hours — force-cancelling after customer complaint."
+                            required
+                            maxlength="300"
+                            style="border-radius:10px; resize:none;"
+                        ></textarea>
+                        <div class="form-text small text-muted">Max 300 characters. Reason is logged and sent to the customer.</div>
+                    </div>
+                    <div class="d-flex gap-2 justify-content-end">
+                        <button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger px-4 fw-bold">
+                            <i class="bi bi-shield-check me-1"></i>Apply Intervention
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.querySelectorAll('.intervene-btn').forEach(btn => {
+    btn.addEventListener('click', function () {
+        document.getElementById('modalOrderId').value          = this.dataset.orderId;
+        document.getElementById('modalOrderNumber').textContent = this.dataset.orderNumber;
+        document.getElementById('modalCurrentStatus').textContent = this.dataset.currentStatus.replace(/_/g, ' ');
+        document.getElementById('newStatusSelect').value       = '';
+        document.getElementById('interventionReason').value    = '';
+    });
+});
+</script>

@@ -4,7 +4,7 @@
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb">
             <li class="breadcrumb-item"><a href="<?= url('/') ?>" class="text-decoration-none">Home</a></li>
-            <li class="breadcrumb-item"><a href="<?= url('/subscriptions') ?>" class="text-decoration-none">Tiffin Plans</a></li>
+            <li class="breadcrumb-item"><a href="<?= ctx_url('/subscriptions') ?>" class="text-decoration-none">Tiffin Plans</a></li>
             <li class="breadcrumb-item active"><?= sanitize($plan['plan_name']) ?></li>
         </ol>
     </nav>
@@ -109,7 +109,7 @@
                         <?php endif; ?>
 
                         <div class="mt-2">
-                            <a href="<?= url('/kitchen/' . $plan['kitchen_id']) ?>" class="text-decoration-none small">
+                            <a href="<?= ctx_url('/kitchen/' . $plan['kitchen_id']) ?>" class="text-decoration-none small">
                                 <i class="bi bi-arrow-right me-1"></i>View Full Kitchen Profile
                             </a>
                         </div>

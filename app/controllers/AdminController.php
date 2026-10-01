@@ -682,4 +682,78 @@ class AdminController extends Controller {
             'testLimit'     => $limit,
         ]);
     }
+
+    // ─── Admin Order Intervention (Force Status Change) ─────────────────────────
+
+    /**
+     * Force-update an order's status as admin intervention.
+     * POST /admin/order/intervene
+     */
+    public function interveneOrder(): void {
+        Middleware::verifyCsrf();
+
+        require_once APP_PATH . '/models/Order.php';
+        $orderModel = new Order();
+
+        $orderId   = (int)($_POST['order_id']    ?? 0);
+        $newStatus = sanitize(trim($_POST['new_status'] ?? ''));
+        $reason    = sanitize(trim($_POST['reason']     ?? ''));
+
+        $allowedStatuses = ['pending', 'accepted', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'];
+
+        // Validate inputs
+        if ($orderId <= 0 || !in_array($newStatus, $allowedStatuses, true)) {
+            Session::setFlash('danger', 'Invalid order or status selection.');
+            $this->redirect('/admin/orders');
+            return;
+        }
+
+        if (empty($reason)) {
+            Session::setFlash('danger', 'A reason is required for admin intervention.');
+            $this->redirect('/admin/orders');
+            return;
+        }
+
+        $order = $orderModel->findByIdWithDetails($orderId);
+        if (!$order) {
+            Session::setFlash('danger', 'Order #' . $orderId . ' not found.');
+            $this->redirect('/admin/orders');
+            return;
+        }
+
+        // Prevent no-op update
+        if ($order['order_status'] === $newStatus) {
+            Session::setFlash('warning', 'Order is already set to "' . ucwords(str_replace('_', ' ', $newStatus)) . '".');
+            $this->redirect('/admin/orders');
+            return;
+        }
+
+        $success = $orderModel->adminUpdateStatus($orderId, $newStatus, $reason);
+
+        if ($success) {
+            $label = ucwords(str_replace('_', ' ', $newStatus));
+            Session::setFlash('success',
+                'Order <strong>' . sanitize($order['order_number']) . '</strong> has been updated to <strong>' . $label . '</strong>. Reason: ' . $reason
+            );
+
+            // Send a notification to the customer
+            try {
+                require_once APP_PATH . '/models/Notification.php';
+                $notif = new Notification();
+                $notif->create([
+                    'user_id' => (int)$order['customer_id'],
+                    'title'   => 'Your order has been updated',
+                    'message' => 'Admin updated your order ' . sanitize($order['order_number']) . ' to "' . $label . '". Reason: ' . $reason,
+                    'type'    => 'order_update',
+                    'is_read' => 0,
+                ]);
+            } catch (Exception $e) {
+                // Notification failure is non-fatal
+            }
+        } else {
+            Session::setFlash('danger', 'Failed to update order status. Please try again.');
+        }
+
+        $this->redirect('/admin/orders');
+    }
 }

@@ -52,6 +52,44 @@ if (!function_exists('url')) {
     }
 }
 
+if (!function_exists('ctx_url')) {
+    /**
+     * Context-aware URL helper.
+     *
+     * Rewrites public customer-facing paths so they stay within the current
+     * session's URL prefix (KRAVYO_CHEF → /chef/*, KRAVYO_ADMIN → /admin/*).
+     * This prevents session-context switching when a Chef or Admin navigates
+     * to a shared page like "Browse Dishes" or "View Kitchen".
+     *
+     * Usage in views:  ctx_url('/dish/' . $id)   instead of  url('/dish/' . $id)
+     *                  ctx_url('/kitchens')       instead of  url('/kitchens')
+     *
+     * Customer context (default) returns the original path unchanged.
+     */
+    function ctx_url(string $path): string {
+        $ctx = Session::currentContext();
+
+        if ($ctx === Session::CHEF_SESSION) {
+            // Map customer public paths → chef-prefixed equivalents
+            $path = preg_replace('#^/dish/(.+)#',     '/chef/dish/$1',           $path);
+            $path = preg_replace('#^/kitchen/(\d+)#',  '/chef/kitchen/$1',        $path);
+            $path = preg_replace('#^/kitchens$#',      '/chef/kitchens',          $path);
+            $path = preg_replace('#^/menu$#',          '/chef/menu-browse',       $path);
+            $path = preg_replace('#^/zero-waste$#',    '/chef/zero-waste-deals',  $path);
+            $path = preg_replace('#^/subscriptions$#', '/chef/subscriptions-browse', $path);
+            $path = preg_replace('#^/subscription/(\d+)#', '/chef/subscription/$1', $path);
+        } elseif ($ctx === Session::ADMIN_SESSION) {
+            $path = preg_replace('#^/dish/(.+)#',     '/admin/dish/$1',            $path);
+            $path = preg_replace('#^/kitchen/(\d+)#',  '/admin/kitchen/$1',        $path);
+            $path = preg_replace('#^/kitchens$#',      '/admin/kitchens-browse',   $path);
+            $path = preg_replace('#^/menu$#',          '/admin/menu-browse',       $path);
+            $path = preg_replace('#^/zero-waste$#',    '/admin/zero-waste-browse', $path);
+        }
+
+        return APP_URL . '/' . ltrim($path, '/');
+    }
+}
+
 if (!function_exists('asset')) {
     function asset(string $path): string {
         return ASSET_URL . '/' . ltrim($path, '/');

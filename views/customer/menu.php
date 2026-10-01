@@ -24,7 +24,7 @@
             <!-- Sidebar Filters -->
             <div class="col-lg-3">
                 <div class="menu-filter-sidebar">
-                    <form method="GET" action="<?= url('/menu') ?>" id="menuFilterForm">
+                    <form method="GET" action="<?= ctx_url('/menu') ?>" id="menuFilterForm">
                         <h6 class="fw-bold mb-3"><i class="bi bi-funnel me-1"></i> Filters</h6>
 
                         <!-- Search -->
@@ -124,7 +124,7 @@
                         <?php foreach ($dishes as $dish): ?>
                             <div class="col-lg-4 col-md-6">
                                 <div class="card dish-card h-100">
-                                    <a href="<?= url('/dish/' . $dish['id']) ?>" class="text-decoration-none">
+                                    <a href="<?= ctx_url('/dish/' . $dish['id']) ?>" class="text-decoration-none">
                                         <div class="dish-card-image">
                                             <?php if (!empty($dish['image'])): ?>
                                                 <img src="<?= UPLOAD_URL . '/dishes/' . $dish['image'] ?>"
@@ -139,13 +139,13 @@
                                     </a>
 
                                     <div class="card-body p-3">
-                                        <a href="<?= url('/dish/' . $dish['id']) ?>" class="text-decoration-none">
+                                        <a href="<?= ctx_url('/dish/' . $dish['id']) ?>" class="text-decoration-none">
                                             <h6 class="fw-bold mb-1 text-dark"><?= sanitize($dish['item_name']) ?></h6>
                                         </a>
 
                                         <!-- Kitchen info -->
                                         <p class="text-muted small mb-2">
-                                            <a href="<?= url('/kitchen/' . $dish['kitchen_id']) ?>" class="text-decoration-none text-muted">
+                                            <a href="<?= ctx_url('/kitchen/' . $dish['kitchen_id']) ?>" class="text-decoration-none text-muted">
                                                 <i class="bi bi-shop me-1"></i><?= sanitize($dish['kitchen_name']) ?>
                                             </a>
                                             <span class="mx-1">•</span>
@@ -167,7 +167,7 @@
                                             <?php endif; ?>
                                         </div>
 
-                                        <a href="<?= url('/dish/' . $dish['id']) ?>" class="btn btn-kravyo-primary btn-sm w-100">
+                                        <a href="<?= ctx_url('/dish/' . $dish['id']) ?>" class="btn btn-kravyo-primary btn-sm w-100">
                                             <i class="bi bi-cart-plus me-1"></i> View & Customize
                                         </a>
                                     </div>

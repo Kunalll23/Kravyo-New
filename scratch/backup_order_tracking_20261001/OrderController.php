@@ -223,44 +223,20 @@ class OrderController extends Controller {
 
         $orderItems = $orderItemModel->findByOrderId($orderId);
 
-        // ── Simplified Customer-Facing Timeline ──────────────────────────────────
-        // The backend maintains granular statuses (pending, accepted, preparing,
-        // out_for_delivery, delivered, cancelled) for chef workflow.  The customer
-        // sees a cleaner 4-step progress:
-        //   1. Order Confirmed  (backend: pending OR accepted)
-        //   2. Preparing         (backend: preparing)
-        //   3. Out for Delivery  (backend: out_for_delivery)
-        //   4. Delivered          (backend: delivered)
-        //
-        // "Accepted" is intentionally NOT shown as a separate step to the customer.
-        // When the chef accepts, the customer timeline advances to "Preparing" only
-        // once the chef explicitly starts preparing.  While in "accepted", the
-        // customer still sees "Order Confirmed" as the current step.
-
+        // Define status timeline steps
         $statusTimeline = [
-            'confirmed'        => ['label' => 'Order Confirmed',     'icon' => 'bi-bag-check-fill',  'desc' => 'Your order has been received and confirmed.'],
-            'preparing'        => ['label' => 'Preparing',           'icon' => 'bi-fire',            'desc' => 'Your meal is being prepared with care.'],
-            'out_for_delivery' => ['label' => 'Out for Delivery',    'icon' => 'bi-bicycle',         'desc' => 'Your food is on its way to you!'],
-            'delivered'        => ['label' => 'Delivered',           'icon' => 'bi-house-check-fill','desc' => 'Your order has been delivered. Enjoy your meal!'],
+            'pending'          => ['label' => 'Order Placed',       'icon' => 'bi-bag-check',       'desc' => 'Your order has been placed and is waiting for the chef to accept.'],
+            'accepted'         => ['label' => 'Accepted',           'icon' => 'bi-check2-circle',   'desc' => 'The chef has accepted your order.'],
+            'preparing'        => ['label' => 'Preparing',          'icon' => 'bi-fire',            'desc' => 'Your meal is being prepared with care.'],
+            'out_for_delivery' => ['label' => 'Out for Delivery',   'icon' => 'bi-bicycle',         'desc' => 'Your food is on its way to you!'],
+            'delivered'        => ['label' => 'Delivered',          'icon' => 'bi-house-check',     'desc' => 'Your order has been delivered. Enjoy your meal!'],
         ];
-
-        // Map the backend order_status to the customer-facing timeline key
-        $backendToCustomerStep = [
-            'pending'          => 'confirmed',
-            'accepted'         => 'confirmed',       // accepted still shows as "Order Confirmed"
-            'preparing'        => 'preparing',
-            'out_for_delivery' => 'out_for_delivery',
-            'delivered'        => 'delivered',
-        ];
-
-        $customerStep = $backendToCustomerStep[$order['order_status']] ?? 'confirmed';
 
         $this->render('customer/order_track', [
             'title'          => 'Track Order #' . $order['order_number'],
             'order'          => $order,
             'orderItems'     => $orderItems,
             'statusTimeline' => $statusTimeline,
-            'customerStep'   => $customerStep,
         ]);
     }
 

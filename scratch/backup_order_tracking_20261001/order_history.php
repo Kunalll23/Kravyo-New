@@ -34,26 +34,17 @@
             <div class="row g-3">
                 <?php foreach ($orders as $order): ?>
                     <?php
-                    // Customer-friendly status labels and colors
-                    $customerStatusLabels = [
-                        'pending'          => 'Order Confirmed',
-                        'accepted'         => 'Order Confirmed',
-                        'preparing'        => 'Preparing',
-                        'out_for_delivery' => 'Out for Delivery',
-                        'delivered'        => 'Delivered',
-                        'cancelled'        => 'Cancelled',
-                    ];
                     $statusColors = [
                         'pending' => 'warning', 'accepted' => 'info', 'preparing' => 'primary',
                         'out_for_delivery' => 'success', 'delivered' => 'success', 'cancelled' => 'danger'
                     ];
                     $statusIcons = [
-                        'pending' => 'bi-bag-check-fill', 'accepted' => 'bi-bag-check-fill', 'preparing' => 'bi-fire',
-                        'out_for_delivery' => 'bi-bicycle', 'delivered' => 'bi-house-check-fill', 'cancelled' => 'bi-x-circle'
+                        'pending' => 'bi-clock', 'accepted' => 'bi-check2-circle', 'preparing' => 'bi-fire',
+                        'out_for_delivery' => 'bi-bicycle', 'delivered' => 'bi-house-check', 'cancelled' => 'bi-x-circle'
                     ];
                     $color = $statusColors[$order['order_status']] ?? 'secondary';
                     $icon = $statusIcons[$order['order_status']] ?? 'bi-circle';
-                    $label = $customerStatusLabels[$order['order_status']] ?? ucwords(str_replace('_', ' ', $order['order_status']));
+                    $label = ucwords(str_replace('_', ' ', $order['order_status']));
                     ?>
                     <div class="col-lg-6">
                         <a href="<?= url('/order/track/' . $order['id']) ?>" class="text-decoration-none">

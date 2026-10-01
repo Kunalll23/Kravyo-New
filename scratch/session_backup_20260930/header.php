@@ -1,93 +1,7 @@
-<?php
-/**
- * ── Active-user resolution ───────────────────────────────────────────────────
- * The primary session is determined by the URL (detectContext()):
- *   /admin/* → KRAVYO_ADMIN   /chef/* → KRAVYO_CHEF   else → KRAVYO_CUSTOMER
- *
- * Session::getCrossSessionUser() returns Chef identity when:
- *   - Primary context is KRAVYO_CUSTOMER (non-/chef page), AND
- *   - No Customer is logged in, AND
- *   - A KRAVYO_CHEF cookie exists in the browser.
- * This lets a Chef browsing "/" or "/login" appear correctly in the header
- * without opening two sessions simultaneously on every request.
- */
-$_crossUser    = Session::getCrossSessionUser();      // [] if not applicable
-$_isPrimary    = Session::has('user_id');             // true = Customer/Chef via primary session
-$_hasUser      = $_isPrimary || !empty($_crossUser['user_id']);
-
-// Display data
-$_userName     = $_isPrimary
-    ? Session::get('user_name', 'Account')
-    : ($_crossUser['user_name'] ?? 'Account');
-$_userRole     = $_isPrimary
-    ? Session::get('user_role', '')
-    : ($_crossUser['user_role'] ?? '');
-$_activeUserId = $_isPrimary
-    ? (int) Session::get('user_id', 0)
-    : (int) ($_crossUser['user_id'] ?? 0);
-
-// Logout action & CSRF:
-//   Chef-role users use /chef/logout so CSRF is verified against KRAVYO_CHEF.
-//   Customer-role users use /logout (KRAVYO_CUSTOMER context).
-//   When a Chef is cross-session visible (on a Customer URL), the logout form
-//   uses the Chef session's own CSRF token (peeked during init()).
-if ($_userRole === ROLE_CHEF) {
-    $_logoutAction = url('/chef/logout');
-    // If primary session is KRAVYO_CHEF, csrf_token() returns the Chef CSRF.
-    // If this is a cross-session Chef on a Customer URL, use the peeked token.
-    $_logoutCsrf = $_isPrimary
-        ? csrf_token()
-        : htmlspecialchars($_crossUser['_csrf_token'] ?? '', ENT_QUOTES, 'UTF-8');
-} else {
-    $_logoutAction = url('/logout');
-    $_logoutCsrf   = csrf_token(); // from KRAVYO_CUSTOMER (or KRAVYO_ADMIN for admin logout)
-}
-
-// ── Context-aware navigation URLs ────────────────────────────────────────────
-// When a Chef or Admin clicks "Browse Dishes" / "Explore Kitchens", the URL
-// must stay within the /chef/* or /admin/* prefix so the session cookie
-// (KRAVYO_CHEF / KRAVYO_ADMIN) remains active.  Without this, navigating to
-// /kitchens or /menu would switch to KRAVYO_CUSTOMER and lose the Chef/Admin
-// session, showing the Customer login instead.
-$_sessionCtx = Session::currentContext();
-
-switch ($_sessionCtx) {
-    case Session::CHEF_SESSION:
-        $_navHome          = url('/chef/dashboard');
-        $_navKitchens      = url('/chef/kitchens');
-        $_navMenu          = url('/chef/menu-browse');
-        $_navSubscriptions = url('/chef/subscriptions-browse');
-        $_navZeroWaste     = url('/chef/zero-waste-deals');
-        $_navDishPrefix    = '/chef/dish/';
-        $_navHomeLabel     = 'Dashboard';
-        $_navHomeIcon      = 'bi-speedometer2';
-        break;
-    case Session::ADMIN_SESSION:
-        $_navHome          = url('/admin/dashboard');
-        $_navKitchens      = url('/admin/kitchens-browse');
-        $_navMenu          = url('/admin/menu-browse');
-        $_navSubscriptions = url('/subscriptions');   // admin doesn't need prefixed subs
-        $_navZeroWaste     = url('/admin/zero-waste-browse');
-        $_navDishPrefix    = '/admin/dish/';
-        $_navHomeLabel     = 'Dashboard';
-        $_navHomeIcon      = 'bi-speedometer2';
-        break;
-    default: // CUSTOMER_SESSION
-        $_navHome          = url('/');
-        $_navKitchens      = url('/kitchens');
-        $_navMenu          = url('/menu');
-        $_navSubscriptions = url('/subscriptions');
-        $_navZeroWaste     = url('/zero-waste');
-        $_navDishPrefix    = '/dish/';
-        $_navHomeLabel     = 'Home';
-        $_navHomeIcon      = 'bi-house-door';
-        break;
-}
-?>
 <header>
     <nav class="navbar navbar-expand-lg navbar-kravyo">
         <div class="container">
-            <a class="navbar-brand d-flex align-items-center me-4" href="<?= $_navHome ?>">
+            <a class="navbar-brand d-flex align-items-center me-4" href="<?= url('/') ?>">
                 <img src="<?= url('/assets/images/kravyo-logo.png') ?>" alt="Kravyo" height="30" style="object-fit: contain; max-height: 30px; transform: scale(1.8); transform-origin: left center; margin-right: 60px;">
             </a>
             
@@ -98,23 +12,23 @@ switch ($_sessionCtx) {
             <div class="collapse navbar-collapse" id="navbarKravyoContent">
                 <ul class="navbar-nav me-auto mb-2 mb-lg-0 ms-lg-4">
                     <li class="nav-item">
-                        <a class="nav-link active" href="<?= $_navHome ?>"><i class="bi <?= $_navHomeIcon ?> me-1"></i> <?= $_navHomeLabel ?></a>
+                        <a class="nav-link active" href="<?= url('/') ?>"><i class="bi bi-house-door me-1"></i> Home</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="<?= $_navKitchens ?>"><i class="bi bi-shop me-1"></i> Explore Kitchens</a>
+                        <a class="nav-link" href="<?= url('/kitchens') ?>"><i class="bi bi-shop me-1"></i> Explore Kitchens</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="<?= $_navMenu ?>"><i class="bi bi-journal-text me-1"></i> Browse Dishes</a>
+                        <a class="nav-link" href="<?= url('/menu') ?>"><i class="bi bi-journal-text me-1"></i> Browse Dishes</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="<?= $_navSubscriptions ?>"><i class="bi bi-calendar2-week me-1"></i> Tiffin Plans</a>
+                        <a class="nav-link" href="<?= url('/subscriptions') ?>"><i class="bi bi-calendar2-week me-1"></i> Tiffin Plans</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link text-warning fw-semibold" href="<?= $_navZeroWaste ?>">
+                        <a class="nav-link text-warning fw-semibold" href="<?= url('/zero-waste') ?>">
                             <i class="bi bi-tag-fill me-1"></i> Zero Waste Deals
                         </a>
                     </li>
-                    <?php if ($_userRole === ROLE_CUSTOMER): ?>
+                    <?php if (Session::get('user_role') === ROLE_CUSTOMER): ?>
                     <li class="nav-item">
                         <a class="nav-link fw-semibold" href="<?= url('/recommendations') ?>"
                            style="background: linear-gradient(135deg,#6a0dad,#9b30ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
@@ -150,25 +64,25 @@ switch ($_sessionCtx) {
                                 </li>
                             </ul>
                         </div>
-                    <?php elseif ($_hasUser): ?>
-                        <!-- Logged-in User Dropdown (Customer or Chef) -->
+                    <?php elseif (Session::has('user_id')): ?>
+                        <!-- Logged-in User Dropdown -->
                         <div class="dropdown">
                             <button class="btn btn-outline-light dropdown-toggle d-flex align-items-center gap-2" type="button" data-bs-toggle="dropdown">
                                 <i class="bi bi-person-circle"></i>
-                                <span><?= sanitize($_userName) ?></span>
+                                <span><?= sanitize(Session::get('user_name', 'Account')) ?></span>
                             </button>
                             <ul class="dropdown-menu dropdown-menu-end">
-                                <?php if ($_userRole === ROLE_CUSTOMER): ?>
+                                <?php if (Session::get('user_role') === ROLE_CUSTOMER): ?>
                                     <li><a class="dropdown-item" href="<?= url('/profile') ?>"><i class="bi bi-person me-2"></i> My Profile</a></li>
                                     <li><a class="dropdown-item" href="<?= url('/orders/history') ?>"><i class="bi bi-bag-check me-2"></i> My Orders</a></li>
-                                <?php elseif ($_userRole === ROLE_CHEF): ?>
+                                <?php elseif (Session::get('user_role') === ROLE_CHEF): ?>
                                     <li><a class="dropdown-item" href="<?= url('/chef/dashboard') ?>"><i class="bi bi-speedometer2 me-2"></i> Chef Dashboard</a></li>
                                     <li><a class="dropdown-item" href="<?= url('/chef/menu') ?>"><i class="bi bi-egg-fried me-2"></i> Manage Menu</a></li>
                                 <?php endif; ?>
                                 <li><hr class="dropdown-divider"></li>
                                 <li>
-                                    <form action="<?= $_logoutAction ?>" method="POST" class="d-inline">
-                                        <input type="hidden" name="_csrf" value="<?= $_logoutCsrf ?>">
+                                    <form action="<?= url('/logout') ?>" method="POST" class="d-inline">
+                                        <?= csrf_field() ?>
                                         <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right me-2"></i> Logout</button>
                                     </form>
                                 </li>
@@ -181,12 +95,12 @@ switch ($_sessionCtx) {
                     <?php endif; ?>
 
                     <!-- Notification Bell (logged-in customers & chefs) -->
-                    <?php if ($_hasUser && $_activeUserId > 0): ?>
+                    <?php if (Session::has('user_id')): ?>
                     <?php
                         require_once APP_PATH . '/models/Notification.php';
-                        $notifModel_   = new Notification();
-                        $_unreadCount  = $notifModel_->countUnread($_activeUserId);
-                        $_latestNotifs = $notifModel_->getLatest($_activeUserId, 5);
+                        $_notifModel   = new Notification();
+                        $_unreadCount  = $_notifModel->countUnread((int) Session::get('user_id'));
+                        $_latestNotifs = $_notifModel->getLatest((int) Session::get('user_id'), 5);
                     ?>
                     <div class="dropdown" id="notificationDropdown">
                         <button class="btn btn-link text-white position-relative p-0 border-0"

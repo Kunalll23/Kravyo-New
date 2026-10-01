@@ -22,7 +22,7 @@
     <div class="container">
         <!-- Search & Filter Bar -->
         <div class="kitchen-filter-bar mb-4">
-            <form method="GET" action="<?= url('/kitchens') ?>" id="kitchenFilterForm">
+            <form method="GET" action="<?= ctx_url('/kitchens') ?>" id="kitchenFilterForm">
                 <div class="row g-3 align-items-end">
                     <div class="col-lg-4 col-md-6">
                         <label class="filter-label"><i class="bi bi-search me-1"></i> Search</label>
@@ -61,7 +61,7 @@
                         <button type="submit" class="btn btn-kravyo-primary flex-fill">
                             <i class="bi bi-funnel me-1"></i> Filter
                         </button>
-                        <a href="<?= url('/kitchens') ?>" class="btn btn-outline-secondary" title="Clear Filters">
+                        <a href="<?= ctx_url('/kitchens') ?>" class="btn btn-outline-secondary" title="Clear Filters">
                             <i class="bi bi-x-lg"></i>
                         </a>
                     </div>
@@ -77,7 +77,7 @@
                 </div>
                 <h4 class="fw-bold text-muted">No Kitchens Found</h4>
                 <p class="text-muted mb-4">Try adjusting your search filters or browse all available kitchens.</p>
-                <a href="<?= url('/kitchens') ?>" class="btn btn-kravyo-primary">
+                <a href="<?= ctx_url('/kitchens') ?>" class="btn btn-kravyo-primary">
                     <i class="bi bi-arrow-clockwise me-1"></i> Clear All Filters
                 </a>
             </div>
@@ -85,7 +85,7 @@
             <div class="row g-4">
                 <?php foreach ($kitchens as $kitchen): ?>
                     <div class="col-lg-4 col-md-6">
-                        <a href="<?= url('/kitchen/' . $kitchen['id']) ?>" class="text-decoration-none">
+                        <a href="<?= ctx_url('/kitchen/' . $kitchen['id']) ?>" class="text-decoration-none">
                             <div class="card kitchen-browse-card h-100">
                                 <!-- Kitchen Banner -->
                                 <div class="kitchen-card-banner">

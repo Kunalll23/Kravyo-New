@@ -14,7 +14,7 @@
             <li class="nav-item">
                 <a class="nav-link text-white" href="<?= url('/chef/zero-waste') ?>"><i class="bi bi-tag-fill me-2"></i> Zero Waste Deals</a>
             </li>
-        <?php elseif (Session::get('user_role') === ROLE_ADMIN): ?>
+        <?php elseif (Session::has('admin_id')): ?>
             <li class="nav-item">
                 <a class="nav-link text-white" href="<?= url('/admin/dashboard') ?>"><i class="bi bi-speedometer2 me-2"></i> Overview</a>
             </li>

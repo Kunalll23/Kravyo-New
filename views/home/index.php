@@ -13,7 +13,7 @@
                     Kravyo empowers passionate home chefs to monetize their culinary skills while bringing healthy, hygienic, home-cooked food to your doorstep.
                 </p>
                 <div class="d-flex flex-wrap gap-3 justify-content-center justify-content-lg-start">
-                    <a href="<?= url('/kitchens') ?>" class="btn btn-kravyo-primary btn-lg">
+                    <a href="<?= ctx_url('/kitchens') ?>" class="btn btn-kravyo-primary btn-lg">
                         <i class="bi bi-search me-2"></i> Explore Local Kitchens
                     </a>
                     <a href="<?= url('/register') ?>" class="btn btn-outline-light btn-lg">
@@ -235,7 +235,7 @@ if ($_isCustomer) {
                             </div>
                         <?php endif; ?>
 
-                        <a href="<?= url('/dish/' . $_rd['id']) ?>" class="text-decoration-none">
+                        <a href="<?= ctx_url('/dish/' . $_rd['id']) ?>" class="text-decoration-none">
                             <div class="dish-card-image">
                                 <?php if (!empty($_rd['image'])): ?>
                                     <img src="<?= UPLOAD_URL . '/dishes/' . $_rd['image'] ?>"
@@ -248,7 +248,7 @@ if ($_isCustomer) {
                         </a>
 
                         <div class="card-body p-3">
-                            <a href="<?= url('/dish/' . $_rd['id']) ?>" class="text-decoration-none">
+                            <a href="<?= ctx_url('/dish/' . $_rd['id']) ?>" class="text-decoration-none">
                                 <h6 class="fw-bold mb-1 text-dark"><?= sanitize($_rd['item_name']) ?></h6>
                             </a>
                             <p class="text-muted small mb-2">
@@ -266,7 +266,7 @@ if ($_isCustomer) {
                                     <span class="dietary-badge dietary-jain"><i class="bi bi-flower1 me-1"></i>Jain</span>
                                 <?php endif; ?>
                             </div>
-                            <a href="<?= url('/dish/' . $_rd['id']) ?>" class="btn btn-sm w-100 fw-semibold"
+                            <a href="<?= ctx_url('/dish/' . $_rd['id']) ?>" class="btn btn-sm w-100 fw-semibold"
                                style="background:linear-gradient(135deg,#6a0dad,#9b30ff); color:#fff; border:none;">
                                 <i class="bi bi-cart-plus me-1"></i> View &amp; Order
                             </a>

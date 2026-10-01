@@ -22,10 +22,10 @@
                 <h4 class="fw-bold text-muted">Your Cart is Empty</h4>
                 <p class="text-muted mb-4">Looks like you haven't added any delicious meals yet. Start exploring!</p>
                 <div class="d-flex justify-content-center gap-3">
-                    <a href="<?= url('/menu') ?>" class="btn btn-kravyo-primary">
+                    <a href="<?= ctx_url('/menu') ?>" class="btn btn-kravyo-primary">
                         <i class="bi bi-egg-fried me-2"></i> Browse Dishes
                     </a>
-                    <a href="<?= url('/kitchens') ?>" class="btn btn-kravyo-outline">
+                    <a href="<?= ctx_url('/kitchens') ?>" class="btn btn-kravyo-outline">
                         <i class="bi bi-shop me-2"></i> Explore Kitchens
                     </a>
                 </div>
@@ -39,7 +39,7 @@
                         <div class="d-flex align-items-center gap-2">
                             <i class="bi bi-shop text-warning"></i>
                             <span class="fw-bold">Ordering from:</span>
-                            <a href="<?= url('/kitchen/' . $cart['kitchen_id']) ?>" class="text-decoration-none fw-bold text-dark">
+                            <a href="<?= ctx_url('/kitchen/' . $cart['kitchen_id']) ?>" class="text-decoration-none fw-bold text-dark">
                                 <?= sanitize($cart['kitchen_name'] ?? 'Unknown Kitchen') ?>
                             </a>
                         </div>
@@ -169,7 +169,7 @@
                                 <i class="bi bi-recycle me-1"></i> Browse More Zero Waste Deals
                             </a>
                         <?php else: ?>
-                            <a href="<?= url('/kitchen/' . $cart['kitchen_id']) ?>" class="btn btn-kravyo-outline btn-sm">
+                            <a href="<?= ctx_url('/kitchen/' . $cart['kitchen_id']) ?>" class="btn btn-kravyo-outline btn-sm">
                                 <i class="bi bi-plus-circle me-1"></i> Add More from <?= sanitize($cart['kitchen_name'] ?? 'this kitchen') ?>
                             </a>
                         <?php endif; ?>

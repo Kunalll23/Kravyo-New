@@ -87,10 +87,10 @@
                 <p class="text-muted mb-4">
                     Home chefs post end-of-day deals in the evenings. Check back later or browse the full menu!
                 </p>
-                <a href="<?= url('/menu') ?>" class="btn btn-kravyo-primary me-2">
+                <a href="<?= ctx_url('/menu') ?>" class="btn btn-kravyo-primary me-2">
                     <i class="bi bi-egg-fried me-2"></i>Browse Full Menu
                 </a>
-                <a href="<?= url('/kitchens') ?>" class="btn btn-outline-secondary">
+                <a href="<?= ctx_url('/kitchens') ?>" class="btn btn-outline-secondary">
                     <i class="bi bi-shop me-2"></i>Explore Kitchens
                 </a>
             </div>
@@ -194,21 +194,29 @@
                                     <!-- Add to Cart with Quantity Selector -->
                                     <?php if (Session::get('user_id') && Session::get('user_role') === 'customer'): ?>
                                         <?php $maxStock = (int) $deal['quantity_available']; ?>
-                                        <form action="<?= url('/cart/add') ?>" method="POST" class="d-flex align-items-center gap-2">
+                                        <form action="<?= url('/cart/add') ?>" method="POST" class="d-flex align-items-center gap-2 flex-nowrap">
                                             <?= csrf_field() ?>
                                             <input type="hidden" name="zero_waste_id" value="<?= (int) $deal['id'] ?>">
-                                            <!-- Quantity stepper capped at available stock -->
-                                            <div class="input-group input-group-sm" style="width:90px;">
-                                                <button type="button" class="btn btn-outline-secondary px-2 zw-qty-minus" data-max="<?= $maxStock ?>">
+                                            <!-- Quantity stepper — inline, no wrapping -->
+                                            <div class="d-flex align-items-center border rounded-2 overflow-hidden" style="height:32px;">
+                                                <button type="button"
+                                                        class="btn btn-outline-secondary border-0 px-2 py-0 zw-qty-minus"
+                                                        data-max="<?= $maxStock ?>"
+                                                        style="height:32px; line-height:1;">
                                                     <i class="bi bi-dash"></i>
                                                 </button>
-                                                <input type="number" name="quantity" class="form-control text-center px-1 zw-qty-input fw-bold"
-                                                       value="1" min="1" max="<?= $maxStock ?>" readonly style="width:34px;">
-                                                <button type="button" class="btn btn-outline-secondary px-2 zw-qty-plus" data-max="<?= $maxStock ?>">
+                                                <input type="number" name="quantity"
+                                                       class="form-control border-0 text-center px-0 zw-qty-input fw-bold"
+                                                       value="1" min="1" max="<?= $maxStock ?>" readonly
+                                                       style="width:30px; height:32px; font-size:.85rem; -moz-appearance:textfield;">
+                                                <button type="button"
+                                                        class="btn btn-outline-secondary border-0 px-2 py-0 zw-qty-plus"
+                                                        data-max="<?= $maxStock ?>"
+                                                        style="height:32px; line-height:1;">
                                                     <i class="bi bi-plus"></i>
                                                 </button>
                                             </div>
-                                            <button type="submit" class="btn btn-success btn-sm fw-semibold px-3">
+                                            <button type="submit" class="btn btn-success btn-sm fw-semibold px-3" style="height:32px; white-space:nowrap;">
                                                 <i class="bi bi-cart-plus me-1"></i>Add
                                             </button>
                                         </form>
@@ -217,7 +225,7 @@
                                             <i class="bi bi-box-arrow-in-right me-1"></i>Login to Order
                                         </a>
                                     <?php else: ?>
-                                        <a href="<?= url('/kitchen/' . $deal['kitchen_id']) ?>" class="btn btn-outline-primary btn-sm">
+                                        <a href="<?= ctx_url('/kitchen/' . $deal['kitchen_id']) ?>" class="btn btn-outline-primary btn-sm">
                                             <i class="bi bi-eye me-1"></i>View Kitchen
                                         </a>
                                     <?php endif; ?>

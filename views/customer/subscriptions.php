@@ -19,7 +19,7 @@
     <!-- Filters -->
     <div class="card kravyo-card border-0 mb-4">
         <div class="card-body p-3">
-            <form method="GET" action="<?= url('/subscriptions') ?>" class="row g-2 align-items-end">
+            <form method="GET" action="<?= ctx_url('/subscriptions') ?>" class="row g-2 align-items-end">
                 <div class="col-md-4">
                     <label class="form-label fw-semibold small mb-1">Search</label>
                     <div class="input-group">
@@ -136,7 +136,7 @@
                             </div>
 
                             <!-- CTA -->
-                            <a href="<?= url('/subscription/' . $plan['id']) ?>" class="btn btn-kravyo-primary w-100">
+                            <a href="<?= ctx_url('/subscription/' . $plan['id']) ?>" class="btn btn-kravyo-primary w-100">
                                 <i class="bi bi-arrow-right-circle me-1"></i> View & Subscribe
                             </a>
                         </div>

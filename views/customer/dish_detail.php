@@ -4,8 +4,8 @@
         <!-- Breadcrumb -->
         <nav aria-label="breadcrumb" class="mb-4">
             <ol class="breadcrumb">
-                <li class="breadcrumb-item"><a href="<?= url('/menu') ?>" class="text-decoration-none"><i class="bi bi-journal-text me-1"></i>Browse Dishes</a></li>
-                <li class="breadcrumb-item"><a href="<?= url('/kitchen/' . $dish['kitchen_id']) ?>" class="text-decoration-none"><?= sanitize($dish['kitchen_name']) ?></a></li>
+                <li class="breadcrumb-item"><a href="<?= ctx_url('/menu') ?>" class="text-decoration-none"><i class="bi bi-journal-text me-1"></i>Browse Dishes</a></li>
+                <li class="breadcrumb-item"><a href="<?= ctx_url('/kitchen/' . $dish['kitchen_id']) ?>" class="text-decoration-none"><?= sanitize($dish['kitchen_name']) ?></a></li>
                 <li class="breadcrumb-item active" aria-current="page"><?= sanitize($dish['item_name']) ?></li>
             </ol>
         </nav>
@@ -28,7 +28,7 @@
 
                 <!-- Kitchen Info Card -->
                 <div class="kitchen-info-card mt-3">
-                    <a href="<?= url('/kitchen/' . $dish['kitchen_id']) ?>" class="text-decoration-none">
+                    <a href="<?= ctx_url('/kitchen/' . $dish['kitchen_id']) ?>" class="text-decoration-none">
                         <div class="d-flex align-items-center gap-3">
                             <div class="avatar-circle" style="width:48px;height:48px;font-size:1.2rem;">
                                 <?= strtoupper(substr($dish['chef_name'], 0, 1)) ?>

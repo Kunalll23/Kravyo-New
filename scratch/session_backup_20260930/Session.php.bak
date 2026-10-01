@@ -1,0 +1,167 @@
+<?php
+/**
+ * Kravyo - Core Session & CSRF Security Manager
+ *
+ * ─── Multi-Tab Concurrent Login Architecture ──────────────────────────────
+ * Problem: PHP sessions are shared across all tabs in the same browser via
+ *          a single PHPSESSID cookie, so logging in as Chef in Tab A would
+ *          overwrite the Customer session from Tab B.
+ *
+ * Solution: We use TWO separate, named session cookies:
+ *   • KRAVYO_USER  — for Customer & Chef portal  (all non-admin routes)
+ *   • KRAVYO_ADMIN — for Admin portal             (/admin/* routes)
+ *
+ * Each cookie is completely independent, so a user can have:
+ *   Tab 1 → Customer logged in  (KRAVYO_USER cookie)
+ *   Tab 2 → Chef logged in      (KRAVYO_USER cookie, different session data)
+ *           NOTE: Same cookie name means same session within a browser.
+ *           For Customer vs Chef in separate tabs you must use different
+ *           browsers or incognito mode — they are different ACCOUNTS after all.
+ *   Tab 3 → Admin logged in     (KRAVYO_ADMIN cookie — fully independent)
+ *
+ * This means Admin + (Customer OR Chef) can run simultaneously in the same
+ * browser with zero interference.
+ */
+
+class Session {
+
+    /** Session name used for the user portal (customer + chef) */
+    const USER_SESSION  = 'KRAVYO_USER';
+
+    /** Session name used for the admin portal */
+    const ADMIN_SESSION = 'KRAVYO_ADMIN';
+
+    /**
+     * Detect the correct session name from the current request URI.
+     * Returns KRAVYO_ADMIN for /admin/* routes, KRAVYO_USER for everything else.
+     */
+    public static function detectContext(): string {
+        $uri = $_SERVER['REQUEST_URI'] ?? '/';
+        // Strip query string
+        $path = parse_url($uri, PHP_URL_PATH) ?? '/';
+        // Strip the subfolder prefix if running under /Kravyo/
+        $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
+        $baseFolder = str_replace('/public', '', $scriptDir);
+        if ($baseFolder !== '' && $baseFolder !== '/' && str_starts_with($path, $baseFolder)) {
+            $path = substr($path, strlen($baseFolder));
+        }
+        // Is this an admin route?
+        if (str_starts_with($path, '/admin')) {
+            return self::ADMIN_SESSION;
+        }
+        return self::USER_SESSION;
+    }
+
+    /**
+     * Start the correct session for this request.
+     * Called once from public/index.php before any routing happens.
+     */
+    public static function init(): void {
+        if (session_status() === PHP_SESSION_NONE) {
+            ini_set('session.cookie_httponly', '1');
+            ini_set('session.use_only_cookies', '1');
+            // Set session name BEFORE session_start() so the correct cookie is used
+            session_name(self::detectContext());
+            session_start();
+        }
+    }
+
+    /**
+     * Return which session context is currently active.
+     */
+    public static function currentContext(): string {
+        return session_name();
+    }
+
+    // ─── Standard Session Accessors ───────────────────────────────────────────
+
+    /**
+     * Set session key-value
+     */
+    public static function set(string $key, mixed $value): void {
+        self::init();
+        $_SESSION[$key] = $value;
+    }
+
+    /**
+     * Get session value
+     */
+    public static function get(string $key, mixed $default = null): mixed {
+        self::init();
+        return $_SESSION[$key] ?? $default;
+    }
+
+    /**
+     * Check if session key exists
+     */
+    public static function has(string $key): bool {
+        self::init();
+        return isset($_SESSION[$key]);
+    }
+
+    /**
+     * Remove session key
+     */
+    public static function remove(string $key): void {
+        self::init();
+        if (isset($_SESSION[$key])) {
+            unset($_SESSION[$key]);
+        }
+    }
+
+    /**
+     * Destroy the current context's session only.
+     * Does NOT touch the other portal's session cookie.
+     */
+    public static function destroy(): void {
+        self::init();
+        session_unset();
+        session_destroy();
+        // Clear the specific cookie for this context so the browser drops it
+        if (isset($_COOKIE[session_name()])) {
+            setcookie(session_name(), '', time() - 3600, '/');
+        }
+    }
+
+    // ─── Flash Messages ───────────────────────────────────────────────────────
+
+    /**
+     * Set flash message (persists only for next request)
+     */
+    public static function setFlash(string $type, string $message): void {
+        self::init();
+        $_SESSION['_flash'][$type] = $message;
+    }
+
+    /**
+     * Get and clear all flash messages
+     */
+    public static function getFlashes(): array {
+        self::init();
+        $flashes = $_SESSION['_flash'] ?? [];
+        unset($_SESSION['_flash']);
+        return $flashes;
+    }
+
+    // ─── CSRF ─────────────────────────────────────────────────────────────────
+
+    /**
+     * Generate or return the CSRF token for the current session context.
+     * Admin portal and user portal get separate tokens.
+     */
+    public static function generateCsrfToken(): string {
+        self::init();
+        if (!isset($_SESSION['_csrf_token'])) {
+            $_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
+        }
+        return $_SESSION['_csrf_token'];
+    }
+
+    /**
+     * Verify CSRF Token against the current session context.
+     */
+    public static function verifyCsrfToken(?string $token): bool {
+        self::init();
+        return isset($_SESSION['_csrf_token']) && hash_equals($_SESSION['_csrf_token'], (string)$token);
+    }
+}

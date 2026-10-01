@@ -162,7 +162,7 @@
                                                 </div>
 
                                                 <?php if ($item['is_available']): ?>
-                                                    <a href="<?= url('/dish/' . $item['id']) ?>" class="btn btn-kravyo-primary btn-sm w-100">
+                                                    <a href="<?= ctx_url('/dish/' . $item['id']) ?>" class="btn btn-kravyo-primary btn-sm w-100">
                                                         <i class="bi bi-cart-plus me-1"></i> View & Add to Cart
                                                     </a>
                                                 <?php else: ?>

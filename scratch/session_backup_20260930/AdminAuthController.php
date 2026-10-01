@@ -64,14 +64,11 @@ class AdminAuthController extends Controller {
     public function logout(): void {
         Middleware::verifyCsrf();
 
-        // POST /admin/logout → detectContext() = KRAVYO_ADMIN → correct session active.
-        // Remove admin identity keys, then regenerate the session ID so the old
-        // KRAVYO_ADMIN cookie value in the browser becomes orphaned (session file
-        // deleted).  A fresh KRAVYO_ADMIN session is sent for the flash message.
+        // Only destroy admin session keys, not the entire session
+        // (a user could also be browsing as a customer in the same browser)
         Session::remove('admin_id');
         Session::remove('admin_name');
         Session::remove('admin_role');
-        session_regenerate_id(true); // deletes old session file, issues new cookie ID
 
         Session::setFlash('success', 'You have been logged out of the admin panel.');
         $this->redirect('/admin/login');

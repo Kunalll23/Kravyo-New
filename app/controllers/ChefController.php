@@ -533,7 +533,7 @@ class ChefController extends Controller {
             $notifModel = new Notification();
 
             $statusMessages = [
-                ORDER_STATUS_ACCEPTED         => 'Great news! Your order #' . $order['order_number'] . ' has been accepted by the chef and will be prepared soon.',
+                ORDER_STATUS_ACCEPTED         => 'Great news! Your order #' . $order['order_number'] . ' has been confirmed and will be prepared soon.',
                 ORDER_STATUS_PREPARING        => 'Your order #' . $order['order_number'] . ' is now being freshly prepared.',
                 ORDER_STATUS_OUT_FOR_DELIVERY => 'Your order #' . $order['order_number'] . ' is on its way! Get ready to enjoy.',
                 ORDER_STATUS_DELIVERED        => 'Your order #' . $order['order_number'] . ' has been delivered. Bon appétit! 🍽️',

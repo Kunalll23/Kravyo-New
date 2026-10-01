@@ -16,9 +16,6 @@ return [
     'GET /register'             => 'AuthController@showRegisterForm',
     'POST /register'            => 'AuthController@register',
     'POST /logout'              => 'AuthController@logout',
-    // Chef logout gets its own route so the POST lands in KRAVYO_CHEF context
-    // and CSRF is verified against the Chef session (not KRAVYO_CUSTOMER).
-    'POST /chef/logout'         => 'AuthController@logout',
     'GET /forgot-password'      => 'AuthController@showForgotPasswordForm',
     'POST /forgot-password'     => 'AuthController@forgotPassword',
     'GET /reset-password'       => 'AuthController@showResetPasswordForm',
@@ -55,19 +52,6 @@ return [
     'POST /order/cancel'        => 'OrderController@cancelOrder',
     'GET /orders/history'       => 'OrderController@history',
     'POST /review/submit'       => 'OrderController@submitReview',
-
-    // --- Chef-Context Browse Routes ──────────────────────────────────────────
-    // Mirrors of public Customer browse pages, but under /chef/ prefix so the
-    // session stays in KRAVYO_CHEF context.  Without these, clicking "Browse
-    // Dishes" from the Chef tab would switch to KRAVYO_CUSTOMER and show the
-    // Customer's session instead of the Chef's.
-    'GET /chef/kitchens'           => 'CustomerController@browseKitchens',
-    'GET /chef/kitchen/{id}'       => 'CustomerController@viewKitchen',
-    'GET /chef/menu-browse'        => 'CustomerController@browseMenu',
-    'GET /chef/dish/{id}'          => 'CustomerController@viewDish',
-    'GET /chef/zero-waste-deals'   => 'CustomerController@zeroWasteDeals',
-    'GET /chef/subscriptions-browse' => 'SubscriptionController@browsePlans',
-    'GET /chef/subscription/{id}'  => 'SubscriptionController@viewPlan',
 
     // --- Home Chef / Seller Routes ---
     'GET /chef/dashboard'       => 'ChefController@dashboard',
@@ -111,14 +95,6 @@ return [
     'GET /admin/login'          => 'AdminAuthController@showLoginForm',
     'POST /admin/login'         => 'AdminAuthController@login',
     'POST /admin/logout'        => 'AdminAuthController@logout',
-
-    // --- Admin-Context Browse Routes ─────────────────────────────────────────
-    // Same concept as Chef browse routes: keeps the session in KRAVYO_ADMIN.
-    'GET /admin/kitchens-browse'      => 'CustomerController@browseKitchens',
-    'GET /admin/kitchen/{id}'         => 'CustomerController@viewKitchen',
-    'GET /admin/menu-browse'          => 'CustomerController@browseMenu',
-    'GET /admin/dish/{id}'            => 'CustomerController@viewDish',
-    'GET /admin/zero-waste-browse'    => 'CustomerController@zeroWasteDeals',
 
     // --- Admin Routes ---
     'GET /admin/dashboard'      => 'AdminController@dashboard',

@@ -34,14 +34,6 @@ class Session {
     const ADMIN_SESSION    = 'KRAVYO_ADMIN';
 
     /**
-     * Cross-session user data: populated when a Chef is logged in (KRAVYO_CHEF
-     * cookie exists) but the current request opens KRAVYO_CUSTOMER (e.g. GET /).
-     * This is a read-only snapshot — all session writes still go to the primary
-     * session determined by the URL.
-     */
-    private static array $crossSessionUser = [];
-
-    /**
      * Map a user role string to its session cookie name.
      */
     private static function roleToSessionName(string $role): string {
@@ -85,93 +77,15 @@ class Session {
     /**
      * Start the correct session for this request.
      * Called once from public/index.php before routing.
-     *
-     * After starting the primary session, if we are on a Customer-context page
-     * (KRAVYO_CUSTOMER) with no logged-in Customer but a KRAVYO_CHEF cookie is
-     * present, we perform a targeted read-only peek at the Chef session so that
-     * the header and controllers can identify the Chef across URL contexts.
-     * All session writes for the request still go to the primary session.
      */
     public static function init(): void {
         if (session_status() === PHP_SESSION_NONE) {
             ini_set('session.cookie_httponly', '1');
             ini_set('session.use_only_cookies', '1');
-            // Name MUST be set before session_start()
+            // Must set name BEFORE session_start() -- determines which cookie to read/write
             session_name(self::detectContext());
             session_start();
-
-            // On Customer-context pages: if no Customer is logged in but a
-            // Chef cookie exists, peek at KRAVYO_CHEF to load Chef identity
-            // for header display and redirect logic on shared URLs (/login, /).
-            if (
-                session_name() === self::CUSTOMER_SESSION
-                && !isset($_SESSION['user_id'])
-                && isset($_COOKIE[self::CHEF_SESSION])
-            ) {
-                self::$crossSessionUser = self::peekSession(self::CHEF_SESSION);
-            }
         }
-    }
-
-    /**
-     * Temporarily open a secondary session to read user identity (and ensure a
-     * CSRF token exists within it), then restore the primary session.
-     *
-     * Why CSRF? When a Chef is shown in the header on a Customer-URL page, the
-     * logout form must POST to /chef/logout (KRAVYO_CHEF context) using the
-     * Chef's own CSRF token — not the Customer session's token.
-     *
-     * The primary session is fully restored before returning; $crossSessionUser
-     * is a plain PHP array and does not keep the secondary session open.
-     *
-     * @param  string $targetName  Session cookie name to peek at
-     * @return array               ['user_id', 'user_name', 'user_role', '_csrf_token']
-     */
-    private static function peekSession(string $targetName): array {
-        $primaryName = session_name();
-        $primaryId   = session_id();
-
-        // Save primary and switch to target
-        session_write_close();
-        session_name($targetName);
-        session_start();
-
-        // Ensure the peeked session has a CSRF token (needed for logout form)
-        if (!isset($_SESSION['_csrf_token'])) {
-            $_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
-        }
-
-        $data = [
-            'user_id'     => $_SESSION['user_id']    ?? null,
-            'user_name'   => $_SESSION['user_name']  ?? null,
-            'user_role'   => $_SESSION['user_role']  ?? null,
-            '_csrf_token' => $_SESSION['_csrf_token'],
-        ];
-
-        // Save peeked session (CSRF may have just been generated), restore primary
-        session_write_close();
-        session_name($primaryName);
-        session_id($primaryId);   // Must be set BEFORE session_start()
-        session_start();
-
-        return $data;
-    }
-
-    /**
-     * Return cross-session user data loaded during init().
-     *
-     * This is populated only when:
-     *   - The current request is on a Customer-context URL (KRAVYO_CUSTOMER), AND
-     *   - No Customer is logged in (no user_id in KRAVYO_CUSTOMER), AND
-     *   - A KRAVYO_CHEF cookie is present in the browser.
-     *
-     * Returns an empty array if no cross-session user is active.
-     * Always check ['user_id'] is non-null before trusting this data.
-     *
-     * @return array  Keys: user_id, user_name, user_role, _csrf_token  (or empty [])
-     */
-    public static function getCrossSessionUser(): array {
-        return self::$crossSessionUser;
     }
 
     /**
@@ -216,34 +130,12 @@ class Session {
         $savedPendingEmail = $_SESSION['_pending_verification_email']   ?? null;
         $savedResetId      = $_SESSION['_reset_user_id']                ?? null;
 
-        // Capture the source session's ID BEFORE closing it.
-        $sourceSessionId = session_id();
-
         // Close the current session WITHOUT destroying its cookie
         // (we are switching away from it -- leaving it untouched)
         session_write_close();
 
         // Switch to the target session cookie
         session_name($targetName);
-
-        // CRITICAL: Ensure the target role gets its own independent session file.
-        //
-        // Problem 1 — No cookie: After session_write_close(), PHP's internal
-        //   session_id() still holds the source session's ID.  session_start()
-        //   would reuse it, making both roles share one session file.
-        //
-        // Problem 2 — Corrupted cookie: A previous buggy switchToRole may have
-        //   already set the target cookie to the SAME session ID as the source.
-        //   The browser remembers that cookie, so even with the missing-cookie
-        //   fix, the collision persists.
-        //
-        // Fix: generate a fresh ID if the target cookie is absent OR if its
-        //   value matches the source session ID (i.e. collision).
-        $targetCookieId = $_COOKIE[$targetName] ?? null;
-        if ($targetCookieId === null || $targetCookieId === $sourceSessionId) {
-            session_id(bin2hex(random_bytes(16)));
-        }
-
         session_start();
 
         // Restore carried-over temp data into the new session
@@ -307,42 +199,6 @@ class Session {
         session_unset();
         session_destroy();
         // Expire the specific cookie in the browser
-        if (isset($_COOKIE[$cookieName])) {
-            setcookie($cookieName, '', time() - 3600, '/');
-        }
-    }
-
-    /**
-     * Destroy the session belonging to a specific role, regardless of which
-     * session is currently active.  This is the correct way to log out: it
-     * always targets the right cookie even when the logout POST URL (e.g.
-     * /chef/logout) opens a different session context than expected.
-     *
-     * After destruction the primary session for this request is gone; callers
-     * should redirect immediately without writing to the session.
-     *
-     * @param string $role  'customer' | 'chef' | 'admin'
-     */
-    public static function destroyRole(string $role): void {
-        $targetName  = self::roleToSessionName($role);
-        $currentName = (session_status() === PHP_SESSION_ACTIVE) ? session_name() : '';
-
-        if ($currentName !== $targetName) {
-            // The target session is not the one currently open; switch to it.
-            if (session_status() === PHP_SESSION_ACTIVE) {
-                session_write_close();
-            }
-            // Only proceed if the target cookie exists in the browser
-            if (!isset($_COOKIE[$targetName])) {
-                return;
-            }
-            session_name($targetName);
-            session_start();
-        }
-
-        $cookieName = session_name(); // equals $targetName
-        session_unset();
-        session_destroy();
         if (isset($_COOKIE[$cookieName])) {
             setcookie($cookieName, '', time() - 3600, '/');
         }

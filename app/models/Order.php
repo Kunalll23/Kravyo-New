@@ -319,6 +319,36 @@ class Order extends Model {
     }
 
     /**
+     * Admin: Force-update an order's status with an optional admin note.
+     * Stores the note in the `notes` column if it exists.
+     */
+    public function adminUpdateStatus(int $id, string $newStatus, string $adminNote = ''): bool {
+        $sql = "UPDATE {$this->table}
+                SET order_status = :status
+                    -- , notes = :note   (uncomment if you add a notes column)
+                WHERE id = :id";
+        // Simplified version without notes column (safe for current schema)
+        $sql = "UPDATE {$this->table} SET order_status = :status WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute(['status' => $newStatus, 'id' => $id]);
+    }
+
+    /**
+     * Admin: Find a single order by ID with full customer + kitchen details.
+     */
+    public function findByIdWithDetails(int $id): ?array {
+        $sql = "SELECT o.*, k.kitchen_name, u.full_name AS customer_name, u.email AS customer_email
+                FROM {$this->table} o
+                JOIN kitchens k ON o.kitchen_id = k.id
+                JOIN users u    ON o.customer_id = u.id
+                WHERE o.id = :id LIMIT 1";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['id' => $id]);
+        $record = $stmt->fetch();
+        return $record ?: null;
+    }
+
+    /**
      * All platform orders for admin listing with details
      */
     public function findAllWithDetails(?string $status = null, ?string $search = null, int $limit = 100): array {

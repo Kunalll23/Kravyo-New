@@ -5,3 +5,8 @@ config/smtp.php
 
 # PHPMailer vendor files (downloaded manually, not via Composer)
 vendor/
+
+# Python cache
+python_ai/__pycache__/
+*.pyc
+*.pyo

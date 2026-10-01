@@ -216,34 +216,12 @@ class Session {
         $savedPendingEmail = $_SESSION['_pending_verification_email']   ?? null;
         $savedResetId      = $_SESSION['_reset_user_id']                ?? null;
 
-        // Capture the source session's ID BEFORE closing it.
-        $sourceSessionId = session_id();
-
         // Close the current session WITHOUT destroying its cookie
         // (we are switching away from it -- leaving it untouched)
         session_write_close();
 
         // Switch to the target session cookie
         session_name($targetName);
-
-        // CRITICAL: Ensure the target role gets its own independent session file.
-        //
-        // Problem 1 — No cookie: After session_write_close(), PHP's internal
-        //   session_id() still holds the source session's ID.  session_start()
-        //   would reuse it, making both roles share one session file.
-        //
-        // Problem 2 — Corrupted cookie: A previous buggy switchToRole may have
-        //   already set the target cookie to the SAME session ID as the source.
-        //   The browser remembers that cookie, so even with the missing-cookie
-        //   fix, the collision persists.
-        //
-        // Fix: generate a fresh ID if the target cookie is absent OR if its
-        //   value matches the source session ID (i.e. collision).
-        $targetCookieId = $_COOKIE[$targetName] ?? null;
-        if ($targetCookieId === null || $targetCookieId === $sourceSessionId) {
-            session_id(bin2hex(random_bytes(16)));
-        }
-
         session_start();
 
         // Restore carried-over temp data into the new session

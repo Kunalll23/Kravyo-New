@@ -32,10 +32,9 @@ class AuthController extends Controller {
     // ─── Login ────────────────────────────────────────────────────────────────
 
     public function showLoginForm(): void {
-        // Always show the login form regardless of existing sessions.
-        // A Customer being logged in (KRAVYO_CUSTOMER) must NOT block a Chef
-        // from accessing /login in another tab. The POST handler's switchToRole()
-        // ensures credentials land in the correct session cookie.
+        if (Session::has('user_id')) {
+            $this->redirectBasedOnRole(Session::get('user_role'));
+        }
         $this->render('auth/login', ['title' => 'Login to Kravyo']);
     }
 
@@ -89,8 +88,9 @@ class AuthController extends Controller {
     // ─── Registration ─────────────────────────────────────────────────────────
 
     public function showRegisterForm(): void {
-        // Always show the registration form regardless of existing sessions.
-        // Another role being logged in must not block registration.
+        if (Session::has('user_id')) {
+            $this->redirectBasedOnRole(Session::get('user_role'));
+        }
         $this->render('auth/register', ['title' => 'Create a Kravyo Account']);
     }
 
@@ -402,23 +402,7 @@ class AuthController extends Controller {
 
     public function logout(): void {
         Middleware::verifyCsrf();
-        // The session context is determined by the URL:
-        //   POST /logout      → detectContext() = KRAVYO_CUSTOMER → destroy Customer session
-        //   POST /chef/logout → detectContext() = KRAVYO_CHEF     → destroy Chef session
-        // This guarantees only the correct cookie is destroyed and the other portal
-        // (Customer or Chef) remains completely unaffected.
-        $context = Session::currentContext();
-        switch ($context) {
-            case Session::CHEF_SESSION:
-                Session::destroyRole('chef');
-                break;
-            case Session::ADMIN_SESSION:
-                Session::destroyRole('admin');
-                break;
-            default: // KRAVYO_CUSTOMER
-                Session::destroyRole('customer');
-                break;
-        }
+        Session::destroy();
         $this->redirect('/');
     }
 
@@ -429,7 +413,10 @@ class AuthController extends Controller {
      * GET /forgot-password
      */
     public function showForgotPasswordForm(): void {
-        // Always show the forgot-password form regardless of existing sessions.
+        if (Session::has('user_id')) {
+            $this->redirectBasedOnRole(Session::get('user_role'));
+            return;
+        }
         $this->render('auth/forgot_password', ['title' => 'Forgot Password — Kravyo']);
     }
 
@@ -439,6 +426,11 @@ class AuthController extends Controller {
      */
     public function forgotPassword(): void {
         Middleware::verifyCsrf();
+
+        if (Session::has('user_id')) {
+            $this->redirectBasedOnRole(Session::get('user_role'));
+            return;
+        }
 
         $email = strtolower(trim($_POST['email'] ?? ''));
 
@@ -504,6 +496,10 @@ class AuthController extends Controller {
      * GET /reset-password
      */
     public function showResetPasswordForm(): void {
+        if (Session::has('user_id')) {
+            $this->redirectBasedOnRole(Session::get('user_role'));
+            return;
+        }
 
         $resetUserId = (int) Session::get('_reset_user_id', 0);
 
