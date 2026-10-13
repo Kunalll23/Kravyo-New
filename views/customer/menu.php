@@ -1,12 +1,23 @@
+<?php
+$activeCategoryName = null;
+if (!empty($filters['category_id'])) {
+    foreach ($categories as $c) {
+        if ($c['id'] == $filters['category_id']) {
+            $activeCategoryName = $c['category_name'];
+            break;
+        }
+    }
+}
+?>
 <!-- Phase 5: Full Dish Catalog / Browse Menu Page -->
 <section class="kitchen-browse-hero">
     <div class="container">
         <div class="row align-items-center">
             <div class="col-lg-7">
                 <h1 class="fw-800 text-white mb-2">
-                    <i class="bi bi-journal-text me-2 text-warning"></i>Browse Dishes
+                    <i class="bi bi-journal-text me-2 text-warning"></i><?= $activeCategoryName ? 'Browse ' . sanitize($activeCategoryName) : 'Browse Dishes' ?>
                 </h1>
-                <p class="text-white-50 mb-0">Discover home-cooked meals from verified kitchens across all categories</p>
+                <p class="text-white-50 mb-0"><?= $activeCategoryName ? 'Discover authentic homemade ' . sanitize($activeCategoryName) . ' dishes from verified kitchens' : 'Discover home-cooked meals from verified kitchens across all categories' ?></p>
             </div>
             <div class="col-lg-5 text-lg-end mt-3 mt-lg-0">
                 <span class="badge bg-white text-dark px-3 py-2 fs-6 rounded-pill">
@@ -52,21 +63,28 @@
                         <div class="mb-3">
                             <label class="filter-label">Dietary Preference</label>
                             <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" name="veg" id="filterVeg"
-                                       <?= !empty($filters['is_veg']) ? 'checked' : '' ?>>
+                                <input class="form-check-input" type="checkbox" name="veg" id="filterVeg" value="1"
+                                       <?= !empty($filters['has_veg_checked']) ? 'checked' : '' ?>>
                                 <label class="form-check-label" for="filterVeg">
                                     <span class="dietary-badge dietary-veg"><i class="bi bi-circle-fill me-1"></i>Veg Only</span>
                                 </label>
                             </div>
                             <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" name="jain" id="filterJain"
+                                <input class="form-check-input" type="checkbox" name="non_veg" id="filterNonVeg" value="1"
+                                       <?= !empty($filters['has_non_veg_checked']) ? 'checked' : '' ?>>
+                                <label class="form-check-label" for="filterNonVeg">
+                                    <span class="dietary-badge dietary-nonveg"><i class="bi bi-triangle-fill me-1"></i>Non-Veg Only</span>
+                                </label>
+                            </div>
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="checkbox" name="jain" id="filterJain" value="1"
                                        <?= !empty($filters['is_jain_available']) ? 'checked' : '' ?>>
                                 <label class="form-check-label" for="filterJain">
                                     <span class="dietary-badge dietary-jain"><i class="bi bi-flower1 me-1"></i>Jain Available</span>
                                 </label>
                             </div>
                             <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" name="diabetic" id="filterDiabetic"
+                                <input class="form-check-input" type="checkbox" name="diabetic" id="filterDiabetic" value="1"
                                        <?= !empty($filters['is_diabetic_friendly']) ? 'checked' : '' ?>>
                                 <label class="form-check-label" for="filterDiabetic">
                                     <span class="dietary-badge dietary-diabetic"><i class="bi bi-heart-pulse me-1"></i>Diabetic Friendly</span>
@@ -101,7 +119,7 @@
                         <button type="submit" class="btn btn-kravyo-primary w-100 mb-2">
                             <i class="bi bi-funnel-fill me-1"></i> Apply Filters
                         </button>
-                        <a href="<?= url('/menu') ?>" class="btn btn-outline-secondary w-100 btn-sm">
+                        <a href="<?= ctx_url('/menu') ?>" class="btn btn-outline-secondary w-100 btn-sm">
                             <i class="bi bi-x-lg me-1"></i> Clear All
                         </a>
                     </form>
@@ -110,12 +128,22 @@
 
             <!-- Dish Grid -->
             <div class="col-lg-9">
+                <?php if ($activeCategoryName): ?>
+                    <div class="d-flex align-items-center mb-3">
+                        <span class="text-muted small me-2">Filtered by category:</span>
+                        <span class="badge bg-warning bg-opacity-25 text-dark border border-warning px-3 py-2 rounded-pill fs-7 fw-semibold">
+                            <?= sanitize($activeCategoryName) ?>
+                            <a href="<?= ctx_url('/menu' . (!empty($filters['city']) ? '?city=' . urlencode($filters['city']) : '')) ?>" class="text-danger text-decoration-none ms-2 fw-bold" title="Remove category filter">&times;</a>
+                        </span>
+                    </div>
+                <?php endif; ?>
+
                 <?php if (empty($dishes)): ?>
                     <div class="empty-state text-center py-5">
                         <div class="empty-state-icon mb-3"><i class="bi bi-egg-fried"></i></div>
                         <h4 class="fw-bold text-muted">No Dishes Found</h4>
                         <p class="text-muted mb-4">Try adjusting your filters or search term.</p>
-                        <a href="<?= url('/menu') ?>" class="btn btn-kravyo-primary">
+                        <a href="<?= ctx_url('/menu') ?>" class="btn btn-kravyo-primary">
                             <i class="bi bi-arrow-clockwise me-1"></i> Clear Filters
                         </a>
                     </div>
@@ -157,7 +185,7 @@
                                             <?php if ($dish['is_veg']): ?>
                                                 <span class="dietary-badge dietary-veg"><i class="bi bi-circle-fill me-1"></i>Veg</span>
                                             <?php else: ?>
-                                                <span class="dietary-badge dietary-nonveg"><i class="bi bi-circle-fill me-1"></i>Non-Veg</span>
+                                                <span class="dietary-badge dietary-nonveg"><i class="bi bi-triangle-fill me-1"></i>Non-Veg</span>
                                             <?php endif; ?>
                                             <?php if ($dish['is_jain_available']): ?>
                                                 <span class="dietary-badge dietary-jain"><i class="bi bi-flower1 me-1"></i>Jain</span>
@@ -180,3 +208,25 @@
         </div>
     </div>
 </section>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const vegCheckbox = document.getElementById('filterVeg');
+    const nonVegCheckbox = document.getElementById('filterNonVeg');
+
+    if (vegCheckbox && nonVegCheckbox) {
+        vegCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                nonVegCheckbox.checked = false;
+            }
+        });
+
+        nonVegCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                vegCheckbox.checked = false;
+            }
+        });
+    }
+});
+</script>
+

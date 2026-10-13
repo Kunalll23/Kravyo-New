@@ -3,6 +3,10 @@
 # SMTP credentials — NEVER commit this file
 config/smtp.php
 
+# Google Maps API keys — NEVER commit this file
+config/google_maps.php
+storage/cache/maps/
+
 # PHPMailer vendor files (downloaded manually, not via Composer)
 vendor/
 

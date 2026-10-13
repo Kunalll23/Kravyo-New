@@ -45,6 +45,7 @@ class CartController extends Controller {
         $spiceLevel = in_array($_POST['spice_level'] ?? '', ['Low', 'Medium', 'High']) ? $_POST['spice_level'] : 'Medium';
         $oilLevel = in_array($_POST['oil_level'] ?? '', ['Normal', 'Less Oil']) ? $_POST['oil_level'] : 'Normal';
         $isJain = isset($_POST['is_jain']) ? 1 : 0;
+        $itemNotes = trim($_POST['item_notes'] ?? '');
 
         // Validate menu item exists and is available
         $dish = $menuItemModel->findWithCategory($menuItemId);
@@ -79,8 +80,9 @@ class CartController extends Controller {
             return;
         }
 
-        // Build unique cart item key
-        $itemKey = $menuItemId . '_' . $spiceLevel . '_' . $oilLevel . '_' . $isJain;
+        // Build unique cart item key (include hash of notes so same item with different notes doesn't merge)
+        $notesHash = empty($itemNotes) ? '0' : md5($itemNotes);
+        $itemKey = $menuItemId . '_' . $spiceLevel . '_' . $oilLevel . '_' . $isJain . '_' . $notesHash;
 
         if (isset($cart['items'][$itemKey])) {
             $cart['items'][$itemKey]['quantity'] = min(10, $cart['items'][$itemKey]['quantity'] + $quantity);
@@ -94,6 +96,7 @@ class CartController extends Controller {
                 'spice_level'   => $spiceLevel,
                 'oil_level'     => $oilLevel,
                 'is_jain'       => $isJain,
+                'item_notes'    => $itemNotes,
                 'is_veg'        => (int) $dish['is_veg'],
                 'category_name' => $dish['category_name'] ?? '',
                 'is_zero_waste' => false,

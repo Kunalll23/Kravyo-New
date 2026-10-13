@@ -35,8 +35,8 @@ class ZeroWasteItem extends Model {
                 JOIN menu_items m  ON z.menu_item_id = m.id
                 JOIN categories c  ON m.category_id  = c.id
                 JOIN kitchens k    ON z.kitchen_id    = k.id
-                JOIN users u       ON k.user_id       = u.id
-                WHERE z.status = 'active'
+                JOIN chefs u       ON k.user_id       = u.id
+                WHERE z.status IN ('active', 'sold_out')
                   AND z.expiry_time > NOW()
                   AND k.approval_status = 'approved'
                   AND k.is_open = 1";
@@ -51,18 +51,14 @@ class ZeroWasteItem extends Model {
             $params['city'] = $filters['city'];
         }
 
-        // Sorting
+        // Sorting: Always prioritize active deals first, followed by sold-out deals
         $sort = $filters['sort'] ?? 'expiry';
-        switch ($sort) {
-            case 'discount':
-                $sql .= " ORDER BY discount_pct DESC";
-                break;
-            case 'price_low':
-                $sql .= " ORDER BY z.discounted_price ASC";
-                break;
-            default:
-                $sql .= " ORDER BY z.expiry_time ASC"; // Expiring soonest first
-        }
+        $orderClause = match ($sort) {
+            'discount'  => 'discount_pct DESC',
+            'price_low' => 'z.discounted_price ASC',
+            default     => 'z.expiry_time ASC',
+        };
+        $sql .= " ORDER BY (z.status = 'sold_out') ASC, " . $orderClause;
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute($params);
@@ -72,7 +68,7 @@ class ZeroWasteItem extends Model {
     /**
      * Get a limited set of active listings for the homepage teaser (max 3).
      */
-    public function findHomepageTeaser(int $limit = 3): array {
+    public function findHomepageTeaser(int $limit = 3, string $city = ''): array {
         $this->markExpired();
 
         $sql = "SELECT
@@ -87,12 +83,18 @@ class ZeroWasteItem extends Model {
                 WHERE z.status = 'active'
                   AND z.expiry_time > NOW()
                   AND k.approval_status = 'approved'
-                  AND k.is_open = 1
-                ORDER BY z.expiry_time ASC
-                LIMIT {$limit}";
+                  AND k.is_open = 1";
+                  
+        $params = [];
+        if (!empty($city)) {
+            $sql .= " AND k.city = :city";
+            $params['city'] = $city;
+        }
+
+        $sql .= " ORDER BY z.expiry_time ASC LIMIT " . (int)$limit;
 
         $stmt = $this->db->prepare($sql);
-        $stmt->execute();
+        $stmt->execute($params);
         return $stmt->fetchAll();
     }
 
@@ -166,13 +168,21 @@ class ZeroWasteItem extends Model {
     }
 
     /**
-     * Count total active zero waste listings (for homepage and admin stats).
+     * Count total active zero waste listings (optionally filtered by city).
      */
-    public function countActive(): int {
-        $sql = "SELECT COUNT(*) AS total FROM {$this->table}
-                WHERE status = 'active' AND expiry_time > NOW()";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute();
+    public function countActive(?string $city = null): int {
+        if (!empty($city)) {
+            $sql = "SELECT COUNT(*) AS total FROM {$this->table} z
+                    JOIN kitchens k ON z.kitchen_id = k.id
+                    WHERE z.status = 'active' AND z.expiry_time > NOW() AND k.city = :city";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute(['city' => $city]);
+        } else {
+            $sql = "SELECT COUNT(*) AS total FROM {$this->table}
+                    WHERE status = 'active' AND expiry_time > NOW()";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+        }
         $result = $stmt->fetch();
         return (int) ($result['total'] ?? 0);
     }

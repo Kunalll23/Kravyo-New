@@ -1,3 +1,4 @@
+<?php require_once APP_PATH . '/models/Subscription.php'; ?>
 <!-- Phase 7: My Tiffin Subscriptions (Customer Dashboard) -->
 <div class="container py-4">
     <div class="d-flex justify-content-between align-items-center mb-4">
@@ -91,6 +92,17 @@
                                             <?php endif; ?>
                                         </div>
                                     </div>
+                                </div>
+
+                                <!-- Meal Delivery Timings -->
+                                <?php $mySchedule = Subscription::getMealSchedule($sub); ?>
+                                <div class="d-flex flex-wrap gap-2 mb-3">
+                                    <?php foreach ($mySchedule as $mKey => $mInfo): ?>
+                                        <span class="badge bg-light text-dark border py-1 px-2" style="font-size: 0.78rem; font-weight: 500;">
+                                            <i class="bi <?= $mInfo['icon'] ?> text-<?= $mInfo['badge_color'] ?> me-1"></i>
+                                            <strong><?= $mInfo['label'] ?>:</strong> <?= sanitize($mInfo['time']) ?>
+                                        </span>
+                                    <?php endforeach; ?>
                                 </div>
 
                                 <!-- Delivery Address -->

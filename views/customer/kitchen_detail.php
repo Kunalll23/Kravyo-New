@@ -64,8 +64,19 @@
                             <div class="chef-stat-label">Reviews</div>
                         </div>
                     </div>
+                    <?php if (Session::isLoggedIn() && (Session::get('user_role') === ROLE_CUSTOMER || Session::get('user_role') === 'customer')): ?>
+                    <div class="text-center mt-3 border-top pt-2">
+                        <button type="button" class="btn btn-sm btn-link text-white-50 text-decoration-none p-0" 
+                                data-bs-toggle="modal" data-bs-target="#reportModal"
+                                data-kitchen-id="<?= $kitchen['id'] ?>"
+                                data-target-type="kitchen">
+                            <i class="bi bi-flag-fill me-1"></i>Report this Kitchen
+                        </button>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
+
         </div>
     </div>
 </section>
@@ -221,3 +232,5 @@
         </div>
     </div>
 </section>
+
+<?php View::partial('report_modal'); ?>

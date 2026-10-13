@@ -12,19 +12,25 @@
  *   POST /resend-email-otp → cooldown check → generate new OTP → send email
  */
 
-require_once APP_PATH . '/models/User.php';
+require_once APP_PATH . '/models/DeliveryUser.php';
+require_once APP_PATH . '/models/Chef.php';
+require_once APP_PATH . '/models/Customer.php';
 require_once APP_PATH . '/models/Kitchen.php';
 require_once APP_PATH . '/models/EmailVerification.php';
 require_once APP_PATH . '/models/PasswordReset.php';
 
 class AuthController extends Controller {
 
-    private User                $userModel;
+    private DeliveryUser                $deliveryUserModel;
+    private Chef                $chefModel;
+    private Customer            $customerModel;
     private EmailVerification   $emailVerModel;
     private PasswordReset       $passwordResetModel;
 
     public function __construct() {
-        $this->userModel           = new User();
+        $this->deliveryUserModel           = new DeliveryUser();
+        $this->chefModel           = new Chef();
+        $this->customerModel       = new Customer();
         $this->emailVerModel       = new EmailVerification();
         $this->passwordResetModel  = new PasswordReset();
     }
@@ -32,11 +38,85 @@ class AuthController extends Controller {
     // ─── Login ────────────────────────────────────────────────────────────────
 
     public function showLoginForm(): void {
-        // Always show the login form regardless of existing sessions.
-        // A Customer being logged in (KRAVYO_CUSTOMER) must NOT block a Chef
-        // from accessing /login in another tab. The POST handler's switchToRole()
-        // ensures credentials land in the correct session cookie.
-        $this->render('auth/login', ['title' => 'Login to Kravyo']);
+        $this->render('auth/login', [
+            'title'       => 'Login to Kravyo',
+            'loginTitle'  => 'Welcome Back',
+            'loginSubtitle' => 'Login to your Kravyo customer account',
+            'loginAction' => url('/login'),
+            'isChef'      => false,
+        ], 'public_portal');
+    }
+
+    public function showChefLoginForm(): void {
+        $this->render('auth/login', [
+            'title'       => 'Chef Portal Login — Kravyo',
+            'loginTitle'  => 'Chef Portal Login',
+            'loginSubtitle' => 'Welcome Chef! Manage your kitchen, menu, and orders.',
+            'loginAction' => url('/chef/login'),
+            'isChef'      => true,
+        ], 'public_portal');
+    }
+
+    public function chefLogin(): void {
+        Middleware::verifyCsrf();
+
+        $email    = sanitize(trim($_POST['email'] ?? ''));
+        $password = $_POST['password'] ?? '';
+
+        if (empty($email) || empty($password)) {
+            Session::setFlash('danger', 'Please enter both email and password.');
+            Session::set('_old_email', $email);
+            $this->redirect('/chef/login');
+            return;
+        }
+
+        $user = $this->chefModel->findByEmail($email);
+
+        if (!$user) {
+            if ($this->customerModel->findByEmail($email)) {
+                Session::setFlash('info', 'This email belongs to a Customer account. Please login through the Customer portal.');
+                Session::set('_old_email', $email);
+                $this->redirect('/login');
+                return;
+            } elseif ($this->deliveryUserModel->findByEmail($email)) {
+                Session::setFlash('info', 'This email belongs to a Delivery account. Please login through the Delivery portal.');
+                Session::set('_old_email', $email);
+                $this->redirect('/delivery/login');
+                return;
+            }
+        }
+
+        if (!$user || !$this->chefModel->verifyPassword($password, $user['password_hash'])) {
+            Session::setFlash('danger', 'Invalid email or password.');
+            Session::set('_old_email', $email);
+            $this->redirect('/chef/login');
+            return;
+        }
+
+        if ($user['status'] !== 'active') {
+            Session::setFlash('danger',
+                'Your account is currently <strong>' . sanitize($user['status']) . '</strong>. ' .
+                'Please contact support.'
+            );
+            Session::set('_old_email', $email);
+            $this->redirect('/chef/login');
+            return;
+        }
+
+        if ($user['role'] !== ROLE_CHEF) {
+            Session::setFlash('danger', 'This account is not registered as a Chef. Please use a Chef account to login.');
+            Session::set('_old_email', $email);
+            $this->redirect('/chef/login');
+            return;
+        }
+
+        // Dedicated Chef context (KRAVYO_CHEF)
+        Session::set('user_id',   (int) $user['id']);
+        Session::set('user_name', $user['full_name']);
+        Session::set('user_role', $user['role']);
+
+        Session::setFlash('success', 'Welcome back, Chef ' . sanitize($user['full_name']) . '!');
+        $this->redirect('/chef/dashboard');
     }
 
     public function login(): void {
@@ -52,9 +132,23 @@ class AuthController extends Controller {
             return;
         }
 
-        $user = $this->userModel->findByEmail($email);
+        $user = $this->customerModel->findByEmail($email);
 
-        if (!$user || !$this->userModel->verifyPassword($password, $user['password_hash'])) {
+        if (!$user) {
+            if ($this->chefModel->findByEmail($email)) {
+                Session::setFlash('info', 'This email belongs to a Chef account. Please login through the Chef portal.');
+                Session::set('_old_email', $email);
+                $this->redirect('/chef/login');
+                return;
+            } elseif ($this->deliveryUserModel->findByEmail($email)) {
+                Session::setFlash('info', 'This email belongs to a Delivery account. Please login through the Delivery portal.');
+                Session::set('_old_email', $email);
+                $this->redirect('/delivery/login');
+                return;
+            }
+        }
+
+        if (!$user || !$this->customerModel->verifyPassword($password, $user['password_hash'])) {
             Session::setFlash('danger', 'Invalid email or password.');
             Session::set('_old_email', $email);
             $this->redirect('/login');
@@ -91,7 +185,7 @@ class AuthController extends Controller {
     public function showRegisterForm(): void {
         // Always show the registration form regardless of existing sessions.
         // Another role being logged in must not block registration.
-        $this->render('auth/register', ['title' => 'Create a Kravyo Account']);
+        $this->render('auth/register', ['title' => 'Create a Kravyo Account'], 'public_portal');
     }
 
     public function register(): void {
@@ -101,11 +195,12 @@ class AuthController extends Controller {
         $fullName = sanitize($rawFullName);
         $email    = strtolower(trim($_POST['email']    ?? ''));
         $phone    = sanitize(trim($_POST['phone']      ?? ''));
+        $city     = sanitize(trim($_POST['city']       ?? ''));
         $password = $_POST['password']  ?? '';
         $role     = sanitize($_POST['role'] ?? ROLE_CUSTOMER);
 
         // ── Validation ────────────────────────────────────────────────────────
-        if (empty($fullName) || empty($email) || empty($phone) || empty($password)) {
+        if (empty($fullName) || empty($email) || empty($phone) || empty($city) || empty($password)) {
             Session::setFlash('danger', 'All fields are required.');
             $this->redirect('/register');
             return;
@@ -136,19 +231,32 @@ class AuthController extends Controller {
         }
 
         // Check if already fully registered
-        if ($this->userModel->findByEmail($email)) {
-            Session::setFlash('danger', 'This email address is already registered. Please log in.');
-            $this->redirect('/login');
+        $existingUser = $this->deliveryUserModel->findByEmail($email);
+        if ($existingUser) {
+            $userRole = $existingUser['role'];
+            $roleName = ucfirst($userRole);
+            $loginUrl = match ($userRole) {
+                ROLE_CHEF     => '/chef/login',
+                ROLE_DELIVERY => '/delivery/login',
+                ROLE_ADMIN    => '/admin/login',
+                default       => '/login',
+            };
+            Session::setFlash('danger', "This email address is already registered as a {$roleName}. Please log in.");
+            $this->redirect($loginUrl);
             return;
         }
-        if ($this->userModel->findByPhone($phone)) {
+        if ($this->deliveryUserModel->findByPhone($phone)) {
             Session::setFlash('danger', 'This phone number is already registered.');
             $this->redirect('/register');
             return;
         }
 
         // ── Create pending registration ───────────────────────────────────────
-        $safeRole = ($role === ROLE_CHEF) ? ROLE_CHEF : ROLE_CUSTOMER;
+        $safeRole = match($role) {
+            ROLE_CHEF     => ROLE_CHEF,
+            ROLE_DELIVERY => ROLE_DELIVERY,
+            default       => ROLE_CUSTOMER,
+        };
         
         // Hash password before putting in pending table
         $passwordHash = password_hash($password, PASSWORD_DEFAULT);
@@ -157,6 +265,7 @@ class AuthController extends Controller {
             'full_name'      => $fullName,
             'email'          => $email,
             'phone'          => $phone,
+            'city'           => $city,
             'password_hash'  => $passwordHash,
             'role'           => $safeRole,
         ];
@@ -186,8 +295,7 @@ class AuthController extends Controller {
             } else {
                 Session::setFlash('warning',
                     'Could not send the verification email right now. ' .
-                    'Please use the <strong>Resend OTP</strong> button on this page, ' .
-                    'or check your SMTP settings.'
+                    'However, since you are testing locally, your OTP is: <strong>' . $plainOtp . '</strong>'
                 );
             }
 
@@ -196,18 +304,13 @@ class AuthController extends Controller {
         } catch (\Exception $e) {
             error_log('[Kravyo Auth] Registration error: ' . $e->getMessage());
             Session::setFlash('danger', 'An error occurred during registration. Please try again.');
-            $this->redirect('/register');
+            $this->redirect('/register?role=' . urlencode($role));
         }
     }
 
     // ─── Email Verification ───────────────────────────────────────────────────
 
     public function showVerifyEmail(): void {
-        if (Session::has('user_id')) {
-            $this->redirectBasedOnRole(Session::get('user_role'));
-            return;
-        }
-
         $pendingEmail = Session::get('_pending_verification_email', '');
 
         if (empty($pendingEmail)) {
@@ -234,7 +337,7 @@ class AuthController extends Controller {
             'maskedEmail'  => $maskedEmail,
             'expiryInfo'   => $expiryInfo,
             'cooldown'     => $cooldown,
-        ]);
+        ], 'public_portal');
     }
 
     public function verifyEmail(): void {
@@ -272,20 +375,24 @@ class AuthController extends Controller {
                         'full_name'      => $userData['full_name'],
                         'email'          => $userData['email'],
                         'phone'          => $userData['phone'],
+                        'city'           => $userData['city'] ?? '',
                         'password'       => 'WILL_BE_REPLACED', // Dummy to pass structure
                         'role'           => $userData['role'],
                         'status'         => 'active',
                     ];
                     
-                    // Actually, let's just insert it directly to avoid double hashing
+                    // Determine target table
+                    $targetTable = ($userData['role'] === ROLE_CUSTOMER) ? 'customers' : (($userData['role'] === ROLE_CHEF) ? 'chefs' : 'delivery_users');
+                    
                     $db = Database::getInstance();
-                    $sql = "INSERT INTO users (full_name, email, phone, password_hash, role, status) 
-                            VALUES (:full_name, :email, :phone, :password_hash, :role, 'active')";
+                    $sql = "INSERT INTO {$targetTable} (full_name, email, phone, city, password_hash, role, status) 
+                            VALUES (:full_name, :email, :phone, :city, :password_hash, :role, 'active')";
                     $stmt = $db->prepare($sql);
                     $stmt->execute([
                         'full_name'     => $userData['full_name'],
                         'email'         => $userData['email'],
                         'phone'         => $userData['phone'],
+                        'city'          => $userData['city'] ?? '',
                         'password_hash' => $userData['password_hash'], // Already hashed
                         'role'          => $userData['role']
                     ]);
@@ -299,7 +406,7 @@ class AuthController extends Controller {
                             'user_id'         => $userId,
                             'kitchen_name'    => $userData['full_name'] . "'s Kitchen",
                             'address'         => '',
-                            'city'            => '',
+                            'city'            => $userData['city'] ?? '',
                             'pincode'         => '',
                             'approval_status' => KITCHEN_STATUS_PENDING,
                             'is_open'         => 0,
@@ -392,7 +499,10 @@ class AuthController extends Controller {
                 '<strong>' . sanitize($this->maskEmail($pendingEmail)) . '</strong>.'
             );
         } else {
-            Session::setFlash('danger', 'Could not send verification email. Please check SMTP configuration.');
+            Session::setFlash('warning', 
+                'Could not send verification email. ' .
+                'However, since you are testing locally, your new OTP is: <strong>' . $plainOtp . '</strong>'
+            );
         }
 
         $this->redirect('/verify-email');
@@ -411,15 +521,21 @@ class AuthController extends Controller {
         switch ($context) {
             case Session::CHEF_SESSION:
                 Session::destroyRole('chef');
-                break;
+                $this->redirect('/chef/login');
+                return;
             case Session::ADMIN_SESSION:
                 Session::destroyRole('admin');
-                break;
+                $this->redirect('/admin/login');
+                return;
+            case Session::DELIVERY_SESSION:
+                Session::destroyRole('delivery');
+                $this->redirect('/delivery/login');
+                return;
             default: // KRAVYO_CUSTOMER
                 Session::destroyRole('customer');
-                break;
+                $this->redirect('/login');
+                return;
         }
-        $this->redirect('/');
     }
 
     // ─── Forgot Password ──────────────────────────────────────────────────────
@@ -448,7 +564,7 @@ class AuthController extends Controller {
             return;
         }
 
-        $user = $this->userModel->findByEmail($email);
+        $user = $this->deliveryUserModel->findByEmail($email);
 
         // Always show the same success message regardless of whether
         // the email exists — prevents email enumeration attacks.
@@ -513,7 +629,7 @@ class AuthController extends Controller {
             return;
         }
 
-        $user = $this->userModel->findById($resetUserId);
+        $user = $this->deliveryUserModel->findById($resetUserId);
 
         if (!$user) {
             Session::remove('_reset_user_id');
@@ -623,7 +739,7 @@ class AuthController extends Controller {
             return;
         }
 
-        $user = $this->userModel->findById($resetUserId);
+        $user = $this->deliveryUserModel->findById($resetUserId);
 
         if (!$user) {
             Session::remove('_reset_user_id');
@@ -664,9 +780,10 @@ class AuthController extends Controller {
 
     private function redirectBasedOnRole(string $role): void {
         match ($role) {
-            ROLE_ADMIN  => $this->redirect('/admin/dashboard'),
-            ROLE_CHEF   => $this->redirect('/chef/dashboard'),
-            default     => $this->redirect('/'),
+            ROLE_ADMIN    => $this->redirect('/admin/dashboard'),
+            ROLE_CHEF     => $this->redirect('/chef/dashboard'),
+            ROLE_DELIVERY => $this->redirect('/delivery/dashboard'),
+            default       => $this->redirect('/home'),
         };
     }
 

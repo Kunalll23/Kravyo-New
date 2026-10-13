@@ -20,10 +20,11 @@ class SubscriptionDelivery extends Model {
                        cs.id as sub_id, cs.special_instructions, cs.start_date, cs.end_date,
                        u.full_name as customer_name, u.phone as customer_phone,
                        a.street_address, a.landmark, a.city as delivery_city,
-                       s.plan_name, s.meals_per_day, s.plan_type
+                       s.plan_name, s.meals_per_day, s.plan_type,
+                       s.breakfast_time, s.lunch_time, s.dinner_time
                 FROM {$this->table} sd
                 JOIN customer_subscriptions cs ON sd.customer_subscription_id = cs.id
-                JOIN users u ON cs.customer_id = u.id
+                JOIN customers u ON cs.customer_id = u.id
                 JOIN addresses a ON cs.address_id = a.id
                 JOIN tiffin_subscriptions s ON cs.subscription_plan_id = s.id
                 WHERE sd.kitchen_id = :kitchen_id 
@@ -38,31 +39,72 @@ class SubscriptionDelivery extends Model {
     /**
      * Auto-generate missing delivery records for today for all active subscriptions
      */
-    private function generateTodaysDeliveries(int $kitchenId, string $date): void {
+    public function generateTodaysDeliveries(int $kitchenId, string $date): void {
         // Find all active subscriptions for this kitchen that span across today
-        $sql = "SELECT id FROM customer_subscriptions 
-                WHERE kitchen_id = ? 
-                  AND status = 'active'
-                  AND ? BETWEEN start_date AND end_date
-                  AND id NOT IN (
-                      SELECT customer_subscription_id FROM {$this->table} 
-                      WHERE delivery_date = ? AND kitchen_id = ?
-                  )";
+        $sql = "SELECT cs.id, s.meals_per_day, s.breakfast_time, s.lunch_time, s.dinner_time 
+                FROM customer_subscriptions cs
+                JOIN tiffin_subscriptions s ON cs.subscription_plan_id = s.id
+                WHERE cs.kitchen_id = ? 
+                  AND cs.status = 'active'
+                  AND ? BETWEEN cs.start_date AND cs.end_date";
         $stmt = $this->db->prepare($sql);
-        $stmt->execute([$kitchenId, $date, $date, $kitchenId]);
-        $missingSubs = $stmt->fetchAll();
+        $stmt->execute([$kitchenId, $date]);
+        $activeSubs = $stmt->fetchAll();
+
+        if (empty($activeSubs)) {
+            return;
+        }
+
+        // Fetch already generated deliveries for today to avoid duplicates
+        $existingSql = "SELECT customer_subscription_id, meal_type FROM {$this->table} 
+                        WHERE kitchen_id = ? AND delivery_date = ?";
+        $existingStmt = $this->db->prepare($existingSql);
+        $existingStmt->execute([$kitchenId, $date]);
+        $existingRows = $existingStmt->fetchAll();
+        
+        $existingMap = [];
+        foreach ($existingRows as $row) {
+            $existingMap[$row['customer_subscription_id']][] = $row['meal_type'];
+        }
+
+        $values = [];
+        $params = [];
+        foreach ($activeSubs as $sub) {
+            $subId = $sub['id'];
+            $meals = (int)$sub['meals_per_day'];
+            $existingMeals = $existingMap[$subId] ?? [];
+            
+            $mealTypesToGenerate = [];
+            if ($meals == 1) {
+                $mealTypesToGenerate = ['lunch'];
+            } elseif ($meals == 2) {
+                $mealTypesToGenerate = ['lunch', 'dinner'];
+            } elseif ($meals >= 3) {
+                $mealTypesToGenerate = ['breakfast', 'lunch', 'dinner'];
+            }
+            
+            foreach ($mealTypesToGenerate as $mealType) {
+                if (!in_array($mealType, $existingMeals)) {
+                    $delivTime = match($mealType) {
+                        'breakfast' => !empty($sub['breakfast_time']) ? $sub['breakfast_time'] : '08:00 AM - 09:00 AM',
+                        'lunch'     => !empty($sub['lunch_time']) ? $sub['lunch_time'] : '12:30 PM - 01:30 PM',
+                        'dinner'    => !empty($sub['dinner_time']) ? $sub['dinner_time'] : '07:30 PM - 08:30 PM',
+                        default     => '12:30 PM - 01:30 PM'
+                    };
+
+                    $values[] = "(?, ?, ?, ?, ?, 'pending')";
+                    $params[] = $subId;
+                    $params[] = $kitchenId;
+                    $params[] = $date;
+                    $params[] = $mealType;
+                    $params[] = $delivTime;
+                }
+            }
+        }
 
         // Create pending delivery records for them
-        if (!empty($missingSubs)) {
-            $insertSql = "INSERT INTO {$this->table} (customer_subscription_id, kitchen_id, delivery_date, status) VALUES ";
-            $values = [];
-            $params = [];
-            foreach ($missingSubs as $sub) {
-                $values[] = "(?, ?, ?, 'pending')";
-                $params[] = $sub['id'];
-                $params[] = $kitchenId;
-                $params[] = $date;
-            }
+        if (!empty($values)) {
+            $insertSql = "INSERT IGNORE INTO {$this->table} (customer_subscription_id, kitchen_id, delivery_date, meal_type, delivery_time, status) VALUES ";
             $insertSql .= implode(', ', $values);
             $insertStmt = $this->db->prepare($insertSql);
             $insertStmt->execute($params);

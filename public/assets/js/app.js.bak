@@ -1,0 +1,438 @@
+/**
+ * Kravyo - Client-Side Script
+ */
+
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Kravyo Application Initialized successfully.');
+
+    // Auto-dismiss Bootstrap alert messages after 5 seconds
+    const alerts = document.querySelectorAll('.alert-dismissible');
+    alerts.forEach(alert => {
+        setTimeout(() => {
+            const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+            if (bsAlert) {
+                bsAlert.close();
+            }
+        }, 5000);
+    });
+
+    // Initialize Bootstrap tooltips if present
+    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    tooltipTriggerList.forEach(tooltipTriggerEl => {
+        new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // ============================================
+    // Phase 3: Image Upload Preview & Availability Toggle
+    // ============================================
+
+    /**
+     * Image Upload Preview — Shows selected image before form submission
+     */
+    function setupImagePreview(inputId, previewId, placeholderId) {
+        const input = document.getElementById(inputId);
+        const preview = document.getElementById(previewId);
+        const placeholder = document.getElementById(placeholderId);
+
+        if (!input || !preview) return;
+
+        input.addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Validate file type
+            const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+            if (!validTypes.includes(file.type)) {
+                alert('Please select a valid image file (JPG, PNG, WebP, or GIF).');
+                input.value = '';
+                return;
+            }
+
+            // Validate file size (5MB max)
+            if (file.size > 5 * 1024 * 1024) {
+                alert('Image file size must be under 5 MB.');
+                input.value = '';
+                return;
+            }
+
+            // Show preview
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                preview.src = event.target.result;
+                preview.classList.remove('d-none');
+                if (placeholder) {
+                    placeholder.classList.add('d-none');
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // Initialize upload previews for Chef Profile page
+    setupImagePreview('banner_image', 'bannerPreview', 'bannerPlaceholder');
+    setupImagePreview('hygiene_certificate_image', 'certPreview', 'certPlaceholder');
+
+    /**
+     * Kitchen Availability Toggle — AJAX POST to toggle open/closed
+     */
+    const availabilityToggle = document.getElementById('availabilityToggle');
+    if (availabilityToggle) {
+        availabilityToggle.addEventListener('click', function () {
+            const track = this.querySelector('.toggle-track');
+            const text = this.querySelector('.toggle-text');
+            const csrfToken = this.dataset.csrf;
+
+            // Determine base URL from current page
+            const baseUrl = window.location.origin + window.location.pathname.split('/chef')[0];
+
+            fetch(baseUrl + '/chef/toggle-availability', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken
+                },
+                body: '_csrf=' + encodeURIComponent(csrfToken)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Update toggle visual state
+                        if (data.is_open) {
+                            track.classList.add('active');
+                            text.className = 'toggle-text fw-bold text-success';
+                            text.textContent = '● OPEN';
+                        } else {
+                            track.classList.remove('active');
+                            text.className = 'toggle-text fw-bold text-danger';
+                            text.textContent = '● CLOSED';
+                        }
+                    } else {
+                        alert(data.message || 'Failed to update availability.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Toggle error:', error);
+                    alert('Network error. Please try again.');
+                });
+        });
+    }
+
+    // ============================================
+    // Phase 4: Menu Management Image Previews
+    // ============================================
+    setupImagePreview('cat_image', 'catAddPreview', 'catAddPlaceholder');
+    setupImagePreview('addDishImage', null, null); // Just for validation
+
+    // ============================================
+    // Phase 5: Customer Discovery, Cart & Customization
+    // ============================================
+
+    /**
+     * Dish Detail — Quantity Selector (+/- buttons)
+     */
+    const qtyInput = document.getElementById('qtyInput');
+    const qtyMinus = document.getElementById('qtyMinus');
+    const qtyPlus = document.getElementById('qtyPlus');
+
+    if (qtyInput && qtyMinus && qtyPlus) {
+        const dishPrice = parseFloat(qtyInput.closest('form')?.querySelector('input[name="menu_item_id"]')
+            ?.closest('.col-lg-6')?.querySelector('.dish-detail-price')?.textContent?.replace(/[^0-9.]/g, '') || '0');
+
+        qtyMinus.addEventListener('click', () => {
+            let val = parseInt(qtyInput.value, 10);
+            if (val > 1) {
+                qtyInput.value = val - 1;
+                updateItemTotal(val - 1, dishPrice);
+            }
+        });
+
+        qtyPlus.addEventListener('click', () => {
+            let val = parseInt(qtyInput.value, 10);
+            if (val < 10) {
+                qtyInput.value = val + 1;
+                updateItemTotal(val + 1, dishPrice);
+            }
+        });
+
+        function updateItemTotal(qty, price) {
+            const totalEl = document.getElementById('itemTotal');
+            if (totalEl && price > 0) {
+                totalEl.textContent = '₹' + (qty * price).toFixed(2);
+            }
+        }
+    }
+
+    /**
+     * Update Cart Badge Count in Navbar
+     * Called after any cart AJAX operation
+     */
+    function updateCartBadge(count) {
+        const badges = document.querySelectorAll('.cart-badge-count');
+        badges.forEach(badge => {
+            badge.textContent = count;
+            if (count > 0) {
+                badge.classList.remove('d-none');
+            } else {
+                badge.classList.add('d-none');
+            }
+        });
+    }
+
+    // Expose updateCartBadge globally for potential use
+    window.KravyoCart = {
+        updateBadge: updateCartBadge
+    };
+    // ============================================
+    // Phase 6: Order Placement & Checkout
+    // ============================================
+
+    /**
+     * Checkout — Toggle New Address Form
+     */
+    const toggleNewAddressBtn = document.getElementById('toggleNewAddress');
+    const newAddressForm = document.getElementById('newAddressForm');
+    const addressRadios = document.querySelectorAll('.address-radio');
+
+    if (toggleNewAddressBtn && newAddressForm) {
+        toggleNewAddressBtn.addEventListener('click', () => {
+            newAddressForm.classList.toggle('d-none');
+            if (!newAddressForm.classList.contains('d-none')) {
+                // Focus first input
+                newAddressForm.querySelector('input[name="new_street_address"]')?.focus();
+                // Uncheck all saved addresses
+                addressRadios.forEach(radio => {
+                    radio.checked = false;
+                    radio.closest('.address-card').classList.remove('selected');
+                });
+            }
+        });
+
+        // If user clicks a saved address, hide the new address form
+        addressRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                newAddressForm.classList.add('d-none');
+                addressRadios.forEach(r => r.closest('.address-card').classList.remove('selected'));
+                radio.closest('.address-card').classList.add('selected');
+            });
+        });
+    }
+
+    /**
+     * Checkout — Payment Method Selection Styling
+     */
+    const paymentRadios = document.querySelectorAll('.payment-radio');
+    if (paymentRadios.length > 0) {
+        paymentRadios.forEach(radio => {
+            radio.addEventListener('change', () => {
+                paymentRadios.forEach(r => r.closest('.payment-method-card').classList.remove('selected'));
+                radio.closest('.payment-method-card').classList.add('selected');
+            });
+        });
+    }
+
+    // ============================================
+    // Real-Time Notification Polling
+    // ============================================
+    
+    // Toast helper for real-time notifications
+    window.showNotificationToast = function(title, message, link) {
+        const toastContainer = document.getElementById('toast-container') || (() => {
+            const el = document.createElement('div');
+            el.id = 'toast-container';
+            el.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            el.style.zIndex = '1090';
+            document.body.appendChild(el);
+            return el;
+        })();
+
+        const toastId = 'toast-' + Date.now();
+        const html = `
+        <div id="${toastId}" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header bg-dark text-white">
+                <i class="bi bi-bell-fill me-2 text-warning"></i>
+                <strong class="me-auto">${String(title).replace(/[&<>'"]/g, t => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[t]||t))}</strong>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">
+                ${String(message).replace(/[&<>'"]/g, t => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[t]||t))}
+                ${link ? `<div class="mt-2 pt-2 border-top"><a href="${link}" class="btn btn-sm btn-primary">View</a></div>` : ''}
+            </div>
+        </div>`;
+        
+        toastContainer.insertAdjacentHTML('beforeend', html);
+        const toastEl = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastEl, { autohide: true, delay: 5000 });
+        toast.show();
+        
+        toastEl.addEventListener('hidden.bs.toast', () => {
+            toastEl.remove();
+        });
+    };
+
+    const notifBellBtn = document.getElementById('notifBellBtn');
+    
+    // Create AudioContext once globally to handle autoplay policies
+    let notifAudioCtx = null;
+    
+    // Initialize/resume audio context on first user interaction
+    const initAudio = () => {
+        if (!notifAudioCtx) {
+            try {
+                notifAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch(e) {}
+        }
+        if (notifAudioCtx && notifAudioCtx.state === 'suspended') {
+            notifAudioCtx.resume();
+        }
+    };
+    document.addEventListener('click', initAudio, { once: true });
+    document.addEventListener('touchstart', initAudio, { once: true });
+    document.addEventListener('keydown', initAudio, { once: true });
+
+    if (notifBellBtn) {
+        let lastNotifId = 0;
+        
+        // Find highest existing notification ID to start tracking
+        fetch((window.KRAVYO_CTX_PREFIX || '') + '/notifications/latest')
+            .then(res => res.json())
+            .then(data => {
+                if (data.notifications && data.notifications.length > 0) {
+                    lastNotifId = Math.max(...data.notifications.map(n => parseInt(n.id, 10)));
+                }
+            })
+            .catch(err => console.error("Could not init notification tracker:", err));
+
+        // Poll every 5 seconds
+        setInterval(() => {
+            fetch((window.KRAVYO_CTX_PREFIX || '') + '/api/notifications/unread?last_id=' + lastNotifId)
+                .then(res => res.json())
+                .then(data => {
+                    // Update badge count
+                    if (data.unread_count !== undefined) {
+                        const badge = document.getElementById('notifBadge');
+                        if (badge) {
+                            if (data.unread_count > 0) {
+                                badge.textContent = data.unread_count > 99 ? '99+' : data.unread_count;
+                                badge.classList.remove('d-none');
+                            } else {
+                                badge.classList.add('d-none');
+                            }
+                        }
+                    }
+
+                    // Trigger toast for new notifications
+                    if (data.new && data.new.length > 0) {
+                        const notifList = document.getElementById('notifDropdownList');
+                        const noNotifsMsg = document.getElementById('noNotifsMsg');
+                        if (noNotifsMsg) noNotifsMsg.remove();
+                        
+                        data.new.forEach(notif => {
+                            lastNotifId = Math.max(lastNotifId, parseInt(notif.id, 10));
+                            showNotificationToast(notif.title, notif.message, notif.action_url);
+                            
+                            // Append to dropdown visually
+                            if (notifList) {
+                                const actionUrl = notif.link || (window.KRAVYO_APP_URL + '/notifications');
+                                const html = `
+                                <a href="${actionUrl}" class="d-flex align-items-start gap-2 px-3 py-2 text-decoration-none border-bottom notif-item bg-light" style="color:inherit;">
+                                    <i class="bi bi-bell-fill text-secondary mt-1 flex-shrink-0"></i>
+                                    <div class="flex-grow-1 overflow-hidden">
+                                        <div class="fw-semibold small text-truncate text-dark">${String(notif.title).replace(/[&<>'"]/g, 
+                                            tag => ({
+                                                '&': '&amp;',
+                                                '<': '&lt;',
+                                                '>': '&gt;',
+                                                "'": '&#39;',
+                                                '"': '&quot;'
+                                            }[tag] || tag))}</div>
+                                        <div class="small text-muted" style="font-size:0.78rem;line-height:1.3;">${String(notif.message).replace(/[&<>'"]/g, 
+                                            tag => ({
+                                                '&': '&amp;',
+                                                '<': '&lt;',
+                                                '>': '&gt;',
+                                                "'": '&#39;',
+                                                '"': '&quot;'
+                                            }[tag] || tag)).substring(0,80)}...</div>
+                                        <div class="text-muted" style="font-size:0.7rem;">Just now</div>
+                                    </div>
+                                    <span class="flex-shrink-0 mt-1" style="width:8px;height:8px;background:#e85d04;border-radius:50%;display:inline-block;"></span>
+                                </a>`;
+                                notifList.insertAdjacentHTML('afterbegin', html);
+                            }
+                        });
+                        
+                        // Play a base64 audio sound for the notification
+                        try {
+                            const audio = new Audio("data:audio/wav;base64,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");
+                            audio.volume = 0.5;
+                            // Add a small delay so DOM can settle
+                            setTimeout(() => {
+                                const playPromise = audio.play();
+                                if (playPromise !== undefined) {
+                                    playPromise.catch(e => {
+                                        console.warn("Autoplay blocked by browser. User must click first:", e);
+                                    });
+                                }
+                            }, 50);
+                        } catch(e) {
+                            console.error("Audio error:", e);
+                        }
+                    }
+                })
+                .catch(err => console.error("Notification poll failed:", err));
+        }, 5000);
+    }
+
+    function showNotificationToast(title, message, url) {
+        // Create toast container if it doesn't exist
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+            toastContainer.style.zIndex = '1100';
+            document.body.appendChild(toastContainer);
+        }
+
+        const toastId = 'toast-' + Date.now();
+        const toastHTML = `
+            <div id="${toastId}" class="toast border-0 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true">
+                <div class="toast-header bg-dark text-white border-bottom-0">
+                    <i class="bi bi-bell-fill text-warning me-2"></i>
+                    <strong class="me-auto">${escapeHtml(title)}</strong>
+                    <small>Just now</small>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+                <div class="toast-body bg-white text-dark">
+                    ${escapeHtml(message)}
+                    ${url ? `<div class="mt-2 pt-2 border-top"><a href="${escapeHtml(url)}" class="btn btn-sm btn-kravyo-primary w-100">View Details</a></div>` : ''}
+                </div>
+            </div>
+        `;
+        
+        toastContainer.insertAdjacentHTML('beforeend', toastHTML);
+        const toastEl = document.getElementById(toastId);
+        const toast = new bootstrap.Toast(toastEl, { delay: 10000 });
+        toast.show();
+        
+        // Cleanup after hidden
+        toastEl.addEventListener('hidden.bs.toast', () => {
+            toastEl.remove();
+        });
+    }
+
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return (unsafe + '').replace(/[&<"']/g, function(m) {
+            switch (m) {
+                case '&': return '&amp;';
+                case '<': return '&lt;';
+                case '>': return '&gt;';
+                case '"': return '&quot;';
+                case "'": return '&#039;';
+            }
+        });
+    }
+});
+

@@ -6,7 +6,7 @@ $_reviewModel   = new Review();
 $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
 ?>
 <section class="py-4">
-    <div class="container">
+    <div class="container" id="live-order-track" data-live-refresh="true">
         <!-- Order Header -->
         <div class="order-track-header mb-4">
             <div class="row align-items-center">
@@ -29,16 +29,19 @@ $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
                     // Customer-friendly status labels and colors
                     // Backend 'accepted' is shown as 'Confirmed' to the customer
                     $customerStatusLabels = [
-                        'pending'          => 'Order Confirmed',
+                        'pending'          => 'Awaiting Confirmation',
                         'accepted'         => 'Order Confirmed',
                         'preparing'        => 'Preparing',
+                        'ready_for_pickup' => 'Ready for Pickup',
                         'out_for_delivery' => 'Out for Delivery',
                         'delivered'        => 'Delivered',
                         'cancelled'        => 'Cancelled',
+                        'delivery_failed'  => 'Delivery Failed',
                     ];
                     $statusColors = [
                         'pending' => 'warning', 'accepted' => 'info', 'preparing' => 'primary',
-                        'out_for_delivery' => 'success', 'delivered' => 'success', 'cancelled' => 'danger'
+                        'ready_for_pickup' => 'info',
+                        'out_for_delivery' => 'success', 'delivered' => 'success', 'cancelled' => 'danger', 'delivery_failed' => 'danger'
                     ];
                     $statusColor = $statusColors[$order['order_status']] ?? 'secondary';
                     $statusLabel = $customerStatusLabels[$order['order_status']] ?? ucwords(str_replace('_', ' ', $order['order_status']));
@@ -70,8 +73,8 @@ $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
                     <!-- Simplified 4-Step Status Timeline -->
                     <div class="order-timeline mb-4">
                         <?php
-                        // Customer-facing timeline order (4 steps)
-                        $timelineOrder = ['confirmed', 'preparing', 'out_for_delivery', 'delivered'];
+                        // Customer-facing timeline order (5 steps)
+                        $timelineOrder = ['placed', 'confirmed', 'preparing', 'out_for_delivery', 'delivered'];
                         $currentIndex = array_search($customerStep, $timelineOrder);
                         if ($currentIndex === false) $currentIndex = 0;
                         ?>
@@ -101,6 +104,64 @@ $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
                     </div>
                 <?php endif; ?>
 
+                <?php if ($order['order_status'] === 'out_for_delivery' && !empty($order['delivery_otp'])): ?>
+                    <div class="alert alert-info border-0 shadow-sm mb-4 d-flex align-items-center">
+                        <i class="bi bi-shield-lock-fill fs-1 me-3 text-info"></i>
+                        <div>
+                            <h5 class="fw-bold mb-1">Delivery OTP: <span class="text-primary fs-3"><?= sanitize($order['delivery_otp']) ?></span></h5>
+                            <p class="mb-0 small text-muted">Share this OTP with your delivery partner to receive your order.</p>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($order['delivery_partner_id']) && $order['order_status'] === ORDER_STATUS_OUT_FOR_DELIVERY): ?>
+                    <!-- Delivery Partner Info Box -->
+                    <div class="checkout-section mb-4 p-3 bg-light rounded-3 d-flex align-items-center gap-3">
+                        <div class="rounded-circle bg-white d-flex align-items-center justify-content-center shadow-sm" style="width:50px; height:50px;">
+                            <i class="bi bi-person-circle fs-3 text-secondary"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <h6 class="fw-bold mb-0"><?= sanitize($order['delivery_partner_name'] ?? 'Delivery Partner') ?></h6>
+                            <p class="small text-muted mb-0">
+                                <?= sanitize($order['vehicle_type'] ?? 'Vehicle') ?> &bull; <?= sanitize($order['vehicle_number'] ?? '') ?>
+                            </p>
+                        </div>
+                        <a href="tel:<?= sanitize($order['delivery_partner_phone'] ?? '') ?>" class="btn btn-sm btn-outline-success rounded-circle" style="width:40px; height:40px; display:flex; align-items:center; justify-content:center;">
+                            <i class="bi bi-telephone-fill"></i>
+                        </a>
+                    </div>
+
+                    <!-- Google Maps integration -->
+                    <?php include __DIR__ . '/../partials/google_maps_loader.php'; ?>
+                    
+                    <!-- Pusher Real-Time WebSockets -->
+                    <script src="https://js.pusher.com/8.2.0/pusher.min.js"></script>
+                    
+                    <div class="checkout-section mb-4">
+                        <h5 class="checkout-section-title">
+                            <i class="bi bi-geo-alt-fill me-2 text-danger"></i>Live Delivery Tracking
+                        </h5>
+                        <div id="liveDeliveryMap" style="height: 300px; border-radius: 12px; z-index: 1;"></div>
+                        <div class="text-center mt-2 small fw-bold text-muted" id="mapStatus">
+                            <i class="bi bi-broadcast"></i> Waiting for delivery partner's location...
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($order['order_status'] === 'delivery_failed'): ?>
+                    <div class="alert alert-danger border-0 shadow-sm mb-4 d-flex align-items-center">
+                        <i class="bi bi-exclamation-octagon-fill fs-1 me-3 text-danger"></i>
+                        <div>
+                            <h5 class="fw-bold mb-1">Delivery Failed</h5>
+                            <p class="mb-0 small">The delivery partner reported an issue. Reason: <strong><?= sanitize($order['delivery_failed_reason'] ?? 'Customer unavailable') ?></strong></p>
+                        </div>
+                    </div>
+                <?php endif; ?>
+
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#reportModal" data-kitchen-id="<?= $order['kitchen_id'] ?>" data-order-id="<?= $order['id'] ?>" data-target-type="delivery" data-target-id="<?= $order['id'] ?>"><i class="bi bi-flag me-1"></i> Report Delivery Issue</button>
+                </div>
+
                 <!-- Order Items -->
                 <div class="checkout-section">
                     <h5 class="checkout-section-title">
@@ -129,7 +190,7 @@ $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
                                     <?= sanitize($item['item_name']) ?>
                                 </h6>
                                 <?php if (!empty($item['is_zero_waste'])): ?>
-                                    <span class="badge bg-success bg-opacity-15 text-success fw-semibold small px-2 py-1 border border-success border-opacity-25">
+                                    <span class="badge rounded-pill fw-semibold small px-2 py-1" style="background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">
                                         <i class="bi bi-recycle me-1"></i>Zero Waste Deal
                                     </span>
                                 <?php else: ?>
@@ -145,6 +206,7 @@ $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
                             <div class="text-end">
                                 <div class="small text-muted"><?= format_currency($item['unit_price']) ?> × <?= $item['quantity'] ?></div>
                                 <div class="fw-bold <?= !empty($item['is_zero_waste']) ? 'text-success' : '' ?>"><?= format_currency($item['subtotal']) ?></div>
+                                <button type="button" class="btn btn-sm btn-link text-danger p-0 mt-1 text-decoration-none" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#reportModal" data-kitchen-id="<?= $order['kitchen_id'] ?>" data-order-id="<?= $order['id'] ?>" data-target-type="dish" data-target-id="<?= $item['menu_item_id'] ?>"><i class="bi bi-flag"></i> Report</button>
                             </div>
                         </div>
                     <?php endforeach; ?>
@@ -301,4 +363,178 @@ document.querySelectorAll('#starRatingInput input').forEach(radio => {
     });
 });
 </script>
+
+<?php if (!empty($order['delivery_partner_id']) && $order['order_status'] === ORDER_STATUS_OUT_FOR_DELIVERY): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    if (typeof KravyoMaps === 'undefined') return;
+
+    KravyoMaps.init().then(() => {
+        const kitchenLat = <?= $order['kitchen_lat'] ?? 20.0 ?>;
+        const kitchenLng = <?= $order['kitchen_lng'] ?? 78.0 ?>;
+        
+        let destinationLatLng = null;
+        let map = null;
+        let routeRenderer = null;
+
+        <?php if(!empty($order['delivery_latitude']) && !empty($order['delivery_longitude'])): ?>
+            destinationLatLng = { lat: <?= (float)$order['delivery_latitude'] ?>, lng: <?= (float)$order['delivery_longitude'] ?> };
+            initializeTrackingMap();
+        <?php else: ?>
+            // Fallback for old orders before Phase 11
+            const fullAddress = "<?= sanitize($order['street_address'] . ', ' . $order['delivery_city'] . ', ' . $order['delivery_pincode']) ?>";
+            
+            KravyoMaps.geocode(fullAddress).then(result => {
+                if(result && result.lat) {
+                    destinationLatLng = { lat: result.lat, lng: result.lng };
+                } else {
+                    console.warn("Could not geocode customer address.");
+                }
+                initializeTrackingMap();
+            }).catch(err => {
+                console.error("Geocoding failed", err);
+                initializeTrackingMap();
+            });
+        <?php endif; ?>
+
+        function initializeTrackingMap() {
+            map = KravyoMaps.createMap('liveDeliveryMap', kitchenLat, kitchenLng, 14);
+            
+            // Initial fetch
+            fetch('<?= url('/order/location/' . $order['id']) ?>')
+                .then(res => res.json())
+                .then(data => updateMap(data))
+                .catch(err => console.error('Error fetching initial location:', err));
+        }
+
+        // 2. Real-Time WebSocket Updates via Pusher
+        function updateMap(data) {
+            if (!map) return;
+            
+            if (data.latitude && data.longitude) {
+                const lat = parseFloat(data.latitude);
+                const lng = parseFloat(data.longitude);
+                const status = data.delivery_status || '<?= $order['order_status'] ?>';
+                const isPhase2 = (status === 'out_for_delivery');
+                
+                // Update driver location (animates if enabled)
+                KravyoMaps.updateDriverLocation(map, 'partner_marker_<?= $order['delivery_partner_id'] ?>', lat, lng);
+
+                if (!window.kitchenMarker && kitchenLat !== 20.0) {
+                    window.kitchenMarker = KravyoMaps.addStaticMarker(map, kitchenLat, kitchenLng, 'Kitchen: <?= sanitize($order['kitchen_name']) ?>', 'restaurant');
+                }
+                
+                if (!window.customerMarker && destinationLatLng) {
+                    window.customerMarker = KravyoMaps.addStaticMarker(map, destinationLatLng.lat, destinationLatLng.lng, 'Destination (Customer)', 'home');
+                }
+
+                // Make sure the map auto-zooms to fit all elements
+                let pointsToFit = [{lat, lng}];
+                if (window.kitchenMarker) pointsToFit.push({lat: kitchenLat, lng: kitchenLng});
+                if (window.customerMarker) pointsToFit.push(destinationLatLng);
+                KravyoMaps.fitToBounds(map, pointsToFit, 60, 16);
+
+                // Routing - Calculate distance roughly
+                const newPoint = { lat, lng };
+                let shouldRoute = false;
+                
+                if (!window.lastRoutedPoint || window.lastRoutePhase !== isPhase2) {
+                    shouldRoute = true;
+                } else {
+                    const prevPt = window.lastRoutedPoint;
+                    const R = 6371e3; // metres
+                    const φ1 = prevPt.lat * Math.PI/180;
+                    const φ2 = newPoint.lat * Math.PI/180;
+                    const Δφ = (newPoint.lat - prevPt.lat) * Math.PI/180;
+                    const Δλ = (newPoint.lng - prevPt.lng) * Math.PI/180;
+                    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
+                    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                    const d = R * c;
+                    
+                    if (d > 50) { // 50 meters
+                        shouldRoute = true;
+                    }
+                }
+
+                if (shouldRoute) {
+                    let origin = { lat: lat, lng: lng };
+
+                    // Leg 1: Rider -> Kitchen (Red)
+                    KravyoMaps.drawRoute(map, origin, {lat: kitchenLat, lng: kitchenLng}, null, '#ef4444').then(r => {
+                        if (window.routeRenderer1) window.routeRenderer1.setMap(null);
+                        window.routeRenderer1 = r;
+                    }).catch(e => console.error(e));
+                    // Leg 2: Kitchen -> Customer (Blue)
+                    KravyoMaps.drawRoute(map, {lat: kitchenLat, lng: kitchenLng}, destinationLatLng, null, '#2563eb').then(r => {
+                        if (window.routeRenderer2) window.routeRenderer2.setMap(null);
+                        window.routeRenderer2 = r;
+                    }).catch(e => console.error(e));
+                    
+                    window.lastRoutedPoint = newPoint;
+                    window.lastRoutePhase = isPhase2;
+                }
+                
+                let dateStr = new Date().toLocaleTimeString();
+                document.getElementById('mapStatus').innerHTML = '<span class="text-success"><i class="bi bi-geo-fill"></i> Live (Updated ' + dateStr + ')</span>';
+            }
+        }
+
+        const pusherAppId = '24a1d781abe1f8122479'; // The user will set this up
+        if (pusherAppId !== 'YOUR_KEY_HERE') {
+            const pusher = new Pusher(pusherAppId, { cluster: 'ap2' });
+            const channel = pusher.subscribe('delivery-partner-<?= $order['delivery_partner_id'] ?>');
+            channel.bind('location_update', function(data) {
+                console.log('Real-Time GPS Update Received via Pusher!');
+                updateMap(data);
+            });
+        } else {
+            document.getElementById('mapStatus').innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle"></i> Pusher API not configured yet. Map static.</span>';
+        }
+
+        // Fallback: Poll for location every 5 seconds if Pusher is unreliable/unconfigured
+        setInterval(function() {
+            fetch('<?= url('/order/location/' . $order['id']) ?>')
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.latitude) {
+                        updateMap(data);
+                    }
+                })
+                .catch(err => console.error('Error polling location:', err));
+        }, 5000);
+    });
+});
+</script>
+<?php endif; ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const currentDispatchStatus = <?= json_encode($order['dispatch_status'] ?? '') ?>;
+    const currentOrderStatus = <?= json_encode($order['order_status'] ?? '') ?>;
+    const currentDpId = <?= json_encode($order['delivery_partner_id'] ?? null) ?>;
+    const isOrderFinal = <?= json_encode(in_array($order['order_status'], ['delivered', 'cancelled', 'delivery_failed'])) ?>;
+
+    if (!isOrderFinal) {
+        setInterval(function() {
+            fetch('<?= url('/order/status/' . $order['id']) ?>', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data && !data.error) {
+                    if (data.dispatch_status !== currentDispatchStatus || 
+                        data.order_status !== currentOrderStatus || 
+                        data.delivery_partner_id !== currentDpId) {
+                        window.location.reload();
+                    }
+                }
+            })
+            .catch(err => console.error(err));
+        }, 3000);
+    }
+});
+</script>
+
+<?php View::partial('report_modal'); ?>
+
 

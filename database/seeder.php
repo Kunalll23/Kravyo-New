@@ -53,15 +53,30 @@ try {
     // 3. Seed Addresses (Phase 6, 7)
     $stmtAddr = $db->prepare("INSERT INTO addresses (user_id, address_type, street_address, landmark, city, pincode) VALUES (?, ?, ?, ?, ?, ?)");
     $addressTypes = ['Home', 'Work', 'Other'];
-    $cities = ['Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Hyderabad'];
+    
+    // Real-world addresses for realistic map testing
+    $realAddresses = [
+        ['street' => 'Flat B-402, Rajhans Synfonia, VIP Road, Vesu', 'landmark' => 'Near Reliance Mall', 'city' => 'Surat', 'pincode' => '395007'],
+        ['street' => 'A-104, Royal Star Town, Adajan Gam', 'landmark' => 'Near LP Savani School', 'city' => 'Surat', 'pincode' => '395009'],
+        ['street' => 'Flat 402, Sea View Apartments, Juhu Tara Road, Juhu', 'landmark' => 'Near Juhu Beach', 'city' => 'Mumbai', 'pincode' => '400049'],
+        ['street' => 'Wing A, 6th Floor, Hiranandani Estate, Ghodbunder Road', 'landmark' => 'Near TCS', 'city' => 'Mumbai', 'pincode' => '400607'],
+        ['street' => 'House No 112, Block C, Vasant Vihar', 'landmark' => 'Near Vasant Vihar Club', 'city' => 'Delhi', 'pincode' => '110057'],
+        ['street' => 'Flat 34, DDA MIG Flats, Sector 13, Dwarka', 'landmark' => 'Near Radisson Blu', 'city' => 'Delhi', 'pincode' => '110075'],
+        ['street' => 'Apt 201, Prestige Shantiniketan, ITPL Main Road, Whitefield', 'landmark' => 'Near Forum Mall', 'city' => 'Bangalore', 'pincode' => '560048'],
+        ['street' => 'Villa 45, Adarsh Palm Retreat, Outer Ring Road, Bellandur', 'landmark' => 'Near Intel Campus', 'city' => 'Bangalore', 'pincode' => '560103'],
+        ['street' => 'Flat B-504, Rohan Mithila, Viman Nagar', 'landmark' => 'Near Symbiosis College', 'city' => 'Pune', 'pincode' => '411014'],
+        ['street' => 'Bungalow 12, Koregaon Park Annexe, Mundhwa', 'landmark' => 'Near Westin Hotel', 'city' => 'Pune', 'pincode' => '411036'],
+        ['street' => 'Flat 101, My Home Jewel, Madinaguda, Miyapur', 'landmark' => 'Near Miyapur Metro', 'city' => 'Hyderabad', 'pincode' => '500049'],
+        ['street' => 'Villa 9, Aparna Senor Valley, Jubilee Hills', 'landmark' => 'Near Apollo Hospital', 'city' => 'Hyderabad', 'pincode' => '500033']
+    ];
     
     $addressIds = [];
     for ($i = 0; $i < 20; $i++) {
         $cId = $customerIds[array_rand($customerIds)];
         $type = $addressTypes[array_rand($addressTypes)];
-        $city = $cities[array_rand($cities)];
-        $pin = mt_rand(111111, 999999);
-        $stmtAddr->execute([$cId, $type, "Flat " . mt_rand(1, 100) . ", Building " . mt_rand(1, 20), "Near landmark " . mt_rand(1,5), $city, $pin]);
+        $addr = $realAddresses[array_rand($realAddresses)];
+        
+        $stmtAddr->execute([$cId, $type, $addr['street'], $addr['landmark'], $addr['city'], $addr['pincode']]);
         $addressIds[] = $db->lastInsertId();
     }
     echo "Addresses seeded.\n";
@@ -77,7 +92,8 @@ try {
         $cId = $catIds[array_rand($catIds)];
         $name = $foodNames[array_rand($foodNames)] . " Variant " . mt_rand(1, 5);
         $price = mt_rand(50, 350);
-        $isVeg = mt_rand(0, 10) > 2 ? 1 : 0; // 80% veg
+        $isNonVeg = (strpos($name, 'Chicken') !== false || strpos($name, 'Fish') !== false || strpos($name, 'Mutton') !== false);
+        $isVeg = $isNonVeg ? 0 : 1;
         $isJain = $isVeg ? mt_rand(0, 1) : 0;
         $isDiabetic = mt_rand(0, 10) > 8 ? 1 : 0;
         

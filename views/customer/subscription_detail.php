@@ -3,7 +3,7 @@
     <!-- Breadcrumb -->
     <nav aria-label="breadcrumb" class="mb-4">
         <ol class="breadcrumb">
-            <li class="breadcrumb-item"><a href="<?= url('/') ?>" class="text-decoration-none">Home</a></li>
+            <li class="breadcrumb-item"><a href="<?= ctx_url('/') ?>" class="text-decoration-none">Home</a></li>
             <li class="breadcrumb-item"><a href="<?= ctx_url('/subscriptions') ?>" class="text-decoration-none">Tiffin Plans</a></li>
             <li class="breadcrumb-item active"><?= sanitize($plan['plan_name']) ?></li>
         </ol>
@@ -28,7 +28,12 @@
                     </div>
 
                     <?php if (!empty($plan['description'])): ?>
-                        <p class="text-muted fs-6 mb-4"><?= nl2br(sanitize($plan['description'])) ?></p>
+                        <div class="p-3 bg-light rounded-3 mb-4 border">
+                            <span class="fw-bold text-dark d-block mb-1">
+                                <i class="bi bi-box2-heart text-warning me-1"></i>What's Included in this Plan:
+                            </span>
+                            <span class="text-muted"><?= nl2br(sanitize($plan['description'])) ?></span>
+                        </div>
                     <?php endif; ?>
 
                     <!-- Plan Features -->
@@ -79,6 +84,29 @@
                         </div>
                     </div>
 
+                    <!-- Daily Meal Delivery Schedule -->
+                    <?php $detailSchedule = Subscription::getMealSchedule($plan); ?>
+                    <div class="card bg-light border-0 rounded-3 p-3 mb-4">
+                        <h6 class="fw-bold mb-3 d-flex align-items-center gap-2">
+                            <i class="bi bi-clock-history text-warning"></i> Daily Meal Delivery Schedule
+                        </h6>
+                        <div class="row g-2">
+                            <?php foreach ($detailSchedule as $mKey => $mInfo): ?>
+                                <div class="col-sm-<?= count($detailSchedule) === 1 ? '12' : (count($detailSchedule) === 2 ? '6' : '4') ?>">
+                                    <div class="bg-white p-3 rounded-3 border h-100 shadow-sm">
+                                        <div class="d-flex align-items-center gap-2 mb-1">
+                                            <i class="bi <?= $mInfo['icon'] ?> text-<?= $mInfo['badge_color'] ?> fs-5"></i>
+                                            <span class="fw-bold text-dark"><?= $mInfo['label'] ?></span>
+                                        </div>
+                                        <div class="text-muted small">
+                                            <i class="bi bi-truck me-1"></i><?= sanitize($mInfo['time']) ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+
                     <!-- Kitchen Info Card -->
                     <div class="border rounded-3 p-3">
                         <div class="d-flex align-items-center gap-3">
@@ -126,7 +154,14 @@
                         <i class="bi bi-cart-check text-warning me-2"></i>Subscribe to This Plan
                     </h5>
 
-                    <?php if (!Session::has('user_id')): ?>
+                    <?php if (Session::currentContext() !== Session::CUSTOMER_SESSION): ?>
+                        <!-- Non-Customer preview -->
+                        <div class="text-center py-4">
+                            <i class="bi bi-info-circle text-primary display-5 mb-3"></i>
+                            <h6 class="fw-bold">Catalogue Preview Mode</h6>
+                            <p class="text-muted small">Tiffin subscriptions are available for Customer accounts.</p>
+                        </div>
+                    <?php elseif (!Session::has('user_id')): ?>
                         <!-- Not logged in -->
                         <div class="text-center py-4">
                             <i class="bi bi-person-lock display-4 text-muted mb-3"></i>
@@ -167,6 +202,15 @@
                                 <div class="d-flex justify-content-between mb-2">
                                     <span class="text-muted">Meals/Day</span>
                                     <span class="fw-semibold"><?= $plan['meals_per_day'] ?></span>
+                                </div>
+                                <div class="mb-2">
+                                    <span class="text-muted small d-block mb-1">Delivery Windows:</span>
+                                    <?php foreach ($detailSchedule as $mKey => $mInfo): ?>
+                                        <div class="d-flex justify-content-between small text-muted ps-2">
+                                            <span><i class="bi <?= $mInfo['icon'] ?> text-<?= $mInfo['badge_color'] ?> me-1"></i><?= $mInfo['label'] ?>:</span>
+                                            <span class="fw-medium text-dark"><?= sanitize($mInfo['time']) ?></span>
+                                        </div>
+                                    <?php endforeach; ?>
                                 </div>
                                 <div class="d-flex justify-content-between mb-2">
                                     <span class="text-muted">Starts</span>

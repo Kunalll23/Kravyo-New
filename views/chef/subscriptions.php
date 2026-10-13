@@ -81,17 +81,53 @@
                     </div>
                     <div class="col-md-3">
                         <label for="meals_per_day" class="form-label fw-semibold">Meals Per Day</label>
-                        <select class="form-select form-select-lg" id="meals_per_day" name="meals_per_day">
-                            <option value="1">1 Meal / Day</option>
-                            <option value="2">2 Meals / Day</option>
-                            <option value="3">3 Meals / Day</option>
+                        <select class="form-select form-select-lg" id="meals_per_day" name="meals_per_day" onchange="toggleMealTimings('create', this.value)">
+                            <option value="1">1 Meal / Day (Lunch)</option>
+                            <option value="2">2 Meals / Day (Lunch & Dinner)</option>
+                            <option value="3">3 Meals / Day (Breakfast, Lunch & Dinner)</option>
                         </select>
                     </div>
                     <div class="col-md-9">
-                        <label for="description" class="form-label fw-semibold">Description</label>
+                        <label for="description" class="form-label fw-semibold">Include</label>
                         <textarea class="form-control" id="description" name="description" rows="2"
-                                  placeholder="Describe what's included in this plan (e.g. 2 rotis, dal, sabzi, rice, salad)"></textarea>
+                                  placeholder="e.g. 4 Phulkas, Dal Tadka, Sabzi, Jeera Rice, Salad"></textarea>
                     </div>
+
+                    <!-- Dynamic Meal Delivery Timings for 1, 2, 3 meal plans -->
+                    <div class="col-12">
+                        <div class="p-3 bg-light rounded-3 border">
+                            <label class="form-label fw-bold mb-2 text-dark">
+                                <i class="bi bi-clock-history text-warning me-1"></i> Delivery Time Windows for Meals
+                            </label>
+                            <div class="row g-3">
+                                <div class="col-md-4" id="create_breakfast_group" style="display: none;">
+                                    <label class="form-label small fw-semibold text-muted">
+                                        <i class="bi bi-sunrise text-warning me-1"></i>Breakfast Time Window
+                                    </label>
+                                    <input type="text" class="form-control" name="breakfast_time" id="create_breakfast_time"
+                                           value="08:00 AM - 09:00 AM" placeholder="e.g. 08:00 AM - 09:00 AM">
+                                </div>
+                                <div class="col-md-4" id="create_lunch_group">
+                                    <label class="form-label small fw-semibold text-muted">
+                                        <i class="bi bi-sun text-primary me-1"></i>Lunch Time Window
+                                    </label>
+                                    <input type="text" class="form-control" name="lunch_time" id="create_lunch_time"
+                                           value="12:30 PM - 01:30 PM" placeholder="e.g. 12:30 PM - 01:30 PM" required>
+                                </div>
+                                <div class="col-md-4" id="create_dinner_group" style="display: none;">
+                                    <label class="form-label small fw-semibold text-muted">
+                                        <i class="bi bi-moon-stars text-info me-1"></i>Dinner Time Window
+                                    </label>
+                                    <input type="text" class="form-control" name="dinner_time" id="create_dinner_time"
+                                           value="07:30 PM - 08:30 PM" placeholder="e.g. 07:30 PM - 08:30 PM">
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-2">
+                                <i class="bi bi-info-circle me-1"></i>Specify when meals are delivered to customers for this plan.
+                            </small>
+                        </div>
+                    </div>
+
                     <div class="col-12">
                         <button type="submit" class="btn btn-kravyo-primary btn-lg">
                             <i class="bi bi-plus-lg me-1"></i> Create Plan
@@ -115,59 +151,94 @@
                     <p class="text-muted">Create your first tiffin plan above to start getting subscribers!</p>
                 </div>
             <?php else: ?>
-                <div class="row g-3">
+                <div class="row g-4">
                     <?php foreach ($plans as $plan): ?>
                         <div class="col-lg-6">
-                            <div class="subscription-card <?= $plan['is_active'] ? '' : 'subscription-card-inactive' ?>">
-                                <div class="d-flex justify-content-between align-items-start mb-3">
+                            <div class="card subscription-card h-100 border shadow-sm <?= $plan['is_active'] ? '' : 'subscription-card-inactive' ?>">
+                                <div class="card-body p-4 d-flex flex-column justify-content-between">
                                     <div>
-                                        <h5 class="fw-bold mb-1"><?= sanitize($plan['plan_name']) ?></h5>
-                                        <span class="plan-type-badge plan-type-<?= $plan['plan_type'] ?>">
-                                            <i class="bi bi-<?= $plan['plan_type'] === 'weekly' ? 'calendar-week' : 'calendar-month' ?> me-1"></i>
-                                            <?= ucfirst($plan['plan_type']) ?>
-                                        </span>
-                                        <?php if (!$plan['is_active']): ?>
-                                            <span class="badge bg-secondary ms-1">Inactive</span>
+                                        <!-- Header: Title, Badges & Price -->
+                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                            <div class="pe-2">
+                                                <h5 class="fw-bold mb-1 text-dark"><?= sanitize($plan['plan_name']) ?></h5>
+                                                <div class="d-flex align-items-center gap-2 mt-1 flex-wrap">
+                                                    <span class="plan-type-badge plan-type-<?= $plan['plan_type'] ?>">
+                                                        <i class="bi bi-<?= $plan['plan_type'] === 'weekly' ? 'calendar-week' : 'calendar-month' ?> me-1"></i>
+                                                        <?= ucfirst($plan['plan_type']) ?>
+                                                    </span>
+                                                    <span class="badge bg-light text-secondary border">
+                                                        <i class="bi bi-egg-fried me-1 text-warning"></i><?= $plan['meals_per_day'] ?> meal<?= $plan['meals_per_day'] > 1 ? 's' : '' ?>/day
+                                                    </span>
+                                                    <?php if (!$plan['is_active']): ?>
+                                                        <span class="badge bg-secondary">Inactive</span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                            <div class="text-end text-nowrap">
+                                                <div class="fs-4 fw-800 text-primary"><?= format_currency($plan['price']) ?></div>
+                                                <small class="text-muted fw-normal">/ <?= $plan['plan_type'] === 'weekly' ? '7 days' : '30 days' ?></small>
+                                            </div>
+                                        </div>
+
+                                        <!-- What's Included -->
+                                        <?php if (!empty($plan['description'])): ?>
+                                            <div class="p-2 px-3 bg-light rounded-3 mb-3 border">
+                                                <small class="text-muted d-block">
+                                                    <strong class="text-dark"><i class="bi bi-box2-heart text-warning me-1"></i>Includes:</strong>
+                                                    <?= sanitize($plan['description']) ?>
+                                                </small>
+                                            </div>
                                         <?php endif; ?>
+
+                                        <!-- Delivery Timings Schedule -->
+                                        <div class="mb-3">
+                                            <small class="text-muted d-block mb-1 fw-semibold" style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;">
+                                                <i class="bi bi-clock-history me-1"></i>Delivery Windows
+                                            </small>
+                                            <?php $mealSchedule = Subscription::getMealSchedule($plan); ?>
+                                            <div class="d-flex flex-wrap gap-2">
+                                                <?php foreach ($mealSchedule as $mKey => $mInfo): ?>
+                                                    <span class="badge bg-white text-dark border py-1 px-2" style="font-size: 0.8rem; font-weight: 500;">
+                                                        <i class="bi <?= $mInfo['icon'] ?> text-<?= $mInfo['badge_color'] ?> me-1"></i>
+                                                        <strong><?= $mInfo['label'] ?>:</strong> <?= sanitize($mInfo['time']) ?>
+                                                    </span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="text-end">
-                                        <div class="fs-4 fw-800 text-primary"><?= format_currency($plan['price']) ?></div>
+
+                                    <!-- Footer: Created Date & Actions -->
+                                    <div class="border-top pt-3 mt-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <small class="text-muted">
+                                            <i class="bi bi-calendar3 me-1"></i>Created <?= date('M d, Y', strtotime($plan['created_at'])) ?>
+                                        </small>
+
+                                        <div class="d-flex gap-2">
+                                            <!-- Toggle Active -->
+                                            <form action="<?= url('/chef/subscription/toggle/' . $plan['id']) ?>" method="POST" class="d-inline">
+                                                <?= csrf_field() ?>
+                                                <button type="submit" class="btn btn-sm <?= $plan['is_active'] ? 'btn-outline-warning' : 'btn-outline-success' ?>">
+                                                    <i class="bi bi-<?= $plan['is_active'] ? 'pause-circle' : 'play-circle' ?> me-1"></i>
+                                                    <?= $plan['is_active'] ? 'Deactivate' : 'Activate' ?>
+                                                </button>
+                                            </form>
+
+                                            <!-- Edit (Bootstrap Modal Trigger) -->
+                                            <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
+                                                    data-bs-target="#editPlanModal<?= $plan['id'] ?>">
+                                                <i class="bi bi-pencil me-1"></i> Edit
+                                            </button>
+
+                                            <!-- Delete -->
+                                            <form action="<?= url('/chef/subscription/delete/' . $plan['id']) ?>" method="POST" class="d-inline"
+                                                  onsubmit="return confirm('Are you sure you want to delete this plan?')">
+                                                <?= csrf_field() ?>
+                                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                    <i class="bi bi-trash me-1"></i> Delete
+                                                </button>
+                                            </form>
+                                        </div>
                                     </div>
-                                </div>
-
-                                <?php if (!empty($plan['description'])): ?>
-                                    <p class="text-muted small mb-2"><?= sanitize($plan['description']) ?></p>
-                                <?php endif; ?>
-
-                                <div class="d-flex align-items-center gap-3 mb-3 text-muted small">
-                                    <span><i class="bi bi-egg-fried me-1"></i><?= $plan['meals_per_day'] ?> meal<?= $plan['meals_per_day'] > 1 ? 's' : '' ?>/day</span>
-                                    <span><i class="bi bi-clock me-1"></i>Created <?= date('M d, Y', strtotime($plan['created_at'])) ?></span>
-                                </div>
-
-                                <div class="d-flex gap-2 flex-wrap">
-                                    <!-- Toggle Active -->
-                                    <form action="<?= url('/chef/subscription/toggle/' . $plan['id']) ?>" method="POST" class="d-inline">
-                                        <?= csrf_field() ?>
-                                        <button type="submit" class="btn btn-sm <?= $plan['is_active'] ? 'btn-outline-warning' : 'btn-outline-success' ?>">
-                                            <i class="bi bi-<?= $plan['is_active'] ? 'pause-circle' : 'play-circle' ?> me-1"></i>
-                                            <?= $plan['is_active'] ? 'Deactivate' : 'Activate' ?>
-                                        </button>
-                                    </form>
-
-                                    <!-- Edit (Bootstrap Modal Trigger) -->
-                                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal"
-                                            data-bs-target="#editPlanModal<?= $plan['id'] ?>">
-                                        <i class="bi bi-pencil me-1"></i> Edit
-                                    </button>
-
-                                    <!-- Delete -->
-                                    <form action="<?= url('/chef/subscription/delete/' . $plan['id']) ?>" method="POST" class="d-inline"
-                                          onsubmit="return confirm('Are you sure you want to delete this plan?')">
-                                        <?= csrf_field() ?>
-                                        <button type="submit" class="btn btn-sm btn-outline-danger">
-                                            <i class="bi bi-trash me-1"></i> Delete
-                                        </button>
-                                    </form>
                                 </div>
                             </div>
                         </div>
@@ -204,15 +275,40 @@
                                             </div>
                                             <div class="mt-3">
                                                 <label class="form-label fw-semibold">Meals Per Day</label>
-                                                <select class="form-select" name="meals_per_day">
-                                                    <option value="1" <?= $plan['meals_per_day'] == 1 ? 'selected' : '' ?>>1 Meal</option>
-                                                    <option value="2" <?= $plan['meals_per_day'] == 2 ? 'selected' : '' ?>>2 Meals</option>
-                                                    <option value="3" <?= $plan['meals_per_day'] == 3 ? 'selected' : '' ?>>3 Meals</option>
+                                                <select class="form-select" name="meals_per_day" onchange="toggleMealTimings('edit_<?= $plan['id'] ?>', this.value)">
+                                                    <option value="1" <?= $plan['meals_per_day'] == 1 ? 'selected' : '' ?>>1 Meal (Lunch)</option>
+                                                    <option value="2" <?= $plan['meals_per_day'] == 2 ? 'selected' : '' ?>>2 Meals (Lunch & Dinner)</option>
+                                                    <option value="3" <?= $plan['meals_per_day'] == 3 ? 'selected' : '' ?>>3 Meals (Breakfast, Lunch & Dinner)</option>
                                                 </select>
                                             </div>
+
+                                            <!-- Meal Timings in Modal -->
+                                            <div class="mt-3 p-3 bg-light rounded-3 border">
+                                                <label class="form-label fw-bold mb-2 small text-dark">
+                                                    <i class="bi bi-clock-history text-warning me-1"></i> Meal Delivery Timings
+                                                </label>
+                                                <div class="row g-2">
+                                                    <div class="col-12" id="edit_<?= $plan['id'] ?>_breakfast_group" style="<?= $plan['meals_per_day'] >= 3 ? '' : 'display:none;' ?>">
+                                                        <label class="form-label small text-muted mb-1"><i class="bi bi-sunrise text-warning me-1"></i>Breakfast Time</label>
+                                                        <input type="text" class="form-control form-control-sm" name="breakfast_time"
+                                                               value="<?= sanitize($plan['breakfast_time'] ?? '08:00 AM - 09:00 AM') ?>" placeholder="e.g. 08:00 AM - 09:00 AM">
+                                                    </div>
+                                                    <div class="col-12" id="edit_<?= $plan['id'] ?>_lunch_group">
+                                                        <label class="form-label small text-muted mb-1"><i class="bi bi-sun text-primary me-1"></i>Lunch Time</label>
+                                                        <input type="text" class="form-control form-control-sm" name="lunch_time"
+                                                               value="<?= sanitize($plan['lunch_time'] ?? '12:30 PM - 01:30 PM') ?>" placeholder="e.g. 12:30 PM - 01:30 PM" required>
+                                                    </div>
+                                                    <div class="col-12" id="edit_<?= $plan['id'] ?>_dinner_group" style="<?= $plan['meals_per_day'] >= 2 ? '' : 'display:none;' ?>">
+                                                        <label class="form-label small text-muted mb-1"><i class="bi bi-moon-stars text-info me-1"></i>Dinner Time</label>
+                                                        <input type="text" class="form-control form-control-sm" name="dinner_time"
+                                                               value="<?= sanitize($plan['dinner_time'] ?? '07:30 PM - 08:30 PM') ?>" placeholder="e.g. 07:30 PM - 08:30 PM">
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             <div class="mt-3">
-                                                <label class="form-label fw-semibold">Description</label>
-                                                <textarea class="form-control" name="description" rows="2"><?= sanitize($plan['description'] ?? '') ?></textarea>
+                                                <label class="form-label fw-semibold">Include</label>
+                                                <textarea class="form-control" name="description" rows="2" placeholder="e.g. 4 Phulkas, Dal Tadka, Sabzi, Jeera Rice, Salad"><?= sanitize($plan['description'] ?? '') ?></textarea>
                                             </div>
                                         </div>
                                         <div class="modal-footer">
@@ -298,12 +394,33 @@
     <?php endif; ?>
 
     <!-- Today's Deliveries Manifest -->
+    <?php
+        $bCount = count(array_filter($todaysDeliveries, fn($d) => strtolower($d['meal_type']) === 'breakfast'));
+        $lCount = count(array_filter($todaysDeliveries, fn($d) => strtolower($d['meal_type']) === 'lunch'));
+        $dCount = count(array_filter($todaysDeliveries, fn($d) => strtolower($d['meal_type']) === 'dinner'));
+    ?>
     <div class="card kravyo-card border-0 mb-4">
-        <div class="card-header bg-transparent border-bottom py-3">
+        <div class="card-header bg-transparent border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
             <h5 class="fw-bold mb-0">
                 <i class="bi bi-bicycle text-primary me-2"></i>Today's Tiffin Deliveries
-                <span class="badge bg-primary ms-2"><?= count($todaysDeliveries) ?></span>
+                <span class="badge bg-primary ms-2" id="deliveriesCountBadge"><?= count($todaysDeliveries) ?></span>
             </h5>
+
+            <!-- Meal Type Filter Option Buttons -->
+            <div class="btn-group btn-group-sm" role="group" aria-label="Filter deliveries by meal">
+                <button type="button" class="btn btn-outline-secondary active" data-meal-filter="all" onclick="filterDeliveries('all', this)">
+                    <i class="bi bi-grid-fill me-1"></i>All (<?= count($todaysDeliveries) ?>)
+                </button>
+                <button type="button" class="btn btn-outline-warning text-dark" data-meal-filter="breakfast" onclick="filterDeliveries('breakfast', this)">
+                    <i class="bi bi-sunrise me-1"></i>Breakfast (<?= $bCount ?>)
+                </button>
+                <button type="button" class="btn btn-outline-primary" data-meal-filter="lunch" onclick="filterDeliveries('lunch', this)">
+                    <i class="bi bi-sun me-1"></i>Lunch (<?= $lCount ?>)
+                </button>
+                <button type="button" class="btn btn-outline-info text-dark" data-meal-filter="dinner" onclick="filterDeliveries('dinner', this)">
+                    <i class="bi bi-moon-stars me-1"></i>Dinner (<?= $dCount ?>)
+                </button>
+            </div>
         </div>
         <div class="card-body p-4">
             <?php if (empty($todaysDeliveries)): ?>
@@ -327,14 +444,20 @@
                         </thead>
                         <tbody>
                             <?php foreach ($todaysDeliveries as $delivery): ?>
-                                <tr>
+                                <tr class="delivery-row" data-meal-type="<?= strtolower($delivery['meal_type']) ?>">
                                     <td>
                                         <div class="fw-semibold"><?= sanitize($delivery['customer_name']) ?></div>
                                         <small class="text-muted"><?= sanitize($delivery['customer_phone']) ?></small>
                                     </td>
                                     <td>
                                         <span class="fw-semibold"><?= sanitize($delivery['plan_name']) ?></span><br>
-                                        <small class="text-muted"><?= $delivery['meals_per_day'] ?> meals</small>
+                                        <span class="badge bg-secondary"><?= ucfirst($delivery['meal_type']) ?></span>
+                                        <?php if (!empty($delivery['delivery_time'])): ?>
+                                            <span class="badge bg-light text-dark border ms-1">
+                                                <i class="bi bi-clock text-primary me-1"></i><?= sanitize($delivery['delivery_time']) ?>
+                                            </span>
+                                        <?php endif; ?>
+                                        <small class="text-muted d-block mt-1"><?= $delivery['meals_per_day'] ?> meal<?= $delivery['meals_per_day'] > 1 ? 's' : '' ?>/day</small>
                                     </td>
                                     <td>
                                         <small class="text-muted">
@@ -364,21 +487,22 @@
                                                 <?= csrf_field() ?>
                                                 <input type="hidden" name="delivery_id" value="<?= $delivery['id'] ?>">
                                                 <input type="hidden" name="status" value="dispatched">
-                                                <button type="submit" class="btn btn-sm btn-info text-white"><i class="bi bi-bicycle me-1"></i>Dispatch</button>
+                                                <button type="submit" class="btn btn-sm btn-info text-white"><i class="bi bi-bicycle me-1"></i>Prepare & Dispatch Rider</button>
                                             </form>
                                         <?php elseif ($delivery['status'] === 'dispatched'): ?>
-                                            <form action="<?= url('/chef/subscription/delivery/status') ?>" method="POST">
-                                                <?= csrf_field() ?>
-                                                <input type="hidden" name="delivery_id" value="<?= $delivery['id'] ?>">
-                                                <input type="hidden" name="status" value="delivered">
-                                                <button type="submit" class="btn btn-sm btn-success"><i class="bi bi-check-circle me-1"></i>Deliver</button>
-                                            </form>
+                                            <span class="text-info small fw-bold"><i class="bi bi-broadcast me-1"></i> Dispatched to Rider</span>
                                         <?php else: ?>
-                                            <span class="text-muted small"><i class="bi bi-check-all text-success fs-5"></i> Done</span>
+                                            <span class="text-muted small"><i class="bi bi-check-all text-success fs-5"></i> Delivered</span>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
+                            <tr id="noFilteredDeliveriesRow" style="display: none;">
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    <i class="bi bi-funnel text-muted fs-4 d-block mb-1"></i>
+                                    No deliveries found for this meal filter today.
+                                </td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>
@@ -459,3 +583,52 @@
         </div>
     </div>
 </div>
+
+<script>
+function toggleMealTimings(prefix, mealsCount) {
+    const count = parseInt(mealsCount, 10);
+    const bGroup = document.getElementById(prefix + '_breakfast_group');
+    const lGroup = document.getElementById(prefix + '_lunch_group');
+    const dGroup = document.getElementById(prefix + '_dinner_group');
+
+    if (bGroup) {
+        bGroup.style.display = (count >= 3) ? 'block' : 'none';
+    }
+    if (lGroup) {
+        lGroup.style.display = 'block';
+    }
+    if (dGroup) {
+        dGroup.style.display = (count >= 2) ? 'block' : 'none';
+    }
+}
+
+function filterDeliveries(mealType, btnElement) {
+    document.querySelectorAll('[data-meal-filter]').forEach(b => {
+        b.classList.remove('active');
+    });
+    btnElement.classList.add('active');
+
+    const rows = document.querySelectorAll('.delivery-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const rowMeal = (row.getAttribute('data-meal-type') || '').toLowerCase();
+        if (mealType === 'all' || rowMeal === mealType.toLowerCase()) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    const noRow = document.getElementById('noFilteredDeliveriesRow');
+    if (noRow) {
+        noRow.style.display = (visibleCount === 0) ? '' : 'none';
+    }
+
+    const badge = document.getElementById('deliveriesCountBadge');
+    if (badge) {
+        badge.textContent = visibleCount;
+    }
+}
+</script>

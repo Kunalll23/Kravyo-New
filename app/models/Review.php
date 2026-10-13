@@ -13,7 +13,7 @@ class Review extends Model {
     public function findByKitchenId(int $kitchenId, int $limit = 0): array {
         $sql = "SELECT r.*, u.full_name AS customer_name
                 FROM {$this->table} r
-                JOIN users u ON r.customer_id = u.id
+                JOIN customers u ON r.customer_id = u.id
                 WHERE r.kitchen_id = :kitchen_id
                 ORDER BY r.created_at DESC";
 
@@ -84,7 +84,7 @@ class Review extends Model {
     public function findRecentByKitchenId(int $kitchenId, int $limit = 3): array {
         $sql = "SELECT r.*, u.full_name AS customer_name
                 FROM {$this->table} r
-                JOIN users u ON r.customer_id = u.id
+                JOIN customers u ON r.customer_id = u.id
                 WHERE r.kitchen_id = :kitchen_id
                 ORDER BY r.created_at DESC
                 LIMIT {$limit}";
@@ -120,7 +120,7 @@ class Review extends Model {
     public function findAllWithDetails(): array {
         $sql = "SELECT r.*, u.full_name AS customer_name, k.kitchen_name
                 FROM {$this->table} r
-                JOIN users u ON r.customer_id = u.id
+                JOIN customers u ON r.customer_id = u.id
                 JOIN kitchens k ON r.kitchen_id = k.id
                 ORDER BY r.created_at DESC";
         $stmt = $this->db->prepare($sql);

@@ -95,4 +95,15 @@ Phase 10: AI Recommendation Engine Integration & Final Polish (COMPLETED ✅)
 ### Phase 10: AI Recommendations & Final Testing (Completed ✅)
 - [x] **Meal Recommendation Module:** Weighted-scoring PHP engine — category affinity, dietary match, platform popularity, recency penalty; personalised for logged-in customers, popular picks for guests
 - [x] **Security Hardening:** SQL Injection & XSS audit — `sanitize()` strengthened with `ENT_SUBSTITUTE`; new `sanitizeInput()` batch helper; all DB queries confirmed PDO prepared statements
-- [x] **Documentation & Presentation:** ROADMAP updated; `user_preferences` DB migration created; `phase10_migration.sql` ready to run
+- [x] **Documentation & Presentation:** ROADMAP updated; `user_preferences` DB migration created; `phase10_migration.sql` ready to run
+
+---
+
+### Phase 11: Nearby Cloud Kitchens Interactive Map System (Completed ✅)
+- [x] **Geospatial Schema & Indexing:** Added `latitude` and `longitude` fields to `kitchens` table with `idx_kitchens_geo` composite index (`nearby_kitchens_migration.sql`)
+- [x] **Haversine Distance Engine:** Backend SQL bounding-box optimization + Haversine distance formula in `Kitchen::findNearby()`
+- [x] **Interactive Customer Map:** Leaflet.js and OpenStreetMap tile integration with custom animated markers (pulsing customer pin, Kravyo chef pins)
+- [x] **Dynamic Radius & City Filtering:** Real-time radius selector (2km, 5km, 10km, 20km, 50km), city quick-jump, and open-now toggles
+- [x] **Side-by-Side Responsive UI:** Synchronized scrollable kitchen card list and map on desktop; stacked layout on mobile
+- [x] **Chef Profile Location Picker:** Interactive draggable pin map picker and "Detect My Location" GPS button in Chef Profile
+- [x] **Location Privacy & Graceful Fallback:** Permission-denied fallback banner with manual city selection; zero continuous background tracking

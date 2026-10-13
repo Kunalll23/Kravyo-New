@@ -21,6 +21,7 @@ class OrderController extends Controller {
             return;
         }
 
+        require_once CONFIG_PATH . '/razorpay.php';
         require_once APP_PATH . '/models/Address.php';
         $addressModel = new Address();
 
@@ -67,18 +68,25 @@ class OrderController extends Controller {
 
         $userId = (int) Session::get('user_id');
         $addressId = (int) ($_POST['address_id'] ?? 0);
-        $paymentMethod = in_array($_POST['payment_method'] ?? '', ['cod', 'upi']) ? $_POST['payment_method'] : 'cod';
+        $paymentMethod = in_array($_POST['payment_method'] ?? '', ['cod', 'online']) ? $_POST['payment_method'] : 'cod';
         $specialInstructions = sanitize($_POST['special_instructions'] ?? '');
 
         // Handle new address creation
         if ($addressId === 0 && !empty($_POST['new_street_address'])) {
+            $apartment = sanitize(trim($_POST['new_apartment'] ?? ''));
+            $street    = sanitize(trim($_POST['new_street_address'] ?? ''));
+            $fullStreetAddress = !empty($apartment) ? ($apartment . ', ' . $street) : $street;
+
             $newAddressData = [
                 'user_id'        => $userId,
                 'address_type'   => in_array($_POST['new_address_type'] ?? '', ['Home', 'Work', 'Other']) ? $_POST['new_address_type'] : 'Home',
-                'street_address' => sanitize($_POST['new_street_address'] ?? ''),
+                'apartment'      => $apartment ?: null,
+                'street_address' => $fullStreetAddress,
                 'landmark'       => sanitize($_POST['new_landmark'] ?? ''),
                 'city'           => sanitize($_POST['new_city'] ?? ''),
                 'pincode'        => sanitize($_POST['new_pincode'] ?? ''),
+                'latitude'       => isset($_POST['delivery_lat']) && is_numeric($_POST['delivery_lat']) ? (float)$_POST['delivery_lat'] : null,
+                'longitude'      => isset($_POST['delivery_lng']) && is_numeric($_POST['delivery_lng']) ? (float)$_POST['delivery_lng'] : null,
             ];
 
             if (empty($newAddressData['street_address']) || empty($newAddressData['city']) || empty($newAddressData['pincode'])) {
@@ -98,6 +106,24 @@ class OrderController extends Controller {
             return;
         }
 
+        // Verify stock availability
+        require_once APP_PATH . '/models/MenuItem.php';
+        $menuItemModel = new MenuItem();
+        foreach ($cart['items'] as $item) {
+            if (empty($item['is_zero_waste'])) {
+                $dish = $menuItemModel->find((int)$item['menu_item_id']);
+                if (!$dish || !$dish['is_available']) {
+                    if (!empty($_POST['is_ajax'])) {
+                        $this->json(['success' => false, 'message' => "Sorry, '" . sanitize($item['item_name']) . "' is currently out of stock."]);
+                        return;
+                    }
+                    Session::setFlash('danger', "Sorry, '" . sanitize($item['item_name']) . "' is currently out of stock. Please remove it from your cart.");
+                    $this->redirect('/cart');
+                    return;
+                }
+            }
+        }
+
         // Calculate total
         $totalAmount = 0;
         foreach ($cart['items'] as $item) {
@@ -111,6 +137,8 @@ class OrderController extends Controller {
             'customer_id'         => $userId,
             'kitchen_id'          => (int) $cart['kitchen_id'],
             'address_id'          => $addressId,
+            'delivery_latitude'   => isset($address['latitude']) ? (float)$address['latitude'] : null,
+            'delivery_longitude'  => isset($address['longitude']) ? (float)$address['longitude'] : null,
             'total_amount'        => $totalAmount,
             'payment_method'      => $paymentMethod,
             'payment_status'      => $paymentMethod === 'cod' ? PAYMENT_STATUS_PENDING : PAYMENT_STATUS_PENDING,
@@ -124,6 +152,41 @@ class OrderController extends Controller {
             // Create order items from cart
             $orderItemModel->createFromCart($orderId, $cart['items']);
 
+            // If Razorpay Online Payment
+            if ($paymentMethod === 'online' && !empty($_POST['is_ajax'])) {
+                require_once CONFIG_PATH . '/razorpay.php';
+                $ch = curl_init('https://api.razorpay.com/v1/orders');
+                curl_setopt($ch, CURLOPT_USERPWD, RAZORPAY_KEY_ID . ':' . RAZORPAY_KEY_SECRET);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+                    'amount'   => (int) ($totalAmount * 100), // convert to paise
+                    'currency' => 'INR',
+                    'receipt'  => $orderData['order_number']
+                ]));
+                curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                $rzpResponse = curl_exec($ch);
+                curl_close($ch);
+
+                $rzpData = json_decode($rzpResponse, true);
+                
+                if (isset($rzpData['id'])) {
+                    $this->json([
+                        'success'           => true,
+                        'kravyo_order_id'   => $orderId,
+                        'order_number'      => $orderData['order_number'],
+                        'razorpay_order_id' => $rzpData['id'],
+                        'razorpay_amount'   => (int) ($totalAmount * 100)
+                    ]);
+                    return;
+                } else {
+                    $this->json(['success' => false, 'message' => 'Failed to create payment on Razorpay.']);
+                    return;
+                }
+            }
+
+            // --- Regular COD Checkout Flow ---
+
             // Decrement Zero Waste listing stock for any deal items in this order
             try {
                 require_once APP_PATH . '/models/ZeroWasteItem.php';
@@ -133,9 +196,7 @@ class OrderController extends Controller {
                         $zwModel->decrementQuantity((int) $item['zero_waste_id'], (int) $item['quantity']);
                     }
                 }
-            } catch (Exception $ignored) {
-                // Non-critical — don't fail the order if this step errors
-            }
+            } catch (Exception $ignored) {}
 
             // Clear the cart
             Session::remove('cart');
@@ -157,6 +218,7 @@ class OrderController extends Controller {
                 // 1.13: Notify the customer that their order was placed
                 $notifModel->createForUser(
                     $userId,
+                    'customer',
                     'Order Placed Successfully!',
                     'Your order #' . $orderData['order_number'] . ' has been placed. Your home chef will confirm it shortly.',
                     'order_update',
@@ -172,13 +234,15 @@ class OrderController extends Controller {
                     $chefUserId = (int) $kitchen['user_id'];
                     $notifModel->createForUser(
                         $chefUserId,
+                        'chef',
                         'New Order Received!',
                         'You have a new order #' . $orderData['order_number'] . ' worth ' . format_currency($totalAmount) . '. Please accept it promptly.',
                         'order_update',
                         '/chef/orders'
                     );
                 }
-            } catch (Exception $ignored) {
+
+            } catch (Throwable $ignored) {
                 // Non-critical; don't block the order flow
             }
 
@@ -186,8 +250,74 @@ class OrderController extends Controller {
             $this->redirect('/order/track/' . $orderId);
 
         } catch (Exception $e) {
+            if (!empty($_POST['is_ajax'])) {
+                $this->json(['success' => false, 'message' => 'System error placing order.']);
+                return;
+            }
             Session::setFlash('danger', 'Failed to place order. Please try again.');
             $this->redirect('/checkout');
+        }
+    }
+
+    /**
+     * Verify Razorpay Payment Signature
+     * POST /order/verify-payment
+     */
+    public function verifyPayment(): void {
+        Middleware::verifyCsrf();
+        
+        $paymentId = $_POST['razorpay_payment_id'] ?? '';
+        $orderId   = $_POST['razorpay_order_id'] ?? '';
+        $signature = $_POST['razorpay_signature'] ?? '';
+        $kravyoId  = (int)($_POST['kravyo_order_id'] ?? 0);
+
+        require_once CONFIG_PATH . '/razorpay.php';
+        
+        $generatedSignature = hash_hmac('sha256', $orderId . "|" . $paymentId, RAZORPAY_KEY_SECRET);
+
+        if (hash_equals($generatedSignature, $signature)) {
+            // Payment Success
+            require_once APP_PATH . '/models/Order.php';
+            $orderModel = new Order();
+            
+            // Mark as paid
+            $orderModel->updatePaymentStatus($kravyoId, PAYMENT_STATUS_COMPLETED);
+            
+            // Do the post-checkout tasks we skipped during AJAX creation
+            $cart = Session::get('cart', ['items' => []]);
+            
+            // Decrement ZW items
+            try {
+                require_once APP_PATH . '/models/ZeroWasteItem.php';
+                $zwModel = new ZeroWasteItem();
+                foreach ($cart['items'] as $item) {
+                    if (!empty($item['is_zero_waste']) && !empty($item['zero_waste_id'])) {
+                        $zwModel->decrementQuantity((int) $item['zero_waste_id'], (int) $item['quantity']);
+                    }
+                }
+            } catch (Exception $ignored) {}
+
+            Session::remove('cart');
+            
+            // Fire Notifications
+            try {
+                $order = $orderModel->findById($kravyoId);
+                require_once APP_PATH . '/models/Notification.php';
+                $notifModel = new Notification();
+                $notifModel->createForUser((int)$order['customer_id'], 'customer', 'Payment Successful!', 'Your online payment for order #' . $order['order_number'] . ' was successful.', 'order_update', '/order/track/' . $kravyoId);
+                
+                require_once APP_PATH . '/models/Kitchen.php';
+                $kitchenModel = new Kitchen();
+                $kitchen = $kitchenModel->find((int)$order['kitchen_id']);
+                if ($kitchen) {
+                    $notifModel->createForUser((int)$kitchen['user_id'], 'chef', 'New Paid Order!', 'You have a new PAID order #' . $order['order_number'] . ' worth ' . format_currency($order['total_amount']) . '.', 'order_update', '/chef/orders');
+                }
+            } catch (Exception $ignored) {}
+
+            Session::setFlash('success', 'Payment successful! Order confirmed.');
+            $this->json(['success' => true]);
+        } else {
+            $this->json(['success' => false, 'message' => 'Payment verification failed.']);
         }
     }
 
@@ -226,34 +356,32 @@ class OrderController extends Controller {
         // ── Simplified Customer-Facing Timeline ──────────────────────────────────
         // The backend maintains granular statuses (pending, accepted, preparing,
         // out_for_delivery, delivered, cancelled) for chef workflow.  The customer
-        // sees a cleaner 4-step progress:
-        //   1. Order Confirmed  (backend: pending OR accepted)
-        //   2. Preparing         (backend: preparing)
-        //   3. Out for Delivery  (backend: out_for_delivery)
-        //   4. Delivered          (backend: delivered)
-        //
-        // "Accepted" is intentionally NOT shown as a separate step to the customer.
-        // When the chef accepts, the customer timeline advances to "Preparing" only
-        // once the chef explicitly starts preparing.  While in "accepted", the
-        // customer still sees "Order Confirmed" as the current step.
+        // sees a cleaner 5-step progress:
+        //   1. Awaiting Confirmation (backend: pending)
+        //   2. Order Confirmed       (backend: accepted)
+        //   3. Preparing             (backend: preparing, ready_for_pickup)
+        //   4. Out for Delivery      (backend: out_for_delivery)
+        //   5. Delivered             (backend: delivered)
 
         $statusTimeline = [
-            'confirmed'        => ['label' => 'Order Confirmed',     'icon' => 'bi-bag-check-fill',  'desc' => 'Your order has been received and confirmed.'],
-            'preparing'        => ['label' => 'Preparing',           'icon' => 'bi-fire',            'desc' => 'Your meal is being prepared with care.'],
-            'out_for_delivery' => ['label' => 'Out for Delivery',    'icon' => 'bi-bicycle',         'desc' => 'Your food is on its way to you!'],
-            'delivered'        => ['label' => 'Delivered',           'icon' => 'bi-house-check-fill','desc' => 'Your order has been delivered. Enjoy your meal!'],
+            'placed'           => ['label' => 'Awaiting Confirmation', 'icon' => 'bi-clock-history',   'desc' => 'Waiting for the chef to accept your order.'],
+            'confirmed'        => ['label' => 'Order Confirmed',       'icon' => 'bi-bag-check-fill',  'desc' => 'Your order has been accepted.'],
+            'preparing'        => ['label' => 'Preparing',             'icon' => 'bi-fire',            'desc' => 'Your meal is being prepared with care.'],
+            'out_for_delivery' => ['label' => 'Out for Delivery',      'icon' => 'bi-bicycle',         'desc' => 'Your food is on its way to you!'],
+            'delivered'        => ['label' => 'Delivered',             'icon' => 'bi-house-check-fill','desc' => 'Your order has been delivered. Enjoy your meal!'],
         ];
 
         // Map the backend order_status to the customer-facing timeline key
         $backendToCustomerStep = [
-            'pending'          => 'confirmed',
-            'accepted'         => 'confirmed',       // accepted still shows as "Order Confirmed"
+            'pending'          => 'placed',
+            'accepted'         => 'confirmed',
             'preparing'        => 'preparing',
+            'ready_for_pickup' => 'preparing',
             'out_for_delivery' => 'out_for_delivery',
             'delivered'        => 'delivered',
         ];
 
-        $customerStep = $backendToCustomerStep[$order['order_status']] ?? 'confirmed';
+        $customerStep = $backendToCustomerStep[$order['order_status']] ?? 'placed';
 
         $this->render('customer/order_track', [
             'title'          => 'Track Order #' . $order['order_number'],
@@ -265,9 +393,78 @@ class OrderController extends Controller {
     }
 
     /**
-     * Display customer order history
-     * GET /orders/history
+     * Get Delivery Partner's Live Location
+     * GET /order/location/{id}
      */
+    public function getDeliveryLocation(string $id): void {
+        Middleware::role(ROLE_CUSTOMER);
+        header('Content-Type: application/json');
+
+        require_once APP_PATH . '/models/Order.php';
+        require_once APP_PATH . '/models/DeliveryPartner.php';
+        
+        $orderModel = new Order();
+        $orderId = (int) $id;
+        $userId = (int) Session::get('user_id');
+
+        if (!$orderModel->belongsToCustomer($orderId, $userId)) {
+            echo json_encode(['error' => 'Unauthorized']);
+            return;
+        }
+
+        $order = $orderModel->findWithDetails($orderId);
+        if (!$order || empty($order['delivery_partner_id']) || in_array($order['order_status'], ['delivered', 'cancelled'])) {
+            echo json_encode(['error' => 'Location tracking not available for this state']);
+            return;
+        }
+
+        $dpModel = new DeliveryPartner();
+        $partner = $dpModel->find($order['delivery_partner_id']);
+
+        if ($partner && $partner['current_latitude'] && $partner['current_longitude']) {
+            echo json_encode([
+                'latitude' => $partner['current_latitude'],
+                'longitude' => $partner['current_longitude'],
+                'updated_at' => $partner['location_updated_at'],
+                'delivery_status' => $order['delivery_status'] ?? ''
+            ]);
+        } else {
+            echo json_encode(['error' => 'Location not available']);
+        }
+    }
+
+    /**
+     * Get Real-time order & dispatch status for customer tracking polling
+     * GET /order/status/{id}
+     */
+    public function getOrderStatus(string $id): void {
+        Middleware::role(ROLE_CUSTOMER);
+        header('Content-Type: application/json');
+
+        require_once APP_PATH . '/models/Order.php';
+        $orderModel = new Order();
+        $orderId = (int) $id;
+        $userId = (int) Session::get('user_id');
+
+        if (!$orderModel->belongsToCustomer($orderId, $userId)) {
+            echo json_encode(['error' => 'Unauthorized']);
+            return;
+        }
+
+        $order = $orderModel->findWithDetails($orderId);
+        if (!$order) {
+            echo json_encode(['error' => 'Order not found']);
+            return;
+        }
+
+        echo json_encode([
+            'order_id' => (int) $order['id'],
+            'order_status' => $order['order_status'],
+            'dispatch_status' => $order['dispatch_status'],
+            'delivery_partner_id' => $order['delivery_partner_id'] ? (int) $order['delivery_partner_id'] : null
+        ]);
+    }
+
     public function history(): void {
         Middleware::role(ROLE_CUSTOMER);
 
@@ -278,7 +475,9 @@ class OrderController extends Controller {
         $orderItemModel = new OrderItem();
 
         $userId = (int) Session::get('user_id');
-        $orders = $orderModel->findByCustomerId($userId);
+        $dateFilter = !empty($_GET['date']) ? trim($_GET['date']) : null;
+        
+        $orders = $orderModel->findByCustomerId($userId, null, $dateFilter);
 
         // Attach item count to each order
         foreach ($orders as &$order) {
@@ -287,8 +486,9 @@ class OrderController extends Controller {
         unset($order);
 
         $this->render('customer/order_history', [
-            'title'  => 'My Orders',
-            'orders' => $orders,
+            'title'      => 'My Orders',
+            'orders'     => $orders,
+            'dateFilter' => $dateFilter
         ]);
     }
 
@@ -328,6 +528,20 @@ class OrderController extends Controller {
         }
 
         $orderModel->updateStatus($orderId, ORDER_STATUS_CANCELLED);
+
+        // Notify chef + admin that the customer cancelled
+        try {
+            require_once APP_PATH . '/models/Notification.php';
+            $notifModel = new Notification();
+            $notifModel->notifyKitchenOwner(
+                (int) $order['kitchen_id'],
+                'Order Cancelled by Customer',
+                'Order #' . $order['order_number'] . ' was cancelled by the customer.'
+            );
+        } catch (Throwable $e) {
+            error_log('[Kravyo] Cancel notification failed for order ' . $orderId . ': ' . $e->getMessage());
+        }
+
         Session::setFlash('success', 'Order #' . $order['order_number'] . ' has been cancelled.');
         $this->redirect('/orders/history');
     }

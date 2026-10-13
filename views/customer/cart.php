@@ -80,7 +80,7 @@
                                                 <!-- Tags / Badges -->
                                                 <div class="d-flex flex-wrap gap-1 mb-2">
                                                     <?php if ($isZeroWaste): ?>
-                                                        <span class="badge bg-success bg-opacity-15 text-success fw-semibold small px-2 py-1 border border-success border-opacity-25">
+                                                        <span class="badge rounded-pill fw-semibold small px-2 py-1" style="background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">
                                                             <i class="bi bi-recycle me-1"></i>Zero Waste Deal
                                                         </span>
                                                     <?php else: ?>
@@ -94,6 +94,12 @@
                                                             <span class="cart-custom-tag cart-custom-jain">
                                                                 🌿 Jain Prep
                                                             </span>
+                                                        <?php endif; ?>
+                                                        <?php if (!empty($item['item_notes'])): ?>
+                                                            <div class="mt-1 small text-muted fst-italic">
+                                                                <i class="bi bi-chat-text text-primary" style="font-size: 0.75rem;"></i>
+                                                                "<?= sanitize($item['item_notes']) ?>"
+                                                            </div>
                                                         <?php endif; ?>
                                                     <?php endif; ?>
                                                 </div>

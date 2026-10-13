@@ -85,7 +85,7 @@
                         No dishes are available right now. Check back soon.
                     <?php endif; ?>
                 </p>
-                <a href="<?= url('/menu') ?>" class="btn btn-kravyo-primary">
+                <a href="<?= ctx_url('/menu') ?>" class="btn btn-kravyo-primary">
                     <i class="bi bi-journal-text me-1"></i> Browse All Dishes
                 </a>
             </div>
@@ -99,7 +99,7 @@
                     <div>
                         <strong>Get personalised picks!</strong>
                         <span class="text-muted ms-1">
-                            <a href="<?= url('/login') ?>" class="text-decoration-none fw-semibold">Log in</a>
+                            <a href="<?= ctx_url('/login') ?>" class="text-decoration-none fw-semibold">Log in</a>
                             and place an order — our AI will learn your taste preferences and personalise this page just for you.
                         </span>
                     </div>

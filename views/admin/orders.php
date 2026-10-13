@@ -1,4 +1,4 @@
-﻿<?php /* Phase 9 + Intervention: Admin — Platform-Wide Orders Management */ ?>
+<?php /* Phase 9 + Intervention: Admin — Platform-Wide Orders Management */ ?>
 <div class="container py-4">
 
     <!-- Header -->
@@ -86,6 +86,7 @@
                                 <th class="ps-4">Order #</th>
                                 <th>Customer</th>
                                 <th>Kitchen</th>
+                                <th>Delivery Partner</th>
                                 <th>Amount</th>
                                 <th>Payment</th>
                                 <th>Status</th>
@@ -100,6 +101,7 @@
                                     'pending'          => 'warning',
                                     'accepted'         => 'info',
                                     'preparing'        => 'primary',
+                                    'ready_for_pickup' => 'info',
                                     'out_for_delivery' => 'success',
                                     'delivered'        => 'success',
                                     'cancelled'        => 'danger',
@@ -115,6 +117,13 @@
                                     </td>
                                     <td>
                                         <span class="small"><?= sanitize($order['kitchen_name']) ?></span>
+                                    </td>
+                                    <td>
+                                        <?php if (!empty($order['delivery_partner_name'])): ?>
+                                            <span class="small fw-semibold text-primary"><i class="bi bi-bicycle me-1"></i><?= sanitize($order['delivery_partner_name']) ?></span>
+                                        <?php else: ?>
+                                            <span class="small text-muted border px-1 rounded bg-light">Unassigned</span>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <span class="fw-bold">&#8377;<?= number_format((float)$order['total_amount'], 2) ?></span>
@@ -135,7 +144,7 @@
                                     <td class="text-center pe-4">
                                         <?php if ($order['order_status'] !== 'delivered' && $order['order_status'] !== 'cancelled'): ?>
                                             <button
-                                                class="btn btn-sm btn-outline-danger fw-semibold intervene-btn"
+                                                class="btn btn-sm btn-outline-danger fw-semibold intervene-btn mb-1"
                                                 title="Admin Intervention"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#interveneModal"
@@ -145,6 +154,13 @@
                                             >
                                                 <i class="bi bi-shield-exclamation me-1"></i>Intervene
                                             </button>
+                                            
+                                            <?php if (empty($order['delivery_partner_id']) && in_array($order['order_status'], ['preparing', 'ready_for_pickup', 'accepted'])): ?>
+                                                <br>
+                                                <span class="badge bg-light text-muted border small mt-1">
+                                                    <i class="bi bi-clock"></i> Auto-Assigning...
+                                                </span>
+                                            <?php endif; ?>
                                         <?php else: ?>
                                             <span class="text-muted small">&#8212;</span>
                                         <?php endif; ?>
@@ -232,3 +248,5 @@ document.querySelectorAll('.intervene-btn').forEach(btn => {
     });
 });
 </script>
+
+

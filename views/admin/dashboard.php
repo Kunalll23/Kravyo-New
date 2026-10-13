@@ -63,6 +63,21 @@
         </div>
     </div>
 
+    <!-- Live Dispatch Monitor Call-To-Action -->
+    <div class="card kravyo-card border-0 mb-4 border border-warning shadow-sm">
+        <div class="card-header bg-warning text-dark fw-bold d-flex justify-content-between align-items-center">
+            <span><i class="bi bi-broadcast"></i> Live Dispatch Monitor (Auto-Cascading)</span>
+            <span class="badge bg-danger pulse-animation">LIVE</span>
+        </div>
+        <div class="card-body text-center py-5">
+            <h5 class="fw-bold mb-3">Real-Time Delivery & Dispatch Tracking</h5>
+            <p class="text-muted mb-4">View live rider GPS coordinates, online/busy statuses, and monitor auto-cascading dispatch broadcasts to riders in real-time.</p>
+            <a href="<?= url('/admin/dispatch-monitor') ?>" class="btn btn-warning btn-lg fw-bold px-5 shadow-sm">
+                <i class="bi bi-display me-2"></i> Open Full Dispatch Board
+            </a>
+        </div>
+    </div>
+
     <!-- Pending Kitchens Quick List -->
     <div class="card kravyo-card border-0">
         <div class="card-body p-4">

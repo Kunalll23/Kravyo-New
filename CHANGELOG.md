@@ -6,6 +6,79 @@
 
 ---
 
+## 📅 2026-10-02 | 01:20 IST
+
+### 📍 Feature: Live GPS Delivery Tracking
+
+- **Goal:** Added live GPS tracking capability for active deliveries without replacing the core OTP verification workflow or status timeline.
+- **Key Capabilities:**
+  - **Delivery Partner Application:** Integrated browser Geolocation API (`watchPosition`) to continuously push coordinates to the server via AJAX during an active delivery. Added a clear on/off toggle.
+  - **Customer Application:** Integrated a Leaflet map into the Order Track view that polls the server for the delivery partner's live location and updates smoothly on the map alongside a freshness timestamp.
+  - **Dynamic Map Plotting & Routing:** Added a Red marker for the Starting Point (Kitchen) and real-time **OSM Nominatim Geocoding** to convert the customer's text address into a precise Green marker (Destination).
+  - **Rapido-style Route Highlighting:** Integrated `leaflet-routing-machine` for BOTH the Customer and the Delivery Partner. The map now constantly draws the best highlighted path from the Delivery Partner's live location directly to the Customer's destination.
+  - **Security & Scope:** Map only renders when the order is "Out for delivery". GPS updates strictly require delivery partner authentication and CSRF tokens. Tracking strictly stops when the order is completed (OTP verified).
+  - **Independence:** Kept the 4-role independent session architecture fully intact.
+- **Files Modified:**
+  - `config/routes.php` (Added `POST /delivery/location/update` and `GET /order/location/{id}`)
+  - `app/controllers/DeliveryController.php` (Added `updateLocation()`)
+  - `app/controllers/OrderController.php` (Added `getDeliveryLocation()`)
+  - `app/models/Order.php` (Updated `findWithDetails` to fetch kitchen coords)
+  - `views/delivery/order_detail.php` (Added Live GPS Tracking widget and JS)
+  - `views/customer/order_track.php` (Added Leaflet map and AJAX polling)
+- **Database Changes:**
+  - Added `location_updated_at` (TIMESTAMP) column to `delivery_partners` table.
+
+## 📅 2026-10-01 | 14:35 IST
+
+### 🗺️ Feature: Nearby Cloud Kitchens Interactive Map System (Production-Ready)
+
+- **Goal:** Implement a complete, production-grade "Nearby Cloud Kitchens" discovery feature for Kravyo using Leaflet.js, OpenStreetMap tiles, MariaDB geospatial indexing, and PHP 8.4 backend.
+- **Key Capabilities:**
+  - Customer interactive map with real-time browser Geolocation API (`navigator.geolocation.getCurrentPosition`).
+  - Distinct custom map markers: animated pulsing blue pin for customer ("You are here") and Kravyo orange pins for kitchens with open/closed indicators.
+  - Side-by-side desktop layout with responsive scrollable kitchen card list + interactive map (collapses cleanly on mobile with map on top).
+  - Radius selector (2 km, 5 km, 10 km default, 20 km, 50 km) with instant live filtering.
+  - Graceful location denial fallback with friendly banner and quick-jump city selector (Pune, Surat, Mumbai, Ahmedabad, Bengaluru, Delhi).
+  - Interactive card-to-map synchronization: clicking a card centers map, zooms to kitchen, and opens its detail popup; clicking a marker highlights the card.
+  - Real database integration: queries actual approved kitchens from `kitchens` table with live ratings from `reviews` and dish counts from `menu_items`.
+  - Direct linking: marker popups and cards feature "View Kitchen" buttons linking to existing kitchen profile routes (`ctx_url('/kitchen/{id}')`).
+  - Chef location manager in `views/chef/profile.php`: interactive Leaflet map picker allowing chefs to click/drag a pin or click "Detect My Location" to save exact coordinates.
+  - Admin panel indicator in `views/admin/chefs.php` showing kitchen map coordinates status.
+- **Database Changes:**
+  - Migration: `database/nearby_kitchens_migration.sql`
+  - Added `latitude` DECIMAL(10, 8) NULL and `longitude` DECIMAL(11, 8) NULL to `kitchens` table.
+  - Added composite index `idx_kitchens_geo` (`approval_status`, `latitude`, `longitude`) for fast spatial filtering.
+  - Seed script: `database/seed_kitchen_coordinates.php` populated 42 existing database kitchens across major cities with realistic coordinates.
+- **Backend & API Changes:**
+  - `app/models/Kitchen.php`: Added `findNearby()` (bounding-box pre-filtering + Haversine distance formula), `findAllWithCoordinates()`, and `updateCoordinates()`.
+  - `app/controllers/CustomerController.php`: Added `nearbyKitchens()` (view renderer) and `apiNearbyKitchens()` (secure JSON API endpoint at `GET /api/kitchens/nearby`).
+  - `app/controllers/ChefController.php`: Added latitude/longitude input sanitization, bounds validation (-90 to 90, -180 to 180), and database persistence in `updateProfile()`.
+  - `config/routes.php`: Added routes for `GET /nearby-kitchens`, `GET /kitchens/nearby`, `GET /api/kitchens/nearby`, `GET /chef/nearby-kitchens`, `GET /admin/nearby-kitchens`.
+  - `core/Helpers.php`: Updated `ctx_url()` to support session-safe `/nearby-kitchens` routing across Customer, Chef, and Admin contexts.
+- **Frontend & Views:**
+  - Created `views/customer/nearby_kitchens.php` — Complete production-style interactive map with Leaflet.js, OpenStreetMap tiles, live distance badges, search & sort.
+  - Updated `views/chef/profile.php` — Integrated Leaflet map picker for chefs with draggable pin & GPS auto-detection.
+  - Updated `views/partials/header.php` & `public/assets/css/style.css` — Added "Nearby Map" navigation link with context-aware session handling and perfected single-line horizontal alignment with `white-space: nowrap`, fluid container, and balanced spacing.
+  - Updated `views/customer/kitchens.php` — Added direct "Nearby Kitchens Map" button in hero.
+  - Updated `views/home/index.php` — Added "Nearby Map" action button in hero.
+  - Updated `views/admin/chefs.php` — Added kitchen map coordinates status badge.
+- **Security & Privacy:**
+  - Strict server-side validation: coordinates bounded (-90 <= lat <= 90, -180 <= lng <= 180); radius clamped (1 to 200 km).
+  - All database queries use PDO prepared statements or cast float values in distance math, preventing SQL injection.
+  - Output sanitized via `htmlspecialchars` in both PHP views and API JSON responses.
+  - Only approved kitchens displayed; unapproved, rejected, or suspended kitchens strictly excluded.
+  - API exposes only safe public fields (no passwords, tokens, admin notes).
+  - No background tracking or continuous customer GPS tracking.
+- **Testing & Verification:**
+  - Automated test suite (`scratch/test_suite.php`): 20/20 test assertions passed covering all 11 test scenarios specified in requirements.
+  - Distance calculation verified against known coordinates (~1.77 km between Mehul's Kitchen in Shivaji Nagar and Pune center).
+  - PHP linting (`php -l`): Passed on all 10 modified/created PHP files with 0 syntax errors.
+  - HTTP API testing: Verified JSON output and 400 response on invalid coordinates.
+- **Backups:** `scratch/backup_nearby_kitchens_20261001/`
+- **Known Limitations:** Map relies on browser geolocation permission or user selecting a city/pin; client-side tiles require internet access to OpenStreetMap CDN.
+
+---
+
 ## 📅 2026-10-01 | 14:05 IST
 
 ### 🎯 UX: Simplified Customer-Facing Order Tracking Timeline

@@ -101,6 +101,17 @@
                                     <span class="text-muted">Unverified</span>
                                 <?php endif; ?>
                             </div>
+                            <div class="col-12 mt-1">
+                                <i class="bi bi-pin-map text-muted me-1"></i>
+                                <strong>Map Coordinates:</strong>
+                                <?php if (!empty($kitchen['latitude']) && !empty($kitchen['longitude'])): ?>
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle py-1 px-2">
+                                        <?= (float)$kitchen['latitude'] ?>, <?= (float)$kitchen['longitude'] ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle py-1 px-2">Not set yet</span>
+                                <?php endif; ?>
+                            </div>
                         </div>
 
                         <!-- Kitchen Story -->

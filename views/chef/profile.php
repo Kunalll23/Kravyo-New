@@ -68,6 +68,43 @@
                     </div>
                 </div>
 
+                <!-- Kitchen Map Location Card -->
+                <div class="card kravyo-card border-0 mt-4">
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                            <h5 class="fw-bold mb-0">
+                                <i class="bi bi-geo-alt-fill me-2 text-danger"></i>Kitchen Map Location
+                            </h5>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btnChefDetectLoc">
+                                <i class="bi bi-crosshair me-1"></i> Detect My Location
+                            </button>
+                        </div>
+                        <p class="text-muted small mb-3">
+                            Pin your kitchen on the map so local customers can discover your home kitchen and see accurate distance calculations.
+                        </p>
+
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="latitude" class="form-label fw-semibold small">Latitude</label>
+                                <input type="number" step="any" class="form-control form-control-sm" id="latitude" name="latitude"
+                                       value="<?= sanitize($kitchen['latitude'] ?? '') ?>" placeholder="e.g. 18.531400" min="-90" max="90">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="longitude" class="form-label fw-semibold small">Longitude</label>
+                                <input type="number" step="any" class="form-control form-control-sm" id="longitude" name="longitude"
+                                       value="<?= sanitize($kitchen['longitude'] ?? '') ?>" placeholder="e.g. 73.844600" min="-180" max="180">
+                            </div>
+                        </div>
+
+                        <!-- Leaflet Map Container -->
+                        <div id="chefLocationMap" style="height: 260px; border-radius: 8px; border: 1px solid #ced4da; z-index: 1;" class="shadow-sm"></div>
+                        <div class="d-flex justify-content-between align-items-center mt-2">
+                            <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Click map or drag the marker to pin your kitchen</small>
+                            <span id="chefLocationBadge" class="badge bg-light text-muted small">No pin set</span>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- FSSAI & Hygiene Section -->
                 <div class="card kravyo-card border-0 mt-4">
                     <div class="card-body p-4">
@@ -191,3 +228,168 @@
 
     <?php endif; ?>
 </div>
+
+<!-- Google Maps for Chef Location Picker -->
+<?php include __DIR__ . '/../partials/google_maps_loader.php'; ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var latInput = document.getElementById('latitude');
+    var lngInput = document.getElementById('longitude');
+    var statusBadge = document.getElementById('chefLocationBadge');
+    var detectBtn = document.getElementById('btnChefDetectLoc');
+
+    var defaultLat = 21.1702; // Default fallback (Surat / Gujarat)
+    var defaultLng = 72.8311;
+    var defaultZoom = 13;
+
+    var curLat = parseFloat(latInput.value);
+    var curLng = parseFloat(lngInput.value);
+    var hasExistingCoords = (!isNaN(curLat) && !isNaN(curLng) && curLat !== 0);
+
+    var initLat = hasExistingCoords ? curLat : defaultLat;
+    var initLng = hasExistingCoords ? curLng : defaultLng;
+    var initZoom = hasExistingCoords ? 15 : defaultZoom;
+
+    if (typeof KravyoMaps === 'undefined') return;
+
+    KravyoMaps.init().then(() => {
+        var map = KravyoMaps.createMap('chefLocationMap', initLat, initLng, initZoom);
+        var marker = null;
+        var infoWindow = new google.maps.InfoWindow();
+
+        function updateMarker(lat, lng, label) {
+            latInput.value = lat.toFixed(6);
+            lngInput.value = lng.toFixed(6);
+            if (statusBadge) {
+                statusBadge.className = 'badge bg-success small';
+                statusBadge.innerHTML = '<i class="bi bi-check-circle me-1"></i>' + (label || 'Pinned: ' + lat.toFixed(4) + ', ' + lng.toFixed(4));
+            }
+
+            if (!marker) {
+                marker = new google.maps.Marker({
+                    position: { lat: lat, lng: lng },
+                    map: map,
+                    draggable: true,
+                    title: 'Kitchen Location'
+                });
+                marker.addListener('dragend', function(e) {
+                    updateMarker(e.latLng.lat(), e.latLng.lng(), 'Pinned: ' + e.latLng.lat().toFixed(4) + ', ' + e.latLng.lng().toFixed(4));
+                });
+            } else {
+                marker.setPosition({ lat: lat, lng: lng });
+            }
+            infoWindow.setContent('<strong>📍 Kitchen Location</strong><br>' + lat.toFixed(5) + ', ' + lng.toFixed(5));
+            infoWindow.open(map, marker);
+        }
+
+        if (hasExistingCoords) {
+            updateMarker(curLat, curLng, 'Saved: ' + curLat.toFixed(4) + ', ' + curLng.toFixed(4));
+        }
+
+        // Map click sets marker
+        map.addListener('click', function(e) {
+            updateMarker(e.latLng.lat(), e.latLng.lng(), 'Pinned: ' + e.latLng.lat().toFixed(4) + ', ' + e.latLng.lng().toFixed(4));
+        });
+
+        // Inputs change updates marker
+        function onManualCoordChange() {
+            var l1 = parseFloat(latInput.value);
+            var l2 = parseFloat(lngInput.value);
+            if (!isNaN(l1) && !isNaN(l2) && l1 >= -90 && l1 <= 90 && l2 >= -180 && l2 <= 180) {
+                updateMarker(l1, l2, 'Manual: ' + l1.toFixed(4) + ', ' + l2.toFixed(4));
+                map.panTo({lat: l1, lng: l2});
+            }
+        }
+        latInput.addEventListener('change', onManualCoordChange);
+        lngInput.addEventListener('change', onManualCoordChange);
+
+        // Geolocation detect button
+        if (detectBtn) {
+            detectBtn.addEventListener('click', function() {
+                if (!navigator.geolocation) {
+                    alert('Geolocation is not supported by your browser.');
+                    return;
+                }
+                detectBtn.disabled = true;
+                detectBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Detecting...';
+                navigator.geolocation.getCurrentPosition(
+                    function(pos) {
+                        detectBtn.disabled = false;
+                        detectBtn.innerHTML = '<i class="bi bi-crosshair me-1"></i> Detect My Location';
+                        var uLat = pos.coords.latitude;
+                        var uLng = pos.coords.longitude;
+                        updateMarker(uLat, uLng, 'Current GPS Location');
+                        map.setCenter({lat: uLat, lng: uLng});
+                        map.setZoom(16);
+                        
+                        // Reverse Geocode
+                        if (KravyoMaps.getLibs && KravyoMaps.getLibs().Geocoder) {
+                            const geocoder = new (KravyoMaps.getLibs().Geocoder)();
+                            geocoder.geocode({ location: {lat: uLat, lng: uLng} }, function(results, status) {
+                                if (status === 'OK' && results[0]) {
+                                    const place = results[0];
+                                    const addressInput = document.querySelector('gmp-place-autocomplete');
+                                    if (addressInput) {
+                                        addressInput.value = place.formatted_address;
+                                    } else {
+                                        document.getElementById('address').value = place.formatted_address;
+                                    }
+                                    
+                                    let city = '';
+                                    let pincode = '';
+                                    place.address_components.forEach(component => {
+                                        const types = component.types;
+                                        if (types.includes('locality')) {
+                                            city = component.long_name;
+                                        }
+                                        if (types.includes('postal_code')) {
+                                            pincode = component.long_name;
+                                        }
+                                    });
+                                    
+                                    const cityInput = document.getElementById('city');
+                                    const zipInput = document.getElementById('pincode');
+                                    if (city && cityInput) cityInput.value = city;
+                                    if (pincode && zipInput) zipInput.value = pincode;
+                                }
+                            });
+                        }
+                    },
+                    function(err) {
+                        detectBtn.disabled = false;
+                        detectBtn.innerHTML = '<i class="bi bi-crosshair me-1"></i> Detect My Location';
+                        alert('Could not get your location: ' + err.message + '. Please click on the map manually.');
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            });
+        }
+        
+        // Attach Autocomplete
+        KravyoMaps.initAutocomplete('address', map, marker, function(pos, place) {
+            updateMarker(pos.lat, pos.lng, 'Pinned: ' + pos.lat.toFixed(4) + ', ' + pos.lng.toFixed(4));
+            
+            // Auto-fill city and pincode
+            if (place.address_components) {
+                let city = '';
+                let pincode = '';
+                place.address_components.forEach(component => {
+                    const types = component.types;
+                    if (types.includes('locality')) {
+                        city = component.long_name;
+                    }
+                    if (types.includes('postal_code')) {
+                        pincode = component.long_name;
+                    }
+                });
+                
+                const cityInput = document.getElementById('city');
+                const zipInput = document.getElementById('pincode');
+                if (city && cityInput) cityInput.value = city;
+                if (pincode && zipInput) zipInput.value = pincode;
+            }
+        });
+    });
+});
+</script>

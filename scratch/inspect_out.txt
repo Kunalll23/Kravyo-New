@@ -1,0 +1,166 @@
+﻿=== delivery_partners ===
+  id int(11) NO 
+  user_id int(11) NO 
+  vehicle_type enum('bicycle','scooter','motorcycle','car') NO scooter
+  vehicle_number varchar(20) NO 
+  driving_license_number varchar(30) NO 
+  verification_status enum('pending','approved','rejected','suspended') NO pending
+  is_online tinyint(1) NO 0
+  is_busy tinyint(1) NO 0
+  current_latitude decimal(10,8) YES 
+  current_longitude decimal(11,8) YES 
+  location_updated_at timestamp YES 
+  total_deliveries int(11) NO 0
+  total_earnings decimal(10,2) NO 0.00
+  admin_notes text YES 
+  created_at timestamp NO current_timestamp()
+  updated_at timestamp NO current_timestamp()
+=== delivery_users ===
+  id int(11) NO 
+  full_name varchar(50) NO 
+  email varchar(50) NO 
+  phone char(10) NO 
+  password_hash varchar(60) NO 
+  role enum('customer','chef','admin','delivery') NO customer
+  status enum('active','inactive','suspended','pending_verification') NO active
+  email_verified tinyint(1) NO 0
+  email_otp_hash varchar(255) YES 
+  email_otp_expires_at datetime YES 
+  email_otp_resent_at datetime YES 
+  email_otp_attempts tinyint(1) NO 0
+  reset_otp_hash varchar(60) YES 
+  reset_otp_expires_at datetime YES 
+  reset_otp_resent_at datetime YES 
+  reset_otp_attempts tinyint(3) unsigned NO 0
+  created_at timestamp NO current_timestamp()
+  updated_at timestamp NO current_timestamp()
+=== orders ===
+  id int(11) NO 
+  order_number varchar(30) NO 
+  customer_id int(11) NO 
+  kitchen_id int(11) NO 
+  address_id int(11) NO 
+  delivery_latitude decimal(10,8) YES 
+  delivery_longitude decimal(11,8) YES 
+  total_amount decimal(8,2) NO 
+  payment_method enum('cod','upi','card','netbanking') YES cod
+  payment_status enum('pending','completed','failed','refunded') YES pending
+  order_status enum('pending','accepted','preparing','ready_for_pickup','out_for_delivery','delivered','cancelled','delivery_failed') YES pending
+  delivery_partner_id int(11) YES 
+  offered_driver_id int(11) YES 
+  offer_expires_at datetime YES 
+  rejected_by_drivers longtext YES 
+  delivery_otp char(4) YES 
+  delivery_status enum('unassigned','assigned','accepted','picked_up','out_for_delivery','delivered','failed') YES unassigned
+  delivery_accepted_at datetime YES 
+  delivery_picked_up_at datetime YES 
+  delivery_completed_at datetime YES 
+  delivery_failed_reason varchar(255) YES 
+  special_instructions varchar(500) YES 
+  created_at timestamp NO current_timestamp()
+  updated_at timestamp NO current_timestamp()
+=== notifications ===
+  id int(11) NO 
+  user_id int(11) YES 
+  user_type enum('customer','chef','delivery','admin') NO 
+  title varchar(100) NO 
+  message varchar(500) NO 
+  type enum('order_update','promotion','system_alert','kitchen_update') NO system_alert
+  is_read tinyint(1) NO 0
+  link varchar(255) YES 
+  created_at timestamp NO current_timestamp()
+=== kitchens ===
+  id int(11) NO 
+  user_id int(11) NO 
+  kitchen_name varchar(50) NO 
+  personal_story text YES 
+  address text NO 
+  city varchar(100) NO 
+  pincode char(6) NO 
+  latitude decimal(10,8) YES 
+  longitude decimal(11,8) YES 
+  fssai_license varchar(20) YES 
+  hygiene_badge enum('none','verified') YES none
+  hygiene_certificate_image varchar(255) YES 
+  approval_status enum('pending','approved','rejected','suspended') YES pending
+  admin_notes text YES 
+  is_open tinyint(1) YES 1
+  banner_image varchar(255) YES 
+  created_at timestamp NO current_timestamp()
+  updated_at timestamp NO current_timestamp()
+=== partners ===
+  {"id":50,"0":50,"user_id":172,"1":172,"full_name":"Nitin Singh","2":"Nitin Singh","email":"nitin.singh62@gmail.com","3":"nitin.singh62@gmail.com","is_online":1,"4":1,"is_busy":1,"5":1,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":51,"0":51,"user_id":173,"1":173,"full_name":"Nitin Verma","2":"Nitin Verma","email":"nitin.verma34@gmail.com","3":"nitin.verma34@gmail.com","is_online":1,"4":1,"is_busy":1,"5":1,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":52,"0":52,"user_id":174,"1":174,"full_name":"Naresh Desai","2":"Naresh Desai","email":"naresh.desai70@gmail.com","3":"naresh.desai70@gmail.com","is_online":1,"4":1,"is_busy":1,"5":1,"verification_status":"approved","6":"approved","current_latitude":"21.15589041","7":"21.15589041","current_longitude":"72.95563797","8":"72.95563797"}
+  {"id":53,"0":53,"user_id":175,"1":175,"full_name":"Nitin Sen","2":"Nitin Sen","email":"nitin.sen31@gmail.com","3":"nitin.sen31@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":54,"0":54,"user_id":176,"1":176,"full_name":"Sunil Joshi","2":"Sunil Joshi","email":"sunil.joshi62@gmail.com","3":"sunil.joshi62@gmail.com","is_online":1,"4":1,"is_busy":1,"5":1,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":55,"0":55,"user_id":177,"1":177,"full_name":"Kiran Reddy","2":"Kiran Reddy","email":"kiran.reddy43@gmail.com","3":"kiran.reddy43@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":56,"0":56,"user_id":178,"1":178,"full_name":"Amit Gupta","2":"Amit Gupta","email":"amit.gupta36@gmail.com","3":"amit.gupta36@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":57,"0":57,"user_id":179,"1":179,"full_name":"Arun Gupta","2":"Arun Gupta","email":"arun.gupta89@gmail.com","3":"arun.gupta89@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":58,"0":58,"user_id":180,"1":180,"full_name":"Ramesh Gupta","2":"Ramesh Gupta","email":"ramesh.gupta75@gmail.com","3":"ramesh.gupta75@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":59,"0":59,"user_id":181,"1":181,"full_name":"Mahesh Reddy","2":"Mahesh Reddy","email":"mahesh.reddy64@gmail.com","3":"mahesh.reddy64@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":60,"0":60,"user_id":182,"1":182,"full_name":"Mahesh Gowda","2":"Mahesh Gowda","email":"mahesh.gowda93@gmail.com","3":"mahesh.gowda93@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":61,"0":61,"user_id":183,"1":183,"full_name":"Sanjay Gupta","2":"Sanjay Gupta","email":"sanjay.gupta32@gmail.com","3":"sanjay.gupta32@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":62,"0":62,"user_id":184,"1":184,"full_name":"Anil Sharma","2":"Anil Sharma","email":"anil.sharma13@gmail.com","3":"anil.sharma13@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":63,"0":63,"user_id":185,"1":185,"full_name":"Mahesh Das","2":"Mahesh Das","email":"mahesh.das21@gmail.com","3":"mahesh.das21@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":64,"0":64,"user_id":186,"1":186,"full_name":"Vikram Gowda","2":"Vikram Gowda","email":"vikram.gowda36@gmail.com","3":"vikram.gowda36@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":65,"0":65,"user_id":187,"1":187,"full_name":"Rahul Sen","2":"Rahul Sen","email":"rahul.sen19@gmail.com","3":"rahul.sen19@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":66,"0":66,"user_id":188,"1":188,"full_name":"Suresh Patel","2":"Suresh Patel","email":"suresh.patel26@gmail.com","3":"suresh.patel26@gmail.com","is_online":1,"4":1,"is_busy":1,"5":1,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":67,"0":67,"user_id":189,"1":189,"full_name":"Dinesh Gupta","2":"Dinesh Gupta","email":"dinesh.gupta84@gmail.com","3":"dinesh.gupta84@gmail.com","is_online":1,"4":1,"is_busy":1,"5":1,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":68,"0":68,"user_id":190,"1":190,"full_name":"Mahesh Das","2":"Mahesh Das","email":"mahesh.das44@gmail.com","3":"mahesh.das44@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":69,"0":69,"user_id":191,"1":191,"full_name":"Ravi Singh","2":"Ravi Singh","email":"ravi.singh13@gmail.com","3":"ravi.singh13@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":70,"0":70,"user_id":192,"1":192,"full_name":"Deepak Sharma","2":"Deepak Sharma","email":"deepak.sharma84@gmail.com","3":"deepak.sharma84@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":71,"0":71,"user_id":193,"1":193,"full_name":"Rakesh Bose","2":"Rakesh Bose","email":"rakesh.bose22@gmail.com","3":"rakesh.bose22@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":72,"0":72,"user_id":194,"1":194,"full_name":"Kiran Reddy","2":"Kiran Reddy","email":"kiran.reddy91@gmail.com","3":"kiran.reddy91@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":73,"0":73,"user_id":195,"1":195,"full_name":"Arun Menon","2":"Arun Menon","email":"arun.menon52@gmail.com","3":"arun.menon52@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":74,"0":74,"user_id":196,"1":196,"full_name":"Nitin Desai","2":"Nitin Desai","email":"nitin.desai41@gmail.com","3":"nitin.desai41@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":75,"0":75,"user_id":197,"1":197,"full_name":"Anil Gowda","2":"Anil Gowda","email":"anil.gowda13@gmail.com","3":"anil.gowda13@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":76,"0":76,"user_id":198,"1":198,"full_name":"Nitin Verma","2":"Nitin Verma","email":"nitin.verma44@gmail.com","3":"nitin.verma44@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":77,"0":77,"user_id":199,"1":199,"full_name":"Ashok Gupta","2":"Ashok Gupta","email":"ashok.gupta89@gmail.com","3":"ashok.gupta89@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":78,"0":78,"user_id":200,"1":200,"full_name":"Suresh Singh","2":"Suresh Singh","email":"suresh.singh88@gmail.com","3":"suresh.singh88@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":79,"0":79,"user_id":201,"1":201,"full_name":"Arun Iyer","2":"Arun Iyer","email":"arun.iyer56@gmail.com","3":"arun.iyer56@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":80,"0":80,"user_id":202,"1":202,"full_name":"Dinesh Gowda","2":"Dinesh Gowda","email":"dinesh.gowda38@gmail.com","3":"dinesh.gowda38@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":81,"0":81,"user_id":203,"1":203,"full_name":"Suresh Patel","2":"Suresh Patel","email":"suresh.patel32@gmail.com","3":"suresh.patel32@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":82,"0":82,"user_id":204,"1":204,"full_name":"Rajesh Sen","2":"Rajesh Sen","email":"rajesh.sen48@gmail.com","3":"rajesh.sen48@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":83,"0":83,"user_id":205,"1":205,"full_name":"Nitin Desai","2":"Nitin Desai","email":"nitin.desai82@gmail.com","3":"nitin.desai82@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":84,"0":84,"user_id":206,"1":206,"full_name":"Dinesh Desai","2":"Dinesh Desai","email":"dinesh.desai24@gmail.com","3":"dinesh.desai24@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":85,"0":85,"user_id":207,"1":207,"full_name":"Mahesh Patel","2":"Mahesh Patel","email":"mahesh.patel63@gmail.com","3":"mahesh.patel63@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":86,"0":86,"user_id":208,"1":208,"full_name":"Naresh Gowda","2":"Naresh Gowda","email":"naresh.gowda84@gmail.com","3":"naresh.gowda84@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":87,"0":87,"user_id":209,"1":209,"full_name":"Vijay Joshi","2":"Vijay Joshi","email":"vijay.joshi48@gmail.com","3":"vijay.joshi48@gmail.com","is_online":1,"4":1,"is_busy":1,"5":1,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":88,"0":88,"user_id":210,"1":210,"full_name":"Ashok Das","2":"Ashok Das","email":"ashok.das56@gmail.com","3":"ashok.das56@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":89,"0":89,"user_id":211,"1":211,"full_name":"Vikram Singh","2":"Vikram Singh","email":"vikram.singh60@gmail.com","3":"vikram.singh60@gmail.com","is_online":1,"4":1,"is_busy":1,"5":1,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":90,"0":90,"user_id":212,"1":212,"full_name":"Rahul Chaudhary","2":"Rahul Chaudhary","email":"rahul.chaudhary23@gmail.com","3":"rahul.chaudhary23@gmail.com","is_online":1,"4":1,"is_busy":1,"5":1,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":91,"0":91,"user_id":213,"1":213,"full_name":"Anil Sen","2":"Anil Sen","email":"anil.sen86@gmail.com","3":"anil.sen86@gmail.com","is_online":1,"4":1,"is_busy":1,"5":1,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":92,"0":92,"user_id":214,"1":214,"full_name":"Rajesh Singh","2":"Rajesh Singh","email":"rajesh.singh30@gmail.com","3":"rajesh.singh30@gmail.com","is_online":1,"4":1,"is_busy":1,"5":1,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":93,"0":93,"user_id":215,"1":215,"full_name":"Rahul Desai","2":"Rahul Desai","email":"rahul.desai86@gmail.com","3":"rahul.desai86@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+  {"id":94,"0":94,"user_id":216,"1":216,"full_name":"Dinesh Chaudhary","2":"Dinesh Chaudhary","email":"dinesh.chaudhary30@gmail.com","3":"dinesh.chaudhary30@gmail.com","is_online":1,"4":1,"is_busy":0,"5":0,"verification_status":"approved","6":"approved","current_latitude":"21.17020000","7":"21.17020000","current_longitude":"72.83110000","8":"72.83110000"}
+=== kitchens city ===
+  {"id":1,"0":1,"kitchen_name":"Sanya's Kitchen","1":"Sanya's Kitchen","city":"Surat","2":"Surat","latitude":"21.14440000","3":"21.14440000","longitude":"72.77190000","4":"72.77190000"}
+  {"id":2,"0":2,"kitchen_name":"Priya's Rasoi","1":"Priya's Rasoi","city":"Surat","2":"Surat","latitude":"21.16100000","3":"21.16100000","longitude":"72.78760000","4":"72.78760000"}
+  {"id":3,"0":3,"kitchen_name":"Rahul's Ghar Ka Khana","1":"Rahul's Ghar Ka Khana","city":"Surat","2":"Surat","latitude":"21.18950000","3":"21.18950000","longitude":"72.79330000","4":"72.79330000"}
+  {"id":4,"0":4,"kitchen_name":"Anjali's Gujarati Rasoi","1":"Anjali's Gujarati Rasoi","city":"Surat","2":"Surat","latitude":"21.13530000","3":"21.13530000","longitude":"72.79360000","4":"72.79360000"}
+  {"id":5,"0":5,"kitchen_name":"Rohan's Food Corner","1":"Rohan's Food Corner","city":"Surat","2":"Surat","latitude":"21.14720000","3":"21.14720000","longitude":"72.76860000","4":"72.76860000"}
+  {"id":6,"0":6,"kitchen_name":"Neha's Home Meals","1":"Neha's Home Meals","city":"Mumbai","2":"Mumbai","latitude":"18.99400000","3":"18.99400000","longitude":"72.82480000","4":"72.82480000"}
+  {"id":7,"0":7,"kitchen_name":"Amit's Kathiyawadi Kitchen","1":"Amit's Kathiyawadi Kitchen","city":"Mumbai","2":"Mumbai","latitude":"19.13510000","3":"19.13510000","longitude":"72.82860000","4":"72.82860000"}
+  {"id":8,"0":8,"kitchen_name":"Pooja's Thali House","1":"Pooja's Thali House","city":"Mumbai","2":"Mumbai","latitude":"19.06820000","3":"19.06820000","longitude":"72.82260000","4":"72.82260000"}
+  {"id":9,"0":9,"kitchen_name":"Arjun's Punjabi Kitchen","1":"Arjun's Punjabi Kitchen","city":"Mumbai","2":"Mumbai","latitude":"19.11970000","3":"19.11970000","longitude":"72.90510000","4":"72.90510000"}
+  {"id":10,"0":10,"kitchen_name":"Kavita's Kerala Kitchen","1":"Kavita's Kerala Kitchen","city":"Mumbai","2":"Mumbai","latitude":"19.09960000","3":"19.09960000","longitude":"72.91640000","4":"72.91640000"}
+=== tables ===
+  addresses
+  admins
+  categories
+  chefs
+  customer_subscriptions
+  customers
+  delivery_partners
+  delivery_users
+  kitchens
+  menu_items
+  notifications
+  order_items
+  orders
+  pending_registrations
+  reviews
+  subscription_deliveries
+  tiffin_subscriptions
+  zero_waste_items

@@ -6,6 +6,7 @@
 // User Roles
 define('ROLE_CUSTOMER', 'customer');
 define('ROLE_CHEF', 'chef');
+define('ROLE_DELIVERY', 'delivery');
 define('ROLE_ADMIN', 'admin');
 
 // Kitchen Approval & Hygiene Badge Statuses
@@ -21,9 +22,26 @@ define('HYGIENE_BADGE_VERIFIED', 'verified');
 define('ORDER_STATUS_PENDING', 'pending');
 define('ORDER_STATUS_ACCEPTED', 'accepted');
 define('ORDER_STATUS_PREPARING', 'preparing');
+define('ORDER_STATUS_READY_FOR_PICKUP', 'ready_for_pickup');
 define('ORDER_STATUS_OUT_FOR_DELIVERY', 'out_for_delivery');
 define('ORDER_STATUS_DELIVERED', 'delivered');
 define('ORDER_STATUS_CANCELLED', 'cancelled');
+define('ORDER_STATUS_DELIVERY_FAILED', 'delivery_failed');
+
+// Delivery Statuses (internal delivery workflow)
+define('DELIVERY_STATUS_UNASSIGNED', 'unassigned');
+define('DELIVERY_STATUS_ASSIGNED', 'assigned');
+define('DELIVERY_STATUS_ACCEPTED', 'accepted');
+define('DELIVERY_STATUS_PICKED_UP', 'picked_up');
+define('DELIVERY_STATUS_OUT_FOR_DELIVERY', 'out_for_delivery');
+define('DELIVERY_STATUS_DELIVERED', 'delivered');
+define('DELIVERY_STATUS_FAILED', 'failed');
+
+// Delivery Partner Verification Statuses
+define('DELIVERY_VERIFICATION_PENDING', 'pending');
+define('DELIVERY_VERIFICATION_APPROVED', 'approved');
+define('DELIVERY_VERIFICATION_REJECTED', 'rejected');
+define('DELIVERY_VERIFICATION_SUSPENDED', 'suspended');
 
 // Payment Statuses & Methods
 define('PAYMENT_STATUS_PENDING', 'pending');

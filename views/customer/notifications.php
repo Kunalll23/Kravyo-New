@@ -19,7 +19,7 @@
                     </p>
                 </div>
                 <?php if ($totalCount > 0): ?>
-                <form action="<?= url('/notifications/mark-all') ?>" method="POST">
+                <form action="<?= ctx_url('/notifications/mark-all') ?>" method="POST">
                     <?= csrf_field() ?>
                     <button type="submit" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-check2-all me-1"></i>Mark All as Read
@@ -28,7 +28,7 @@
                 <?php endif; ?>
             </div>
 
-            <?php require_once VIEW_PATH . '/partials/alerts.php'; ?>
+            <?php require_once VIEWS_PATH . '/partials/alerts.php'; ?>
 
             <!-- Notification List -->
             <?php if (empty($notifications)): ?>

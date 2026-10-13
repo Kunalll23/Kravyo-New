@@ -2,24 +2,26 @@
 /**
  * Kravyo - Core Session & CSRF Security Manager
  *
- * ─── Three-Way Concurrent Login Architecture ──────────────────────────────
- * Allows Customer, Chef, and Admin to each be logged in simultaneously
+ * ─── Four-Way Concurrent Login Architecture ──────────────────────────────
+ * Allows Customer, Chef, Delivery, and Admin to each be logged in simultaneously
  * in different tabs of the SAME browser, with zero session interference.
  *
  * THREE independent named session cookies:
  *
- *   KRAVYO_CUSTOMER  — Customer portal  (all non-/chef, non-/admin routes)
- *   KRAVYO_CHEF      — Chef portal      (/chef/* routes)
- *   KRAVYO_ADMIN     — Admin portal     (/admin/* routes)
+ *   KRAVYO_CUSTOMER  — Customer portal   (all non-/chef, non-/admin, non-/delivery routes)
+ *   KRAVYO_CHEF      — Chef portal       (/chef/* routes)
+ *   KRAVYO_DELIVERY  — Delivery portal   (/delivery/* routes)
+ *   KRAVYO_ADMIN     — Admin portal      (/admin/* routes)
  *
  * Context is detected from the request URI BEFORE session_start().
  * Login actions use switchToRole() to ensure data lands in the right cookie.
  *
  * Result:
- *   Tab 1 -> Customer logged in  (KRAVYO_CUSTOMER cookie)
- *   Tab 2 -> Chef logged in      (KRAVYO_CHEF cookie)
- *   Tab 3 -> Admin logged in     (KRAVYO_ADMIN cookie)
- *   All three fully independent -- log out one, the other two remain.
+ *   Tab 1 -> Customer logged in   (KRAVYO_CUSTOMER cookie)
+ *   Tab 2 -> Chef logged in       (KRAVYO_CHEF cookie)
+ *   Tab 3 -> Delivery logged in   (KRAVYO_DELIVERY cookie)
+ *   Tab 4 -> Admin logged in      (KRAVYO_ADMIN cookie)
+ *   All four fully independent -- log out one, the others remain.
  */
 
 class Session {
@@ -30,8 +32,14 @@ class Session {
     /** Session cookie for the Chef portal */
     const CHEF_SESSION     = 'KRAVYO_CHEF';
 
+    /** Session cookie for the Delivery portal */
+    const DELIVERY_SESSION = 'KRAVYO_DELIVERY';
+
     /** Session cookie for the Admin portal */
     const ADMIN_SESSION    = 'KRAVYO_ADMIN';
+
+    /** Session cookie for the Public root URL */
+    const PUBLIC_SESSION   = 'KRAVYO_PUBLIC';
 
     /**
      * Cross-session user data: populated when a Chef is logged in (KRAVYO_CHEF
@@ -46,9 +54,10 @@ class Session {
      */
     private static function roleToSessionName(string $role): string {
         return match ($role) {
-            'chef'  => self::CHEF_SESSION,
-            'admin' => self::ADMIN_SESSION,
-            default => self::CUSTOMER_SESSION,
+            'chef'     => self::CHEF_SESSION,
+            'delivery' => self::DELIVERY_SESSION,
+            'admin'    => self::ADMIN_SESSION,
+            default    => self::CUSTOMER_SESSION,
         };
     }
 
@@ -69,12 +78,21 @@ class Session {
         if ($baseFolder !== '' && $baseFolder !== '/' && str_starts_with($path, $baseFolder)) {
             $path = substr($path, strlen($baseFolder));
         }
+        if (str_starts_with($path, '/public')) {
+            $path = substr($path, strlen('/public'));
+        }
         if ($path === '') {
             $path = '/';
         }
         // Classify by URL prefix
+        if ($path === '/') {
+            return self::PUBLIC_SESSION;
+        }
         if (str_starts_with($path, '/admin')) {
             return self::ADMIN_SESSION;
+        }
+        if (str_starts_with($path, '/delivery')) {
+            return self::DELIVERY_SESSION;
         }
         if (str_starts_with($path, '/chef')) {
             return self::CHEF_SESSION;
@@ -96,82 +114,47 @@ class Session {
         if (session_status() === PHP_SESSION_NONE) {
             ini_set('session.cookie_httponly', '1');
             ini_set('session.use_only_cookies', '1');
-            // Name MUST be set before session_start()
-            session_name(self::detectContext());
+            $ctx = self::detectContext();
+            session_name($ctx);
+
+            // Auto-heal cookie collisions: if the incoming cookie for this context
+            // matches any other role's cookie, regenerate ID so they never share files.
+            $currentCookie = $_COOKIE[$ctx] ?? null;
+            if ($currentCookie !== null) {
+                $otherCookies = [
+                    self::CUSTOMER_SESSION => $_COOKIE[self::CUSTOMER_SESSION] ?? null,
+                    self::CHEF_SESSION     => $_COOKIE[self::CHEF_SESSION] ?? null,
+                    self::DELIVERY_SESSION => $_COOKIE[self::DELIVERY_SESSION] ?? null,
+                    self::ADMIN_SESSION    => $_COOKIE[self::ADMIN_SESSION] ?? null,
+                ];
+                unset($otherCookies[$ctx]);
+                if (in_array($currentCookie, array_filter($otherCookies), true)) {
+                    session_id(bin2hex(random_bytes(16)));
+                }
+            }
+
             session_start();
 
-            // On Customer-context pages: if no Customer is logged in but a
-            // Chef cookie exists, peek at KRAVYO_CHEF to load Chef identity
-            // for header display and redirect logic on shared URLs (/login, /).
-            if (
-                session_name() === self::CUSTOMER_SESSION
-                && !isset($_SESSION['user_id'])
-                && isset($_COOKIE[self::CHEF_SESSION])
-            ) {
-                self::$crossSessionUser = self::peekSession(self::CHEF_SESSION);
+            // Auto-heal cross-contamination: if session data has a conflicting role for this context, clear the invalid role keys
+            if ($ctx === self::CHEF_SESSION && isset($_SESSION['user_role']) && $_SESSION['user_role'] !== ROLE_CHEF) {
+                unset($_SESSION['user_id'], $_SESSION['user_name'], $_SESSION['user_role']);
+            } elseif ($ctx === self::DELIVERY_SESSION && isset($_SESSION['user_role']) && $_SESSION['user_role'] !== ROLE_DELIVERY) {
+                unset($_SESSION['user_id'], $_SESSION['user_name'], $_SESSION['user_role'], $_SESSION['delivery_partner_id']);
+            } elseif ($ctx === self::CUSTOMER_SESSION && isset($_SESSION['user_role']) && $_SESSION['user_role'] !== ROLE_CUSTOMER) {
+                unset($_SESSION['user_id'], $_SESSION['user_name'], $_SESSION['user_role']);
             }
+
         }
     }
 
     /**
-     * Temporarily open a secondary session to read user identity (and ensure a
-     * CSRF token exists within it), then restore the primary session.
+     * Cross-session peeking is disabled to enforce strict context isolation.
+     * Each browser tab relies purely on its own session context.
      *
-     * Why CSRF? When a Chef is shown in the header on a Customer-URL page, the
-     * logout form must POST to /chef/logout (KRAVYO_CHEF context) using the
-     * Chef's own CSRF token — not the Customer session's token.
-     *
-     * The primary session is fully restored before returning; $crossSessionUser
-     * is a plain PHP array and does not keep the secondary session open.
-     *
-     * @param  string $targetName  Session cookie name to peek at
-     * @return array               ['user_id', 'user_name', 'user_role', '_csrf_token']
-     */
-    private static function peekSession(string $targetName): array {
-        $primaryName = session_name();
-        $primaryId   = session_id();
-
-        // Save primary and switch to target
-        session_write_close();
-        session_name($targetName);
-        session_start();
-
-        // Ensure the peeked session has a CSRF token (needed for logout form)
-        if (!isset($_SESSION['_csrf_token'])) {
-            $_SESSION['_csrf_token'] = bin2hex(random_bytes(32));
-        }
-
-        $data = [
-            'user_id'     => $_SESSION['user_id']    ?? null,
-            'user_name'   => $_SESSION['user_name']  ?? null,
-            'user_role'   => $_SESSION['user_role']  ?? null,
-            '_csrf_token' => $_SESSION['_csrf_token'],
-        ];
-
-        // Save peeked session (CSRF may have just been generated), restore primary
-        session_write_close();
-        session_name($primaryName);
-        session_id($primaryId);   // Must be set BEFORE session_start()
-        session_start();
-
-        return $data;
-    }
-
-    /**
-     * Return cross-session user data loaded during init().
-     *
-     * This is populated only when:
-     *   - The current request is on a Customer-context URL (KRAVYO_CUSTOMER), AND
-     *   - No Customer is logged in (no user_id in KRAVYO_CUSTOMER), AND
-     *   - A KRAVYO_CHEF cookie is present in the browser.
-     *
-     * Returns an empty array if no cross-session user is active.
-     * Always check ['user_id'] is non-null before trusting this data.
-     *
-     * @return array  Keys: user_id, user_name, user_role, _csrf_token  (or empty [])
+     * @return array  Always returns []
      */
     public static function getCrossSessionUser(): array {
-        return self::$crossSessionUser;
+        return [];
     }
 
     /**
@@ -197,7 +180,7 @@ class Session {
      *   4. Starts the new session
      *   5. Restores the saved temp data into the new session
      *
-     * @param string $role  'customer' | 'chef' | 'admin'
+     * @param string $role  'customer' | 'chef' | 'admin' | 'delivery'
      */
     public static function switchToRole(string $role): void {
         self::init(); // Ensure current session is active
@@ -242,6 +225,8 @@ class Session {
         $targetCookieId = $_COOKIE[$targetName] ?? null;
         if ($targetCookieId === null || $targetCookieId === $sourceSessionId) {
             session_id(bin2hex(random_bytes(16)));
+        } else {
+            session_id($targetCookieId);
         }
 
         session_start();
@@ -288,6 +273,13 @@ class Session {
     }
 
     /**
+     * Check if a user is currently logged in in this session context
+     */
+    public static function isLoggedIn(): bool {
+        return self::has('user_id');
+    }
+
+    /**
      * Remove session key
      */
     public static function remove(string $key): void {
@@ -321,7 +313,7 @@ class Session {
      * After destruction the primary session for this request is gone; callers
      * should redirect immediately without writing to the session.
      *
-     * @param string $role  'customer' | 'chef' | 'admin'
+     * @param string $role  'customer' | 'chef' | 'admin' | 'delivery'
      */
     public static function destroyRole(string $role): void {
         $targetName  = self::roleToSessionName($role);
@@ -337,6 +329,7 @@ class Session {
                 return;
             }
             session_name($targetName);
+            session_id($_COOKIE[$targetName]);
             session_start();
         }
 

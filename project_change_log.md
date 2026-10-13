@@ -1,0 +1,7 @@
+- Date/time: 2026-10-08  
+- Customer Reporting System audit completed.  
+- Problems found: Missing order_id, security vulnerability in submitReport, lack of duplicate check, unhandled notification exceptions.  
+- Files changed: app/models/CustomerReport.php, app/controllers/CustomerController.php, views/admin/reports_center.php, views/partials/report_modal.php, views/customer/order_track.php  
+- Database changes: Added order_id and resolved_at, added indexes.  
+- Security fixes: Added auth verification in CustomerController to ensure report target matches user order/kitchen. Added duplicate check.  
+- Notification changes: Wrapped notifications in try/catch to prevent failure. 

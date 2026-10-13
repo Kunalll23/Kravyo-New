@@ -1,0 +1,30 @@
+[2026-10-04 22:41:10] HTTP request failed: SSL connection timeout
+[2026-10-07 18:50:02] HTTP request failed: SSL connection timeout
+[2026-10-07 19:13:01] Routes API failed: INVALID_ARGUMENT Invalid JSON payload received. Unknown name "waypoint" at 'intermediates[0]': Cannot find field.
+[2026-10-07 19:13:16] Routes API failed: INVALID_ARGUMENT Invalid JSON payload received. Unknown name "waypoint" at 'intermediates[0]': Cannot find field.
+[2026-10-09 13:45:45] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:45:47] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:45:47] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:45:54] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:45:54] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:45:55] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:45:55] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:45:58] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:45:58] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:49:51] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:49:51] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:49:58] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:49:58] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:50:00] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:50:00] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:50:00] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:50:00] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:50:16] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:50:16] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:50:43] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:50:43] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:51:35] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-09 13:51:35] HTTP request failed: Could not resolve host: routes.googleapis.com
+[2026-10-11 18:37:48] cURL extension is not available.
+[2026-10-11 18:38:42] cURL extension is not available.
+[2026-10-11 18:40:34] cURL extension is not available.

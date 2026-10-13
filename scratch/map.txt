@@ -1,0 +1,32 @@
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Phase 11: Map Initialization
+    const mapContainer = document.getElementById('checkoutMap');
+    if (mapContainer) {
+        const map = L.map('checkoutMap').setView([21.1702, 72.8311], 13); // Default Surat
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        
+        const latInput = document.getElementById('delivery_lat');
+        const lngInput = document.getElementById('delivery_lng');
+        
+        let marker = L.marker([21.1702, 72.8311], {draggable: true}).addTo(map);
+        
+        marker.on('dragend', function (e) {
+            const coords = e.target.getLatLng();
+            latInput.value = coords.lat.toFixed(8);
+            lngInput.value = coords.lng.toFixed(8);
+        });
+        
+        // Pre-fill initial position
+        latInput.value = "21.1702";
+        lngInput.value = "72.8311";
+        
+        // Allow clicking on map to move marker
+        map.on('click', function(e) {
+            marker.setLatLng(e.latlng);
+            latInput.value = e.latlng.lat.toFixed(8);
+            lngInput.value = e.latlng.lng.toFixed(8);
+        });
+    }
+});
+</script>

@@ -38,15 +38,16 @@ class EmailVerification extends Model {
         $resentAt  = date('Y-m-d H:i:s');
 
         $sql = "REPLACE INTO {$this->table}
-                (email, full_name, phone, password_hash, role, email_otp_hash, email_otp_expires_at, email_otp_resent_at, email_otp_attempts)
+                (email, full_name, phone, city, password_hash, role, email_otp_hash, email_otp_expires_at, email_otp_resent_at, email_otp_attempts)
                 VALUES
-                (:email, :full_name, :phone, :password_hash, :role, :otp_hash, :expires_at, :resent_at, 0)";
+                (:email, :full_name, :phone, :city, :password_hash, :role, :otp_hash, :expires_at, :resent_at, 0)";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
             'email'         => $userData['email'],
             'full_name'     => $userData['full_name'],
             'phone'         => $userData['phone'],
+            'city'          => $userData['city'] ?? '',
             'password_hash' => $userData['password_hash'],
             'role'          => $userData['role'],
             'otp_hash'      => $hashedOtp,

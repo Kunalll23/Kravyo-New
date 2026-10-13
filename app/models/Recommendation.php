@@ -50,13 +50,13 @@ class Recommendation extends Model {
      * @param int $limit
      * @return array  Array of menu_item rows, each with an extra `score` field
      */
-    public function getForCustomer(int $customerId, int $limit = 8): array {
+    public function getForCustomer(int $customerId, int $limit = 8, string $city = ''): array {
         // 1. Call Python AI API
         $aiResult = $this->callPythonApi($customerId, $limit);
 
         if ($aiResult === null || empty($aiResult['recommendations'])) {
             // Python unavailable or cold-start returned nothing → PHP fallback
-            return $this->getPopularDishes($limit);
+            return $this->getPopularDishes($limit, $city);
         }
 
         // 2. Extract ordered list of menu_item_ids and score map
@@ -70,14 +70,14 @@ class Recommendation extends Model {
         }
 
         if (empty($orderedIds)) {
-            return $this->getPopularDishes($limit);
+            return $this->getPopularDishes($limit, $city);
         }
 
         // 3. Fetch full dish records from MariaDB for those IDs
         $dishes = $this->fetchDishesByIds($orderedIds);
 
         if (empty($dishes)) {
-            return $this->getPopularDishes($limit);
+            return $this->getPopularDishes($limit, $city);
         }
 
         // 4. Build an id→row map
@@ -96,14 +96,14 @@ class Recommendation extends Model {
             }
         }
 
-        return empty($ordered) ? $this->getPopularDishes($limit) : $ordered;
+        return empty($ordered) ? $this->getPopularDishes($limit, $city) : $ordered;
     }
 
     /**
      * Get platform-popular dishes (cold-start / guest mode / PHP fallback).
      * Returns top-N dishes by platform-wide delivered order count.
      */
-    public function getPopularDishes(int $limit = 8): array {
+    public function getPopularDishes(int $limit = 8, string $city = ''): array {
         $sql = "SELECT m.*, c.category_name,
                        k.kitchen_name, k.city, k.id AS kitchen_id,
                        k.hygiene_badge, u.full_name AS chef_name,
@@ -111,7 +111,7 @@ class Recommendation extends Model {
                 FROM menu_items m
                 JOIN categories c ON m.category_id = c.id
                 JOIN kitchens k   ON m.kitchen_id  = k.id
-                JOIN users u      ON k.user_id      = u.id
+                JOIN chefs u      ON k.user_id      = u.id
                 LEFT JOIN (
                     SELECT oi.menu_item_id, COUNT(*) AS order_count
                     FROM order_items oi
@@ -121,13 +121,18 @@ class Recommendation extends Model {
                 ) pop ON pop.menu_item_id = m.id
                 WHERE k.approval_status = 'approved'
                   AND k.is_open        = 1
-                  AND m.is_available   = 1
-                ORDER BY score DESC, m.created_at DESC
-                LIMIT :lim";
+                  AND m.is_available   = 1";
+                  
+        $params = [];
+        if (!empty($city)) {
+            $sql .= " AND k.city = :city";
+            $params['city'] = $city;
+        }
+
+        $sql .= " ORDER BY score DESC, m.created_at DESC LIMIT " . (int)$limit;
 
         $stmt = $this->db->prepare($sql);
-        $stmt->bindValue(':lim', $limit, \PDO::PARAM_INT);
-        $stmt->execute();
+        $stmt->execute($params);
         return $stmt->fetchAll();
     }
 
@@ -209,7 +214,7 @@ class Recommendation extends Model {
                 FROM menu_items m
                 JOIN categories c ON m.category_id = c.id
                 JOIN kitchens k   ON m.kitchen_id  = k.id
-                JOIN users u      ON k.user_id      = u.id
+                JOIN chefs u      ON k.user_id      = u.id
                 WHERE m.id IN ($placeholders)
                   AND k.approval_status = 'approved'
                   AND k.is_open        = 1
@@ -365,7 +370,7 @@ class Recommendation extends Model {
         );
         $stats['active_kitchens'] = (int)$stmt->fetchColumn();
 
-        $stmt = $this->db->query("SELECT COUNT(*) FROM users WHERE role = 'customer'");
+        $stmt = $this->db->query("SELECT COUNT(*) FROM customers");
         $stats['total_customers'] = (int)$stmt->fetchColumn();
 
         return $stats;

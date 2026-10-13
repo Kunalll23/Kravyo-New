@@ -53,4 +53,14 @@ class Admin extends Model {
         unset($data['password']);
         return $this->create($data);
     }
+
+    /**
+     * Get all admins
+     */
+    public function all(): array {
+        $sql = "SELECT * FROM {$this->table}";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return $stmt->fetchAll();
+    }
 }

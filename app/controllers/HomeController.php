@@ -9,9 +9,15 @@ class HomeController extends Controller {
      * Display home landing page
      */
     public function index(): void {
+        require_once APP_PATH . '/models/MenuItem.php';
+        $menuItemModel = new MenuItem();
+        
+        $topSellingDishes = $menuItemModel->getTopSellingItems(4); // Top 4 items
+
         $this->render('home/index', [
-            'title' => 'Kravyo - Cloud Kitchen Platform for Homemakers'
-        ]);
+            'title' => 'Kravyo - Cloud Kitchen Platform for Homemakers',
+            'topSellingDishes' => $topSellingDishes
+        ], 'public_portal');
     }
 
     /**

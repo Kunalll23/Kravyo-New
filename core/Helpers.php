@@ -8,7 +8,10 @@ if (!function_exists('sanitize')) {
      * Escape a string for safe HTML output.
      * Phase 10: Added ENT_SUBSTITUTE to handle malformed Unicode without stripping.
      */
-    function sanitize(string $input): string {
+    function sanitize(?string $input): string {
+        if ($input === null) {
+            return '';
+        }
         return htmlspecialchars(trim($input), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 }
@@ -57,33 +60,51 @@ if (!function_exists('ctx_url')) {
      * Context-aware URL helper.
      *
      * Rewrites public customer-facing paths so they stay within the current
-     * session's URL prefix (KRAVYO_CHEF → /chef/*, KRAVYO_ADMIN → /admin/*).
-     * This prevents session-context switching when a Chef or Admin navigates
-     * to a shared page like "Browse Dishes" or "View Kitchen".
+     * session's URL prefix (KRAVYO_CHEF → /chef/*, KRAVYO_ADMIN → /admin/*, KRAVYO_DELIVERY → /delivery/*).
+     * This prevents session-context switching when a Chef, Admin, or Delivery partner navigates
+     * to a shared page like "Browse Dishes" or "View Kitchen" or clicks home/login.
      *
-     * Usage in views:  ctx_url('/dish/' . $id)   instead of  url('/dish/' . $id)
-     *                  ctx_url('/kitchens')       instead of  url('/kitchens')
+     * Usage in views:  ctx_url('/dish/' . $id)
+     *                  ctx_url('/kitchens')
+     *                  ctx_url('/')
      *
      * Customer context (default) returns the original path unchanged.
      */
-    function ctx_url(string $path): string {
+    function ctx_url(string $path = '/'): string {
         $ctx = Session::currentContext();
 
         if ($ctx === Session::CHEF_SESSION) {
-            // Map customer public paths → chef-prefixed equivalents
-            $path = preg_replace('#^/dish/(.+)#',     '/chef/dish/$1',           $path);
-            $path = preg_replace('#^/kitchen/(\d+)#',  '/chef/kitchen/$1',        $path);
-            $path = preg_replace('#^/kitchens$#',      '/chef/kitchens',          $path);
-            $path = preg_replace('#^/menu$#',          '/chef/menu-browse',       $path);
-            $path = preg_replace('#^/zero-waste$#',    '/chef/zero-waste-deals',  $path);
-            $path = preg_replace('#^/subscriptions$#', '/chef/subscriptions-browse', $path);
-            $path = preg_replace('#^/subscription/(\d+)#', '/chef/subscription/$1', $path);
+            if ($path === '' || $path === '/') return APP_URL . '/chef/dashboard';
+            if ($path === '/login') return APP_URL . '/chef/login';
+            $path = preg_replace('#^/dish/(.+)#',           '/chef/dish/$1',           $path);
+            $path = preg_replace('#^/kitchen/(\d+)#',        '/chef/kitchen/$1',        $path);
+            $path = preg_replace('#^/kitchens$#',            '/chef/kitchens',          $path);
+            $path = preg_replace('#^/nearby-kitchens$#',      '/chef/nearby-kitchens',   $path);
+            $path = preg_replace('#^/menu$#',                '/chef/menu-browse',       $path);
+            $path = preg_replace('#^/zero-waste$#',          '/chef/zero-waste-deals',  $path);
+            $path = preg_replace('#^/subscriptions$#',       '/chef/subscriptions-browse', $path);
+            $path = preg_replace('#^/subscription/(\d+)#',   '/chef/subscription/$1',   $path);
+            $path = preg_replace('#^/notifications#',        '/chef/notifications',     $path);
         } elseif ($ctx === Session::ADMIN_SESSION) {
-            $path = preg_replace('#^/dish/(.+)#',     '/admin/dish/$1',            $path);
-            $path = preg_replace('#^/kitchen/(\d+)#',  '/admin/kitchen/$1',        $path);
-            $path = preg_replace('#^/kitchens$#',      '/admin/kitchens-browse',   $path);
-            $path = preg_replace('#^/menu$#',          '/admin/menu-browse',       $path);
-            $path = preg_replace('#^/zero-waste$#',    '/admin/zero-waste-browse', $path);
+            if ($path === '' || $path === '/') return APP_URL . '/admin/dashboard';
+            if ($path === '/login') return APP_URL . '/admin/login';
+            $path = preg_replace('#^/dish/(.+)#',           '/admin/dish/$1',            $path);
+            $path = preg_replace('#^/kitchen/(\d+)#',        '/admin/kitchen/$1',        $path);
+            $path = preg_replace('#^/kitchens$#',            '/admin/kitchens-browse',   $path);
+            $path = preg_replace('#^/nearby-kitchens$#',      '/admin/nearby-kitchens',  $path);
+            $path = preg_replace('#^/menu$#',                '/admin/menu-browse',       $path);
+            $path = preg_replace('#^/zero-waste$#',          '/admin/zero-waste-browse', $path);
+            $path = preg_replace('#^/notifications#',        '/admin/notifications',     $path);
+        } elseif ($ctx === Session::DELIVERY_SESSION) {
+            if ($path === '' || $path === '/') return APP_URL . '/delivery/dashboard';
+            if ($path === '/login') return APP_URL . '/delivery/login';
+            if ($path === '/register') return APP_URL . '/delivery/register';
+            $path = preg_replace('#^/dish/(.+)#',           '/delivery/dish/$1',            $path);
+            $path = preg_replace('#^/kitchen/(\d+)#',        '/delivery/kitchen/$1',         $path);
+            $path = preg_replace('#^/kitchens$#',            '/delivery/kitchens',           $path);
+            $path = preg_replace('#^/nearby-kitchens$#',      '/delivery/nearby-kitchens',    $path);
+            $path = preg_replace('#^/menu$#',                '/delivery/menu-browse',        $path);
+            $path = preg_replace('#^/zero-waste$#',          '/delivery/zero-waste-browse',  $path);
         }
 
         return APP_URL . '/' . ltrim($path, '/');
@@ -92,7 +113,10 @@ if (!function_exists('ctx_url')) {
 
 if (!function_exists('asset')) {
     function asset(string $path): string {
-        return ASSET_URL . '/' . ltrim($path, '/');
+        $path = ltrim($path, '/');
+        $file = PUBLIC_PATH . '/assets/' . $path;
+        $ver  = is_file($file) ? '?v=' . filemtime($file) : '';
+        return ASSET_URL . '/' . $path . $ver;
     }
 }
 

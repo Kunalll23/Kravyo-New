@@ -11,7 +11,7 @@ class CustomerSubscription extends Model {
      * Find all subscriptions for a customer with plan and kitchen details
      */
     public function findByCustomerId(int $customerId, ?string $status = null): array {
-        $sql = "SELECT cs.*, s.plan_name, s.plan_type, s.meals_per_day, s.price AS plan_price,
+        $sql = "SELECT cs.*, s.plan_name, s.plan_type, s.meals_per_day, s.breakfast_time, s.lunch_time, s.dinner_time, s.price AS plan_price,
                        k.kitchen_name, k.city, k.pincode,
                        a.street_address, a.city AS delivery_city
                 FROM {$this->table} cs
@@ -36,12 +36,12 @@ class CustomerSubscription extends Model {
      * Find all subscribers for a kitchen with customer and plan details
      */
     public function findByKitchenId(int $kitchenId, ?string $status = null): array {
-        $sql = "SELECT cs.*, s.plan_name, s.plan_type, s.meals_per_day,
+        $sql = "SELECT cs.*, s.plan_name, s.plan_type, s.meals_per_day, s.breakfast_time, s.lunch_time, s.dinner_time,
                        u.full_name AS customer_name, u.phone AS customer_phone, u.email AS customer_email,
                        a.street_address, a.landmark, a.city AS delivery_city, a.pincode AS delivery_pincode
                 FROM {$this->table} cs
                 JOIN tiffin_subscriptions s ON cs.subscription_plan_id = s.id
-                JOIN users u ON cs.customer_id = u.id
+                JOIN customers u ON cs.customer_id = u.id
                 JOIN addresses a ON cs.address_id = a.id
                 WHERE cs.kitchen_id = :kitchen_id";
         $params = ['kitchen_id' => $kitchenId];
@@ -85,7 +85,7 @@ class CustomerSubscription extends Model {
                 FROM {$this->table} cs
                 JOIN tiffin_subscriptions s ON cs.subscription_plan_id = s.id
                 JOIN kitchens k ON cs.kitchen_id = k.id
-                JOIN users u ON cs.customer_id = u.id
+                JOIN customers u ON cs.customer_id = u.id
                 JOIN addresses a ON cs.address_id = a.id
                 WHERE cs.id = :id
                 LIMIT 1";
@@ -136,7 +136,7 @@ class CustomerSubscription extends Model {
                 FROM {$this->table} cs
                 JOIN tiffin_subscriptions s ON cs.subscription_plan_id = s.id
                 JOIN kitchens k ON cs.kitchen_id = k.id
-                JOIN users u ON cs.customer_id = u.id";
+                JOIN customers u ON cs.customer_id = u.id";
         $params = [];
 
         if ($status !== null) {

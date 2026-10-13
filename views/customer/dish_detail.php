@@ -83,7 +83,16 @@
                     </div>
 
                     <!-- Customization & Add to Cart Form -->
-                    <?php if ($dish['is_available'] && $dish['is_open']): ?>
+                    <?php if (Session::currentContext() !== Session::CUSTOMER_SESSION): ?>
+                        <div class="card bg-light border-0 p-4 rounded-3 text-center mb-4 shadow-sm">
+                            <i class="bi bi-info-circle text-primary fs-3 mb-2"></i>
+                            <h6 class="fw-bold mb-1">Catalogue Preview Mode</h6>
+                            <p class="text-muted small mb-0">
+                                You are browsing this dish in <strong><?= ucfirst(strtolower(str_replace(['KRAVYO_', '_SESSION'], '', Session::currentContext()))) ?></strong> mode.
+                                Ordering and cart operations are active in Customer accounts.
+                            </p>
+                        </div>
+                    <?php elseif ($dish['is_available'] && $dish['is_open']): ?>
                         <form method="POST" action="<?= url('/cart/add') ?>" id="addToCartForm" class="customization-form">
                             <?= csrf_field() ?>
                             <input type="hidden" name="menu_item_id" value="<?= $dish['id'] ?>">
@@ -144,6 +153,14 @@
                                     </div>
                                 </div>
                             <?php endif; ?>
+
+                            <!-- Special Instructions -->
+                            <div class="customization-group mb-4">
+                                <label class="customization-label" for="itemNotes">
+                                    <i class="bi bi-chat-text me-1 text-primary"></i> Special Instructions <span class="text-muted small fw-normal">(Optional)</span>
+                                </label>
+                                <textarea name="item_notes" id="itemNotes" class="form-control border-light shadow-sm" rows="2" placeholder="Any special requests for the chef? e.g. Extra salt, no coriander..." style="resize:none; border-radius:12px; font-size:0.9rem; padding:12px; background-color:#f9f9fa;"></textarea>
+                            </div>
 
                             <!-- Quantity -->
                             <div class="customization-group mb-4">

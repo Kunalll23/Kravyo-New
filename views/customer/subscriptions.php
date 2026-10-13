@@ -4,12 +4,12 @@
         <div class="row align-items-center">
             <div class="col-lg-7">
                 <h1 class="fw-800 text-white mb-3">
-                    <i class="bi bi-calendar2-heart text-warning me-2"></i>Tiffin Subscription Plans
+                    <i class="bi bi-calendar2-heart text-white me-2"></i>Tiffin Subscription Plans
                 </h1>
                 <p class="text-white-50 fs-5 mb-0">Subscribe to daily home-cooked meals from your favourite kitchens. Fresh, healthy, and delivered to your door.</p>
             </div>
             <div class="col-lg-5 text-end d-none d-lg-block">
-                <i class="bi bi-box-seam display-1 text-warning opacity-25"></i>
+                <i class="bi bi-box-seam display-1 text-white opacity-20"></i>
             </div>
         </div>
     </div>
@@ -56,7 +56,7 @@
                     </select>
                 </div>
                 <div class="col-md-2">
-                    <button type="submit" class="btn btn-kravyo-primary w-100">
+                    <button type="submit" class="btn btn-dark w-100 fw-semibold">
                         <i class="bi bi-funnel me-1"></i> Filter
                     </button>
                 </div>
@@ -69,7 +69,7 @@
         <p class="text-muted mb-0">
             <strong><?= count($plans) ?></strong> tiffin plan<?= count($plans) !== 1 ? 's' : '' ?> available
         </p>
-        <?php if (Session::has('user_id')): ?>
+        <?php if (Session::has('user_id') && Session::get('user_role') === ROLE_CUSTOMER && Session::currentContext() === Session::CUSTOMER_SESSION): ?>
             <a href="<?= url('/my-subscriptions') ?>" class="btn btn-outline-primary btn-sm">
                 <i class="bi bi-journal-check me-1"></i> My Subscriptions
             </a>
@@ -109,13 +109,16 @@
                                 <span class="text-muted small fw-normal">/ <?= $plan['plan_type'] === 'weekly' ? '7 days' : '30 days' ?></span>
                             </div>
 
-                            <!-- Description -->
+                            <!-- Description / Includes -->
                             <?php if (!empty($plan['description'])): ?>
-                                <p class="text-muted small mb-3"><?= sanitize($plan['description']) ?></p>
+                                <p class="text-muted small mb-3">
+                                    <strong class="text-dark"><i class="bi bi-check2-circle text-success me-1"></i>Includes:</strong>
+                                    <?= sanitize($plan['description']) ?>
+                                </p>
                             <?php endif; ?>
 
                             <!-- Details -->
-                            <div class="d-flex flex-wrap gap-2 mb-3">
+                            <div class="d-flex flex-wrap gap-2 mb-2">
                                 <span class="badge bg-light text-dark border">
                                     <i class="bi bi-egg-fried me-1 text-warning"></i>
                                     <?= $plan['meals_per_day'] ?> meal<?= $plan['meals_per_day'] > 1 ? 's' : '' ?>/day
@@ -124,6 +127,17 @@
                                     <i class="bi bi-geo-alt me-1 text-danger"></i>
                                     <?= sanitize($plan['city']) ?>
                                 </span>
+                            </div>
+
+                            <!-- Meal Delivery Schedule Badges -->
+                            <?php $planSchedule = Subscription::getMealSchedule($plan); ?>
+                            <div class="d-flex flex-wrap gap-1 mb-3">
+                                <?php foreach ($planSchedule as $mKey => $mInfo): ?>
+                                    <span class="badge bg-light text-dark border py-1 px-2" style="font-size: 0.75rem; font-weight: 500;">
+                                        <i class="bi <?= $mInfo['icon'] ?> text-<?= $mInfo['badge_color'] ?> me-1"></i>
+                                        <?= $mInfo['label'] ?>: <?= sanitize($mInfo['time']) ?>
+                                    </span>
+                                <?php endforeach; ?>
                             </div>
 
                             <!-- Kitchen Info -->
@@ -136,7 +150,7 @@
                             </div>
 
                             <!-- CTA -->
-                            <a href="<?= ctx_url('/subscription/' . $plan['id']) ?>" class="btn btn-kravyo-primary w-100">
+                            <a href="<?= ctx_url('/subscription/' . $plan['id']) ?>" class="btn btn-subscription-cta w-100">
                                 <i class="bi bi-arrow-right-circle me-1"></i> View & Subscribe
                             </a>
                         </div>

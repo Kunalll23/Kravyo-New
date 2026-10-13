@@ -9,9 +9,18 @@
                 <p class="text-white-50 mb-0">Track and manage all your food orders</p>
             </div>
             <div class="col-lg-5 text-lg-end mt-3 mt-lg-0">
-                <span class="badge bg-white text-dark px-3 py-2 fs-6 rounded-pill">
-                    <?= count($orders) ?> Order<?= count($orders) !== 1 ? 's' : '' ?>
-                </span>
+                <form action="" method="GET" class="d-inline-block d-flex align-items-center justify-content-lg-end gap-2">
+                    <input type="date" name="date" class="form-control form-control-sm" style="max-width: 150px;" 
+                           value="<?= sanitize($dateFilter ?? '') ?>" onchange="this.form.submit()">
+                    
+                    <?php if (!empty($dateFilter)): ?>
+                        <a href="<?= url('/orders/history') ?>" class="btn btn-sm btn-outline-light"><i class="bi bi-x"></i></a>
+                    <?php endif; ?>
+
+                    <span class="badge bg-white text-dark px-3 py-2 fs-6 rounded-pill ms-2">
+                        <?= count($orders) ?> Order<?= count($orders) !== 1 ? 's' : '' ?>
+                    </span>
+                </form>
             </div>
         </div>
     </div>
@@ -36,7 +45,7 @@
                     <?php
                     // Customer-friendly status labels and colors
                     $customerStatusLabels = [
-                        'pending'          => 'Order Confirmed',
+                        'pending'          => 'Awaiting Confirmation',
                         'accepted'         => 'Order Confirmed',
                         'preparing'        => 'Preparing',
                         'out_for_delivery' => 'Out for Delivery',

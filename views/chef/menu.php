@@ -84,9 +84,8 @@
                         <span class="dish-price-badge"><?= format_currency($dish['price']) ?></span>
 
                         <!-- Availability Badge -->
-                        <?php if (!$dish['is_available']): ?>
-                            <span class="dish-unavailable-badge">Unavailable</span>
-                        <?php endif; ?>
+                        <span class="dish-unavailable-badge <?= $dish['is_available'] ? 'd-none' : '' ?>" id="badgeDish<?= $dish['id'] ?>">Unavailable</span>
+
                     </div>
 
                     <div class="card-body p-3">
@@ -114,6 +113,16 @@
                             <?php if ($dish['is_diabetic_friendly']): ?>
                                 <span class="dietary-badge dietary-diabetic"><i class="bi bi-heart-pulse me-1"></i>Diabetic</span>
                             <?php endif; ?>
+                        </div>
+                        
+                        <!-- Quick Availability Toggle -->
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input dish-availability-toggle" type="checkbox" role="switch" 
+                                   id="toggleDish<?= $dish['id'] ?>" data-dish-id="<?= $dish['id'] ?>" 
+                                   <?= $dish['is_available'] ? 'checked' : '' ?>>
+                            <label class="form-check-label text-muted small" for="toggleDish<?= $dish['id'] ?>">
+                                In Stock
+                            </label>
                         </div>
 
                         <!-- Action Buttons -->
@@ -302,3 +311,58 @@
         </div>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const toggles = document.querySelectorAll('.dish-availability-toggle');
+    toggles.forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const dishId = this.getAttribute('data-dish-id');
+            const isChecked = this.checked;
+            const badge = document.getElementById('badgeDish' + dishId);
+            
+            // Optimistic UI update
+            if (isChecked) {
+                badge.classList.add('d-none');
+            } else {
+                badge.classList.remove('d-none');
+            }
+
+            // CSRF token is in the document meta tags typically, or we can fetch it from a nearby form
+            const csrfInput = this.closest('.card-body').querySelector('input[name="_csrf"]');
+            const csrfToken = csrfInput ? csrfInput.value : '';
+
+            fetch(window.KRAVYO_APP_URL + '/chef/dish/toggle-availability/' + dishId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: '_csrf=' + encodeURIComponent(csrfToken)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) {
+                    // Revert on failure
+                    this.checked = !isChecked;
+                    if (!isChecked) {
+                        badge.classList.add('d-none');
+                    } else {
+                        badge.classList.remove('d-none');
+                    }
+                    alert(data.message || 'Error updating status.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Revert on failure
+                this.checked = !isChecked;
+                if (!isChecked) {
+                    badge.classList.add('d-none');
+                } else {
+                    badge.classList.remove('d-none');
+                }
+            });
+        });
+    });
+});
+</script>

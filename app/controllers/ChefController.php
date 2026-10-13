@@ -4,7 +4,7 @@
  */
 
 require_once APP_PATH . '/models/Kitchen.php';
-require_once APP_PATH . '/models/User.php';
+require_once APP_PATH . '/models/Chef.php';
 require_once APP_PATH . '/models/MenuItem.php';
 require_once APP_PATH . '/models/Category.php';
 
@@ -22,7 +22,7 @@ class ChefController extends Controller {
     }
 
     /**
-     * Chef Dashboard — Overview with real analytics (Phase 9)
+     * Chef Dashboard — Overview with real analytics, date filters & financial insights
      */
     public function dashboard(): void {
         require_once APP_PATH . '/models/Order.php';
@@ -37,22 +37,110 @@ class ChefController extends Controller {
         $kitchenId     = $kitchen ? (int) $kitchen['id'] : 0;
         $menuItemCount = $kitchen ? $this->menuItemModel->countByKitchenId($kitchenId) : 0;
 
-        // Real analytics data
+        // Lifetime stats
         $totalOrders     = $kitchen ? $orderModel->countByKitchenId($kitchenId) : 0;
         $totalEarnings   = $kitchen ? $orderModel->totalEarnings($kitchenId) : 0.0;
         $avgRating       = $kitchen ? $reviewModel->getAverageRating($kitchenId) : 0.0;
         $reviewCount     = $kitchen ? $reviewModel->countByKitchenId($kitchenId) : 0;
-        $topDishes       = $kitchen ? $orderModel->getTopSellingItems($kitchenId, 5) : [];
-        $earnings7Days   = $kitchen ? $orderModel->getEarningsLast7Days($kitchenId) : [];
-        $monthlyEarnings = $kitchen ? $orderModel->getMonthlyEarningsComparison($kitchenId) : ['this_month' => 0, 'last_month' => 0];
         $recentReviews   = $kitchen ? $reviewModel->findRecentByKitchenId($kitchenId, 3) : [];
+        $monthlyEarnings = $kitchen ? $orderModel->getMonthlyEarningsComparison($kitchenId) : ['this_month' => 0, 'last_month' => 0];
 
         // Month-over-month trend %
         $monthTrend = 0;
         if ($monthlyEarnings['last_month'] > 0) {
             $monthTrend = round((($monthlyEarnings['this_month'] - $monthlyEarnings['last_month']) / $monthlyEarnings['last_month']) * 100, 1);
         } elseif ($monthlyEarnings['this_month'] > 0) {
-            $monthTrend = 100; // 100% growth from nothing
+            $monthTrend = 100;
+        }
+
+        // Global Date & Period Filter Resolution
+        $range = trim($_GET['range'] ?? '7days');
+        $today = date('Y-m-d');
+        $startDate = $today;
+        $endDate   = $today;
+
+        switch ($range) {
+            case 'today':
+                $startDate  = $today;
+                $endDate    = $today;
+                $rangeLabel = 'Today (' . date('d M Y') . ')';
+                break;
+            case 'yesterday':
+                $startDate  = date('Y-m-d', strtotime('-1 day'));
+                $endDate    = $startDate;
+                $rangeLabel = 'Yesterday (' . date('d M Y', strtotime('-1 day')) . ')';
+                break;
+            case 'this_month':
+                $startDate  = date('Y-m-01');
+                $endDate    = date('Y-m-t');
+                $rangeLabel = 'This Month (' . date('F Y') . ')';
+                break;
+            case 'last_month':
+                $startDate  = date('Y-m-d', strtotime('first day of last month'));
+                $endDate    = date('Y-m-d', strtotime('last day of last month'));
+                $rangeLabel = 'Last Month (' . date('F Y', strtotime('last month')) . ')';
+                break;
+            case 'overall':
+            case 'all':
+                $earliestOrder  = $kitchen ? $orderModel->getEarliestOrderDate($kitchenId) : null;
+                $kitchenCreated = !empty($kitchen['created_at']) ? date('Y-m-d', strtotime($kitchen['created_at'])) : null;
+                $earliest       = $earliestOrder ?: $kitchenCreated ?: date('Y-m-d', strtotime('-30 days'));
+                $startDate      = min(date('Y-m-d', strtotime($earliest)), $today);
+                $endDate        = $today;
+                $rangeLabel     = ($startDate === $endDate)
+                    ? 'Overall Period (' . date('d M Y', strtotime($startDate)) . ')'
+                    : 'Overall Period (' . date('d M Y', strtotime($startDate)) . ' – ' . date('d M Y', strtotime($endDate)) . ')';
+                break;
+            case 'custom':
+                $customStart = trim($_GET['start_date'] ?? '');
+                $customEnd   = trim($_GET['end_date'] ?? '');
+                if (!empty($customStart) && !empty($customEnd) && strtotime($customStart) && strtotime($customEnd)) {
+                    $startDate = date('Y-m-d', min(strtotime($customStart), strtotime($customEnd)));
+                    $endDate   = date('Y-m-d', max(strtotime($customStart), strtotime($customEnd)));
+                } else {
+                    $startDate = date('Y-m-d', strtotime('-6 days'));
+                    $endDate   = $today;
+                }
+                $rangeLabel = date('d M Y', strtotime($startDate)) . ' – ' . date('d M Y', strtotime($endDate));
+                break;
+            case '7days':
+            default:
+                $range      = '7days';
+                $startDate  = date('Y-m-d', strtotime('-6 days'));
+                $endDate    = $today;
+                $rangeLabel = 'Last 7 Days (' . date('d M', strtotime($startDate)) . ' – ' . date('d M Y', strtotime($endDate)) . ')';
+                break;
+        }
+
+        // Period-specific dynamic metrics
+        $filteredStats = $kitchen ? $orderModel->getFilteredAnalytics($kitchenId, $startDate, $endDate) : [
+            'total_placed_orders' => 0,
+            'delivered_orders'    => 0,
+            'total_earnings'      => 0.0,
+            'avg_order_value'     => 0.0,
+            'online_settled'      => 0.0,
+            'cod_pending'         => 0.0,
+            'platform_fee'        => 0.0,
+            'net_payable'         => 0.0,
+            'cancelled_orders'    => 0,
+        ];
+
+        // Period-specific chart data
+        $chartData = $kitchen ? $orderModel->getChartDataByRange($kitchenId, $startDate, $endDate) : [
+            'labels'       => [],
+            'full_dates'   => [],
+            'revenues'     => [],
+            'orders'       => [],
+            'total_rev'    => 0.0,
+            'total_orders' => 0,
+            'max_rev'      => 0.0,
+            'max_orders'   => 0,
+        ];
+
+        // Top selling dishes for selected period
+        $topDishes = $kitchen ? $orderModel->getTopSellingItemsByRange($kitchenId, $startDate, $endDate, 5) : [];
+        if (empty($topDishes) && $kitchen) {
+            $topDishes = $orderModel->getTopSellingItems($kitchenId, 5);
         }
 
         $this->render('chef/dashboard', [
@@ -64,11 +152,183 @@ class ChefController extends Controller {
             'avgRating'       => $avgRating,
             'reviewCount'     => $reviewCount,
             'topDishes'       => $topDishes,
-            'earnings7Days'   => $earnings7Days,
             'monthlyEarnings' => $monthlyEarnings,
             'monthTrend'      => $monthTrend,
             'recentReviews'   => $recentReviews,
+            // Date Filter Data
+            'activeRange'     => $range,
+            'startDate'       => $startDate,
+            'endDate'         => $endDate,
+            'rangeLabel'      => $rangeLabel,
+            'filteredStats'   => $filteredStats,
+            'chartData'       => $chartData,
         ]);
+    }
+
+    /**
+     * Export kitchen orders report to CSV
+     */
+    public function exportReport(): void {
+        require_once APP_PATH . '/models/Order.php';
+        $orderModel = new Order();
+
+        $userId  = Session::get('user_id');
+        $kitchen = $this->kitchenModel->findByUserId($userId);
+        if (!$kitchen) {
+            $this->redirect('/chef/dashboard');
+            return;
+        }
+
+        $kitchenId = (int)$kitchen['id'];
+        $range     = trim($_GET['range'] ?? '7days');
+        $today     = date('Y-m-d');
+        $startDate = $today;
+        $endDate   = $today;
+
+        switch ($range) {
+            case 'today':
+                $startDate = $today;
+                $endDate   = $today;
+                break;
+            case 'yesterday':
+                $startDate = date('Y-m-d', strtotime('-1 day'));
+                $endDate   = $startDate;
+                break;
+            case 'this_month':
+                $startDate = date('Y-m-01');
+                $endDate   = date('Y-m-t');
+                break;
+            case 'last_month':
+                $startDate = date('Y-m-d', strtotime('first day of last month'));
+                $endDate   = date('Y-m-d', strtotime('last day of last month'));
+                break;
+            case 'overall':
+            case 'all':
+                $earliestOrder  = $orderModel->getEarliestOrderDate($kitchenId);
+                $kitchenCreated = !empty($kitchen['created_at']) ? date('Y-m-d', strtotime($kitchen['created_at'])) : null;
+                $earliest       = $earliestOrder ?: $kitchenCreated ?: date('Y-m-d', strtotime('-30 days'));
+                $startDate      = min(date('Y-m-d', strtotime($earliest)), $today);
+                $endDate        = $today;
+                break;
+            case 'custom':
+                $customStart = trim($_GET['start_date'] ?? '');
+                $customEnd   = trim($_GET['end_date'] ?? '');
+                if (!empty($customStart) && !empty($customEnd) && strtotime($customStart) && strtotime($customEnd)) {
+                    $startDate = date('Y-m-d', min(strtotime($customStart), strtotime($customEnd)));
+                    $endDate   = date('Y-m-d', max(strtotime($customStart), strtotime($customEnd)));
+                } else {
+                    $startDate = date('Y-m-d', strtotime('-6 days'));
+                    $endDate   = $today;
+                }
+                break;
+            case '7days':
+            default:
+                $startDate = date('Y-m-d', strtotime('-6 days'));
+                $endDate   = $today;
+                break;
+        }
+
+        $orders = $orderModel->getOrdersForExport($kitchenId, $startDate, $endDate);
+
+        $kitchenSlug = preg_replace('/[^a-zA-Z0-9_-]/', '_', $kitchen['kitchen_name']);
+        $filename = "Kravyo_Report_{$kitchenSlug}_{$startDate}_to_{$endDate}.csv";
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        $out = fopen('php://output', 'w');
+        // CSV Header row
+        fputcsv($out, [
+            'Order Number',
+            'Date & Time',
+            'Order Type',
+            'Customer Name',
+            'Total Amount (INR)',
+            'Payment Method',
+            'Payment Status',
+            'Order Status'
+        ]);
+
+        foreach ($orders as $row) {
+            fputcsv($out, [
+                $row['order_number'],
+                $row['created_at'],
+                strtoupper($row['order_type'] ?: 'standard'),
+                $row['customer_name'],
+                number_format((float)$row['total_amount'], 2, '.', ''),
+                strtoupper($row['payment_method'] ?: 'N/A'),
+                ucfirst($row['payment_status']),
+                ucwords(str_replace('_', ' ', $row['order_status']))
+            ]);
+        }
+        fclose($out);
+        exit;
+    }
+
+    /**
+     * AJAX endpoint for interactive Chart scale switcher (7D, 15D, 30D, month, year)
+     */
+    public function chartDataApi(): void {
+        header('Content-Type: application/json');
+        require_once APP_PATH . '/models/Order.php';
+        $orderModel = new Order();
+
+        $userId  = Session::get('user_id');
+        $kitchen = $this->kitchenModel->findByUserId($userId);
+        if (!$kitchen) {
+            echo json_encode(['success' => false, 'error' => 'Unauthorized']);
+            exit;
+        }
+
+        $kitchenId = (int)$kitchen['id'];
+        $scale     = trim($_GET['scale'] ?? '7D');
+        $today     = date('Y-m-d');
+
+        switch ($scale) {
+            case '15D':
+                $startDate = date('Y-m-d', strtotime('-14 days'));
+                $endDate   = $today;
+                break;
+            case '30D':
+                $startDate = date('Y-m-d', strtotime('-29 days'));
+                $endDate   = $today;
+                break;
+            case 'month':
+                $startDate = date('Y-m-01');
+                $endDate   = date('Y-m-t');
+                break;
+            case 'year':
+                $startDate = date('Y-01-01');
+                $endDate   = date('Y-12-31');
+                break;
+            case 'all':
+            case 'overall':
+                $scale          = 'Overall';
+                $earliestOrder  = $orderModel->getEarliestOrderDate($kitchenId);
+                $kitchenCreated = !empty($kitchen['created_at']) ? date('Y-m-d', strtotime($kitchen['created_at'])) : null;
+                $earliest       = $earliestOrder ?: $kitchenCreated ?: date('Y-m-d', strtotime('-30 days'));
+                $startDate      = min(date('Y-m-d', strtotime($earliest)), $today);
+                $endDate        = $today;
+                break;
+            case '7D':
+            default:
+                $scale     = '7D';
+                $startDate = date('Y-m-d', strtotime('-6 days'));
+                $endDate   = $today;
+                break;
+        }
+
+        $chartData = $orderModel->getChartDataByRange($kitchenId, $startDate, $endDate);
+        echo json_encode([
+            'success'   => true,
+            'scale'     => $scale,
+            'startDate' => $startDate,
+            'endDate'   => $endDate,
+            'data'      => $chartData
+        ]);
+        exit;
     }
 
     /**
@@ -112,6 +372,50 @@ class ChefController extends Controller {
         if (empty($data['kitchen_name']) || empty($data['address']) || empty($data['city']) || empty($data['pincode'])) {
             Session::setFlash('danger', 'Kitchen name, address, city, and pincode are required.');
             $this->redirect('/chef/profile');
+        }
+
+        // Latitude & Longitude location coordinates
+        $rawLat = trim($_POST['latitude'] ?? '');
+        $rawLng = trim($_POST['longitude'] ?? '');
+
+        if ($rawLat !== '' && $rawLng !== '') {
+            if (!is_numeric($rawLat) || !is_numeric($rawLng)) {
+                Session::setFlash('danger', 'Latitude and Longitude must be valid numbers.');
+                $this->redirect('/chef/profile');
+                return;
+            }
+            $latVal = (float)$rawLat;
+            $lngVal = (float)$rawLng;
+            if ($latVal < -90.0 || $latVal > 90.0 || $lngVal < -180.0 || $lngVal > 180.0) {
+                Session::setFlash('danger', 'Latitude must be between -90 and 90, and Longitude between -180 and 180.');
+                $this->redirect('/chef/profile');
+                return;
+            }
+            $data['latitude']  = $latVal;
+            $data['longitude'] = $lngVal;
+        } else {
+            // Automatic Backend Geocoding via Nominatim
+            $searchQuery = urlencode($data['address'] . ', ' . $data['city'] . ', ' . $data['pincode'] . ', India');
+            $url = "https://nominatim.openstreetmap.org/search?format=json&q={$searchQuery}&limit=1";
+            
+            $ch = curl_init($url);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            curl_setopt($ch, CURLOPT_USERAGENT, 'KravyoFoodDeliveryApp/1.0');
+            curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+            $response = curl_exec($ch);
+            curl_close($ch);
+
+            $geoData = json_decode($response, true);
+            
+            if (!empty($geoData) && isset($geoData[0]['lat']) && isset($geoData[0]['lon'])) {
+                $data['latitude']  = (float)$geoData[0]['lat'];
+                $data['longitude'] = (float)$geoData[0]['lon'];
+            } else {
+                Session::setFlash('danger', 'We could not locate this address automatically on the map. Please click on the map manually to pin your exact kitchen location.');
+                Session::set('_old_post', $_POST);
+                $this->redirect('/chef/profile');
+                return;
+            }
         }
 
         // Ensure upload directory exists
@@ -400,15 +704,53 @@ class ChefController extends Controller {
     }
 
     /**
+     * Toggle dish availability status
+     * POST /chef/dish/toggle-availability/{id}
+     */
+    public function toggleDishAvailability(string $id): void {
+        Middleware::verifyCsrf();
+
+        $dishId = (int) $id;
+        $userId = Session::get('user_id');
+        $kitchen = $this->kitchenModel->findByUserId($userId);
+
+        if (!$kitchen || !$this->menuItemModel->belongsToKitchen($dishId, $kitchen['id'])) {
+            if ($this->isAjax()) {
+                $this->json(['success' => false, 'message' => 'Dish not found.'], 404);
+            }
+            Session::setFlash('danger', 'Dish not found or access denied.');
+            $this->redirect('/chef/menu');
+        }
+
+        $dish = $this->menuItemModel->find($dishId);
+        $newStatus = $dish['is_available'] ? 0 : 1;
+        
+        $this->menuItemModel->update($dishId, ['is_available' => $newStatus]);
+
+        if ($this->isAjax()) {
+            $this->json([
+                'success' => true,
+                'is_available' => $newStatus,
+                'message' => $newStatus ? 'Dish is now In Stock.' : 'Dish is now Out of Stock.'
+            ]);
+        }
+
+        Session::setFlash('success', 'Dish availability updated.');
+        $this->redirect('/chef/menu');
+    }
+
+    /**
      * Chef Incoming Orders Dashboard
      * GET /chef/orders
      */
     public function orders(): void {
         require_once APP_PATH . '/models/Order.php';
         require_once APP_PATH . '/models/OrderItem.php';
+        require_once APP_PATH . '/models/DeliveryOffer.php';
 
         $orderModel = new Order();
         $orderItemModel = new OrderItem();
+        $deliveryOfferModel = new DeliveryOffer();
 
         $userId = Session::get('user_id');
         $kitchen = $this->kitchenModel->findByUserId($userId);
@@ -432,9 +774,12 @@ class ChefController extends Controller {
         $filterStatus = ($statusFilter === 'all') ? null : $statusFilter;
         $orders = $orderModel->findByKitchenId($kitchenId, $filterStatus);
 
-        // Attach order items to each order
+        // Attach order items and timeline to each order
         foreach ($orders as &$order) {
             $order['items'] = $orderItemModel->findByOrderId((int) $order['id']);
+            if (($order['dispatch_status'] ?? '') === 'broadcasting') {
+                $order['timeline'] = $deliveryOfferModel->getTimelineForOrder((int) $order['id']);
+            }
         }
         unset($order);
 
@@ -494,12 +839,28 @@ class ChefController extends Controller {
             return;
         }
 
-        // Define valid status transitions
+        // --- NEW PHASE: Early Dispatch Request ---
+        if ($newStatus === 'request_rider') {
+            if ($order['order_status'] === ORDER_STATUS_PREPARING && $order['dispatch_status'] === 'none') {
+                require_once APP_PATH . '/services/DispatchService.php';
+                require_once APP_PATH . '/models/DeliveryOffer.php';
+                require_once APP_PATH . '/models/DeliveryPartner.php';
+                
+                $dispatchService = new DispatchService();
+                $dispatchService->broadcast($orderId);
+                
+                Session::setFlash('success', 'Looking for a rider! Keep preparing the food.');
+            } else {
+                Session::setFlash('danger', 'Cannot request rider at this time.');
+            }
+            $this->redirect('/chef/orders');
+            return;
+        }
+
         $validTransitions = [
             ORDER_STATUS_PENDING          => [ORDER_STATUS_ACCEPTED, ORDER_STATUS_CANCELLED],
             ORDER_STATUS_ACCEPTED         => [ORDER_STATUS_PREPARING],
-            ORDER_STATUS_PREPARING        => [ORDER_STATUS_OUT_FOR_DELIVERY],
-            ORDER_STATUS_OUT_FOR_DELIVERY => [ORDER_STATUS_DELIVERED],
+            ORDER_STATUS_PREPARING        => [ORDER_STATUS_READY_FOR_PICKUP], // Changed: Chef marks ready for pickup
         ];
 
         $currentStatus = $order['order_status'];
@@ -512,6 +873,41 @@ class ChefController extends Controller {
 
         $orderModel->updateStatus($orderId, $newStatus);
 
+        // --- PHASE 12: BROADCAST DISPATCH ---
+        if ($newStatus === ORDER_STATUS_READY_FOR_PICKUP) {
+            if ($order['dispatch_status'] === 'none') {
+                require_once APP_PATH . '/services/DispatchService.php';
+                require_once APP_PATH . '/models/DeliveryOffer.php';
+                require_once APP_PATH . '/models/DeliveryPartner.php';
+                
+                $dispatchService = new DispatchService();
+                $dispatchService->broadcast($orderId);
+            }
+            
+            // If already assigned, notify the rider that the food is now ready
+            if ($order['delivery_partner_id']) {
+                require_once APP_PATH . '/models/Notification.php';
+                $nModel = new Notification();
+                
+                // IMPORTANT: In Kravyo, the notification system uses 'delivery' (not 'delivery_partner') for the userType.
+                // We need to fetch the actual User ID of the delivery partner, not their profile ID!
+                require_once APP_PATH . '/models/DeliveryPartner.php';
+                $dpModel = new DeliveryPartner();
+                $dpProfile = $dpModel->find((int)$order['delivery_partner_id']);
+                
+                if ($dpProfile) {
+                    $nModel->createForUser(
+                        (int) $dpProfile['user_id'], // Must be the user_id, not delivery_partner_id!
+                        'delivery',
+                        'Food is Ready!',
+                        "The kitchen has marked Order #{$order['order_number']} as packed and ready.",
+                        'order_update',
+                        '/delivery/order/' . $orderId
+                    );
+                }
+            }
+        }
+
         // If delivered, mark payment as completed for COD
         if ($newStatus === ORDER_STATUS_DELIVERED && $order['payment_method'] === PAYMENT_METHOD_COD) {
             $orderModel->updatePaymentStatus($orderId, PAYMENT_STATUS_COMPLETED);
@@ -520,8 +916,7 @@ class ChefController extends Controller {
         $statusLabels = [
             ORDER_STATUS_ACCEPTED         => 'accepted',
             ORDER_STATUS_PREPARING        => 'marked as preparing',
-            ORDER_STATUS_OUT_FOR_DELIVERY => 'dispatched for delivery',
-            ORDER_STATUS_DELIVERED        => 'marked as delivered',
+            ORDER_STATUS_READY_FOR_PICKUP => 'marked as ready for pickup',
             ORDER_STATUS_CANCELLED        => 'rejected',
         ];
 
@@ -532,27 +927,70 @@ class ChefController extends Controller {
             require_once APP_PATH . '/models/Notification.php';
             $notifModel = new Notification();
 
-            $statusMessages = [
-                ORDER_STATUS_ACCEPTED         => 'Great news! Your order #' . $order['order_number'] . ' has been confirmed and will be prepared soon.',
-                ORDER_STATUS_PREPARING        => 'Your order #' . $order['order_number'] . ' is now being freshly prepared.',
-                ORDER_STATUS_OUT_FOR_DELIVERY => 'Your order #' . $order['order_number'] . ' is on its way! Get ready to enjoy.',
-                ORDER_STATUS_DELIVERED        => 'Your order #' . $order['order_number'] . ' has been delivered. Bon appétit! 🍽️',
-                ORDER_STATUS_CANCELLED        => 'Unfortunately, your order #' . $order['order_number'] . ' has been rejected by the chef.',
+            $orderNo     = $order['order_number'];
+            $kitchenName = $kitchen['kitchen_name'] ?? 'Your home chef';
+
+            $statusNotifs = [
+                ORDER_STATUS_ACCEPTED => [
+                    'Order Confirmed! #' . $orderNo,
+                    $kitchenName . ' has accepted your order #' . $orderNo . ' and will start preparing it shortly.',
+                ],
+                ORDER_STATUS_CANCELLED => [
+                    'Order Rejected #' . $orderNo,
+                    'Sorry, ' . $kitchenName . ' could not accept your order #' . $orderNo . '. Any online payment will be refunded.',
+                ],
             ];
 
-            if (isset($statusMessages[$newStatus])) {
+            if (isset($statusNotifs[$newStatus])) {
+                [$nTitle, $nMessage] = $statusNotifs[$newStatus];
                 $notifModel->createForUser(
                     (int) $order['customer_id'],
-                    'Order Update — #' . $order['order_number'],
-                    $statusMessages[$newStatus],
+                    'customer',
+                    $nTitle,
+                    $nMessage,
                     'order_update',
                     '/order/track/' . $orderId
                 );
             }
-        } catch (Exception $ignored) {}
+        } catch (Throwable $e) {
+            error_log('[Kravyo] Customer status notification failed for order ' . $orderId . ': ' . $e->getMessage());
+        }
 
         Session::setFlash('success', 'Order #' . $order['order_number'] . ' has been ' . $label . '.');
         $this->redirect('/chef/orders');
+    }
+
+    /**
+     * Track Rider Map (Chef View)
+     * GET /chef/order/track/{id}
+     */
+    public function trackOrder(string $id): void {
+        Middleware::role(ROLE_CHEF);
+
+        require_once APP_PATH . '/models/Order.php';
+        $orderModel = new Order();
+
+        $userId = Session::get('user_id');
+        $kitchen = $this->kitchenModel->findByUserId($userId);
+        
+        $orderId = (int) $id;
+
+        if (!$kitchen || !$orderModel->belongsToKitchen($orderId, (int) $kitchen['id'])) {
+            Session::setFlash('danger', 'Order not found.');
+            $this->redirect('/chef/orders');
+            return;
+        }
+
+        $order = $orderModel->findWithDetails($orderId);
+        if (!$order || !$order['delivery_partner_id']) {
+            $this->redirect('/chef/orders');
+            return;
+        }
+
+        $this->render('chef/order_track', [
+            'title' => 'Track Rider - Order #' . $order['order_number'],
+            'order' => $order
+        ]);
     }
 
     /**
@@ -613,14 +1051,26 @@ class ChefController extends Controller {
             return;
         }
 
+        $mealsPerDay = (int) ($_POST['meals_per_day'] ?? 1);
+        if ($mealsPerDay < 1 || $mealsPerDay > 3) {
+            $mealsPerDay = 1;
+        }
+
+        $lunchTime = sanitize(trim($_POST['lunch_time'] ?? '12:30 PM - 01:30 PM'));
+        $dinnerTime = $mealsPerDay >= 2 ? sanitize(trim($_POST['dinner_time'] ?? '07:30 PM - 08:30 PM')) : null;
+        $breakfastTime = $mealsPerDay >= 3 ? sanitize(trim($_POST['breakfast_time'] ?? '08:00 AM - 09:00 AM')) : null;
+
         $data = [
-            'kitchen_id'    => (int) $kitchen['id'],
-            'plan_name'     => sanitize($_POST['plan_name'] ?? ''),
-            'plan_type'     => $_POST['plan_type'] ?? 'weekly',
-            'price'         => (float) ($_POST['price'] ?? 0),
-            'description'   => sanitize($_POST['description'] ?? ''),
-            'meals_per_day' => (int) ($_POST['meals_per_day'] ?? 1),
-            'is_active'     => 1,
+            'kitchen_id'     => (int) $kitchen['id'],
+            'plan_name'      => sanitize($_POST['plan_name'] ?? ''),
+            'plan_type'      => $_POST['plan_type'] ?? 'weekly',
+            'price'          => (float) ($_POST['price'] ?? 0),
+            'description'    => sanitize($_POST['description'] ?? ''),
+            'meals_per_day'  => $mealsPerDay,
+            'lunch_time'     => !empty($lunchTime) ? $lunchTime : '12:30 PM - 01:30 PM',
+            'dinner_time'    => $dinnerTime,
+            'breakfast_time' => $breakfastTime,
+            'is_active'      => 1,
         ];
 
         // Validation
@@ -632,10 +1082,6 @@ class ChefController extends Controller {
 
         if (!in_array($data['plan_type'], ['weekly', 'monthly'])) {
             $data['plan_type'] = 'weekly';
-        }
-
-        if ($data['meals_per_day'] < 1 || $data['meals_per_day'] > 3) {
-            $data['meals_per_day'] = 1;
         }
 
         try {
@@ -667,12 +1113,24 @@ class ChefController extends Controller {
             return;
         }
 
+        $mealsPerDay = (int) ($_POST['meals_per_day'] ?? 1);
+        if ($mealsPerDay < 1 || $mealsPerDay > 3) {
+            $mealsPerDay = 1;
+        }
+
+        $lunchTime = sanitize(trim($_POST['lunch_time'] ?? '12:30 PM - 01:30 PM'));
+        $dinnerTime = $mealsPerDay >= 2 ? sanitize(trim($_POST['dinner_time'] ?? '07:30 PM - 08:30 PM')) : null;
+        $breakfastTime = $mealsPerDay >= 3 ? sanitize(trim($_POST['breakfast_time'] ?? '08:00 AM - 09:00 AM')) : null;
+
         $data = [
-            'plan_name'     => sanitize($_POST['plan_name'] ?? ''),
-            'plan_type'     => $_POST['plan_type'] ?? 'weekly',
-            'price'         => (float) ($_POST['price'] ?? 0),
-            'description'   => sanitize($_POST['description'] ?? ''),
-            'meals_per_day' => (int) ($_POST['meals_per_day'] ?? 1),
+            'plan_name'      => sanitize($_POST['plan_name'] ?? ''),
+            'plan_type'      => $_POST['plan_type'] ?? 'weekly',
+            'price'          => (float) ($_POST['price'] ?? 0),
+            'description'    => sanitize($_POST['description'] ?? ''),
+            'meals_per_day'  => $mealsPerDay,
+            'lunch_time'     => !empty($lunchTime) ? $lunchTime : '12:30 PM - 01:30 PM',
+            'dinner_time'    => $dinnerTime,
+            'breakfast_time' => $breakfastTime,
         ];
 
         if (empty($data['plan_name']) || $data['price'] <= 0) {
@@ -683,10 +1141,6 @@ class ChefController extends Controller {
 
         if (!in_array($data['plan_type'], ['weekly', 'monthly'])) {
             $data['plan_type'] = 'weekly';
-        }
-
-        if ($data['meals_per_day'] < 1 || $data['meals_per_day'] > 3) {
-            $data['meals_per_day'] = 1;
         }
 
         try {
@@ -783,7 +1237,7 @@ class ChefController extends Controller {
         $kitchenId = (int) $kitchen['id'];
         $subId = (int) $id;
 
-        $sub = $customerSubModel->find($subId);
+        $sub = $customerSubModel->findWithDetails($subId);
         if (!$sub || (int) $sub['kitchen_id'] !== $kitchenId || $sub['status'] !== SUBSCRIPTION_STATUS_PENDING) {
             Session::setFlash('danger', 'Invalid subscription request.');
             $this->redirect('/chef/subscriptions');
@@ -791,6 +1245,23 @@ class ChefController extends Controller {
         }
 
         $customerSubModel->updateStatus($subId, SUBSCRIPTION_STATUS_ACTIVE);
+
+        // Notify customer
+        try {
+            require_once APP_PATH . '/models/Notification.php';
+            $startDateFormatted = !empty($sub['start_date']) ? date('d M Y', strtotime($sub['start_date'])) : 'tomorrow';
+            (new Notification())->createForUser(
+                (int) $sub['customer_id'],
+                'customer',
+                'Subscription Approved! 🎉',
+                'Your subscription for "' . ($sub['plan_name'] ?? 'Tiffin Plan') . '" has been approved by ' . ($kitchen['kitchen_name'] ?? 'the chef') . '! Deliveries start ' . $startDateFormatted . '.',
+                'order_update',
+                '/my-subscriptions'
+            );
+        } catch (Throwable $ne) {
+            error_log('[Kravyo] Subscription approval notification failed: ' . $ne->getMessage());
+        }
+
         Session::setFlash('success', 'Subscription approved successfully!');
         $this->redirect('/chef/subscriptions');
     }
@@ -816,7 +1287,7 @@ class ChefController extends Controller {
         $kitchenId = (int) $kitchen['id'];
         $subId = (int) $id;
 
-        $sub = $customerSubModel->find($subId);
+        $sub = $customerSubModel->findWithDetails($subId);
         if (!$sub || (int) $sub['kitchen_id'] !== $kitchenId || $sub['status'] !== SUBSCRIPTION_STATUS_PENDING) {
             Session::setFlash('danger', 'Invalid subscription request.');
             $this->redirect('/chef/subscriptions');
@@ -824,6 +1295,22 @@ class ChefController extends Controller {
         }
 
         $customerSubModel->updateStatus($subId, SUBSCRIPTION_STATUS_CANCELLED);
+
+        // Notify customer
+        try {
+            require_once APP_PATH . '/models/Notification.php';
+            (new Notification())->createForUser(
+                (int) $sub['customer_id'],
+                'customer',
+                'Subscription Request Rejected',
+                'Your subscription request for "' . ($sub['plan_name'] ?? 'Tiffin Plan') . '" could not be accepted by ' . ($kitchen['kitchen_name'] ?? 'the chef') . '.',
+                'order_update',
+                '/my-subscriptions'
+            );
+        } catch (Throwable $ne) {
+            error_log('[Kravyo] Subscription rejection notification failed: ' . $ne->getMessage());
+        }
+
         Session::setFlash('success', 'Subscription request rejected.');
         $this->redirect('/chef/subscriptions');
     }
@@ -835,8 +1322,15 @@ class ChefController extends Controller {
     public function updateDeliveryStatus(): void {
         Middleware::verifyCsrf();
         require_once APP_PATH . '/models/SubscriptionDelivery.php';
+        require_once APP_PATH . '/models/Order.php';
+        require_once APP_PATH . '/models/CustomerSubscription.php';
+        require_once APP_PATH . '/services/DispatchService.php';
         
         $deliveryModel = new SubscriptionDelivery();
+        $orderModel = new Order();
+        $subModel = new CustomerSubscription();
+        $dispatchService = new DispatchService();
+
         $userId = Session::get('user_id');
         $kitchen = $this->kitchenModel->findByUserId($userId);
 
@@ -857,7 +1351,84 @@ class ChefController extends Controller {
         }
 
         if ($deliveryModel->updateStatus($deliveryId, $newStatus, $kitchenId)) {
-            Session::setFlash('success', 'Delivery status updated.');
+            // Ultra Processing: If dispatched, create a real order and broadcast to riders!
+            if ($newStatus === 'dispatched') {
+                $db = Database::getInstance();
+
+                // Check if order was already created for this delivery
+                $checkOrderStmt = $db->prepare("SELECT id FROM orders WHERE subscription_delivery_id = ? LIMIT 1");
+                $checkOrderStmt->execute([$deliveryId]);
+                $existingOrder = $checkOrderStmt->fetch();
+
+                if (!$existingOrder) {
+                    // Get the delivery details
+                    $sql = "SELECT sd.*, cs.customer_id, cs.address_id, cs.special_instructions 
+                            FROM subscription_deliveries sd 
+                            JOIN customer_subscriptions cs ON sd.customer_subscription_id = cs.id
+                            WHERE sd.id = ?";
+                    $stmt = $db->prepare($sql);
+                    $stmt->execute([$deliveryId]);
+                    $deliveryInfo = $stmt->fetch();
+
+                    if ($deliveryInfo) {
+                        // Create the order
+                        $orderNumber = 'TFN-' . date('Ymd') . '-' . strtoupper(substr(md5((string)$deliveryId), 0, 5));
+                        
+                        $deliveryLat = null;
+                        $deliveryLng = null;
+                        if (!empty($deliveryInfo['address_id'])) {
+                            $addrStmt = $db->prepare("SELECT * FROM addresses WHERE id = ?");
+                            $addrStmt->execute([$deliveryInfo['address_id']]);
+                            $addrRecord = $addrStmt->fetch();
+                            if ($addrRecord) {
+                                if (!empty($addrRecord['latitude']) && !empty($addrRecord['longitude'])) {
+                                    $deliveryLat = (float) $addrRecord['latitude'];
+                                    $deliveryLng = (float) $addrRecord['longitude'];
+                                } else {
+                                    // Attempt geocode
+                                    $fullAddr = trim(($addrRecord['street_address'] ?? '') . ', ' . ($addrRecord['city'] ?? '') . ', ' . ($addrRecord['pincode'] ?? ''));
+                                    if ($fullAddr !== '' && class_exists('GoogleMaps')) {
+                                        $geo = GoogleMaps::geocode($fullAddr);
+                                        if ($geo && !empty($geo['lat']) && !empty($geo['lng'])) {
+                                            $deliveryLat = (float) $geo['lat'];
+                                            $deliveryLng = (float) $geo['lng'];
+                                            $db->prepare("UPDATE addresses SET latitude = ?, longitude = ? WHERE id = ?")
+                                               ->execute([$deliveryLat, $deliveryLng, $deliveryInfo['address_id']]);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        $timeWindow = !empty($deliveryInfo['delivery_time']) ? ' (' . $deliveryInfo['delivery_time'] . ')' : '';
+
+                        $orderData = [
+                            'order_number' => $orderNumber,
+                            'customer_id'  => $deliveryInfo['customer_id'],
+                            'kitchen_id'   => $kitchenId,
+                            'address_id'   => $deliveryInfo['address_id'],
+                            'delivery_latitude'  => $deliveryLat,
+                            'delivery_longitude' => $deliveryLng,
+                            'total_amount' => 0.00, // Prepaid via subscription
+                            'payment_method' => 'cod', // Placeholder
+                            'payment_status' => 'completed',
+                            'order_status'   => 'preparing', // So dispatch picks it up
+                            'special_instructions' => 'TIFFIN ' . strtoupper($deliveryInfo['meal_type']) . $timeWindow . ' - ' . ($deliveryInfo['special_instructions'] ?? ''),
+                            'order_type' => 'tiffin',
+                            'subscription_delivery_id' => $deliveryId
+                        ];
+
+                        $newOrderId = (int) $orderModel->create($orderData);
+                        
+                        if ($newOrderId > 0) {
+                            // Trigger Broadcast to riders
+                            $dispatchService->broadcast($newOrderId, 1);
+                        }
+                    }
+                }
+            }
+
+            Session::setFlash('success', 'Delivery status updated and dispatched!');
         } else {
             Session::setFlash('danger', 'Failed to update status.');
         }
@@ -1037,4 +1608,29 @@ class ChefController extends Controller {
         Session::setFlash('success', 'Listing has been ' . $label . '.');
         $this->redirect('/chef/zero-waste');
     }
+
+    /**
+     * View dish reports for the chef's kitchen
+     * GET /chef/reports
+     */
+    public function dishReports(): void {
+        $userId  = Session::get('user_id');
+        $kitchen = $this->kitchenModel->findByUserId($userId);
+
+        if (!$kitchen) {
+            Session::setFlash('danger', 'You must create a kitchen profile first.');
+            $this->redirect('/chef/profile');
+            return;
+        }
+
+        require_once APP_PATH . '/models/CustomerReport.php';
+        $reportModel = new CustomerReport();
+        $reports = $reportModel->findByKitchenIdAndType((int)$kitchen['id'], 'dish');
+
+        $this->render('chef/dish_reports', [
+            'title'   => 'Dish Reports & Feedback',
+            'reports' => $reports
+        ]);
+    }
 }
+

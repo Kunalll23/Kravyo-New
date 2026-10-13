@@ -5,21 +5,22 @@
 
 require_once APP_PATH . '/models/Kitchen.php';
 require_once APP_PATH . '/models/Admin.php';
-require_once APP_PATH . '/models/User.php';
+require_once APP_PATH . '/models/DeliveryUser.php';
 require_once APP_PATH . '/models/Category.php';
+require_once APP_PATH . '/models/DeliveryPartner.php';
 
 class AdminController extends Controller {
 
     private Kitchen $kitchenModel;
     private Admin $adminModel;
-    private User $userModel;
+    private DeliveryUser $deliveryUserModel;
     private Category $categoryModel;
 
     public function __construct() {
         Middleware::adminAuth();
         $this->kitchenModel  = new Kitchen();
         $this->adminModel    = new Admin();
-        $this->userModel     = new User();
+        $this->deliveryUserModel     = new DeliveryUser();
         $this->categoryModel = new Category();
     }
 
@@ -129,7 +130,7 @@ class AdminController extends Controller {
      * User Management — List all platform users
      */
     public function users(): void {
-        $users = $this->userModel->findAll([], 'created_at DESC');
+        $users = $this->deliveryUserModel->findAll([], 'created_at DESC');
 
         $this->render('admin/users', [
             'title' => 'User Management',
@@ -151,7 +152,7 @@ class AdminController extends Controller {
             $this->redirect('/admin/users');
         }
 
-        $this->userModel->update($userId, ['status' => $newStatus]);
+        $this->deliveryUserModel->update($userId, ['status' => $newStatus]);
         Session::setFlash('success', 'User status updated to ' . $newStatus . '.');
         $this->redirect('/admin/users');
     }
@@ -160,17 +161,16 @@ class AdminController extends Controller {
      * Count users by role (helper)
      */
     private function countUsers(?string $role = null): int {
-        $sql = "SELECT COUNT(*) as total FROM users";
-        $params = [];
-
-        if ($role !== null) {
-            $sql .= " WHERE role = :role";
-            $params['role'] = $role;
-        }
-
         $db = Database::getInstance();
-        $stmt = $db->prepare($sql);
-        $stmt->execute($params);
+        if ($role === 'customer') {
+            $stmt = $db->query("SELECT COUNT(*) as total FROM customers");
+        } elseif ($role === 'chef') {
+            $stmt = $db->query("SELECT COUNT(*) as total FROM chefs");
+        } elseif ($role === 'delivery') {
+            $stmt = $db->query("SELECT COUNT(*) as total FROM delivery_users");
+        } else {
+            $stmt = $db->query("SELECT (SELECT COUNT(*) FROM customers) + (SELECT COUNT(*) FROM chefs) + (SELECT COUNT(*) FROM delivery_users) as total");
+        }
         $result = $stmt->fetch();
         return (int) ($result['total'] ?? 0);
     }
@@ -198,13 +198,73 @@ class AdminController extends Controller {
         $orderStats   = $orderModel->getPlatformOrderStats();
         $totalOrders  = array_sum($orderStats);
 
+        require_once APP_PATH . '/models/DeliveryPartner.php';
+        $dpModel = new DeliveryPartner();
+        $availableDeliveryPartners = $dpModel->findAvailableForAssignment();
+
         $this->render('admin/orders', [
-            'title'        => 'Platform Orders',
-            'orders'       => $orders,
-            'statusFilter' => $statusFilter,
-            'searchQuery'  => $searchQuery,
-            'orderStats'   => $orderStats,
-            'totalOrders'  => $totalOrders,
+            'title'                     => 'Platform Orders',
+            'orders'                    => $orders,
+            'statusFilter'              => $statusFilter,
+            'searchQuery'               => $searchQuery,
+            'orderStats'                => $orderStats,
+            'totalOrders'               => $totalOrders,
+            'availableDeliveryPartners' => $availableDeliveryPartners,
+        ]);
+    }
+
+    public function liveDispatchMonitor(): void {
+        require_once APP_PATH . '/services/DispatchService.php';
+        require_once APP_PATH . '/models/DeliveryOffer.php';
+        require_once APP_PATH . '/models/Order.php';
+        
+        $dispatchService = new DispatchService();
+        // Sweep expired
+        $dispatchService->sweepExpired();
+        
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+            header('Content-Type: application/json');
+            $db = Database::getInstance();
+            
+            $city = $_GET['city'] ?? 'Surat';
+            $sql = "SELECT dp.*, u.full_name, u.phone, u.email 
+                    FROM delivery_partners dp 
+                    JOIN delivery_users u ON dp.user_id = u.id 
+                    WHERE dp.city = :city";
+            $stmt = $db->prepare($sql);
+            $stmt->execute(['city' => $city]);
+            $riders = $stmt->fetchAll();
+            
+            $offerModel = new DeliveryOffer();
+            // Fetch live orders, ordered by newest first
+            $ordersSql = "SELECT * FROM orders WHERE dispatch_status IN ('cascading', 'broadcasting', 'no_rider', 'assigned') ORDER BY id DESC";
+            $orders = $db->query($ordersSql)->fetchAll();
+            
+            $liveOrders = [];
+            foreach ($orders as $order) {
+                // If it's assigned, only show it for a short time or keep it in the list if recently assigned
+                if ($order['dispatch_status'] === 'assigned' && strtotime($order['updated_at']) < time() - 3600) {
+                    continue;
+                }
+                
+                // If it's no_rider, remove it from the live board after 1 hour so it doesn't clutter
+                if ($order['dispatch_status'] === 'no_rider' && strtotime($order['updated_at']) < time() - 3600) {
+                    continue;
+                }
+                
+                $timeline = $offerModel->getTimelineForOrder($order['id']);
+                $liveOrders[] = [
+                    'order' => $order,
+                    'timeline' => $timeline
+                ];
+            }
+            
+            echo json_encode(['success' => true, 'riders' => $riders, 'orders' => $liveOrders]);
+            exit;
+        }
+
+        View::render('admin/dispatch_board', [
+            'title' => 'Live Dispatch Board'
         ]);
     }
 
@@ -230,9 +290,34 @@ class AdminController extends Controller {
         require_once APP_PATH . '/models/CustomerSubscription.php';
         $customerSubModel = new CustomerSubscription();
 
-        $sub = $customerSubModel->findById($id);
+        $sub = $customerSubModel->findWithDetails($id);
         if ($sub && $sub['status'] === SUBSCRIPTION_STATUS_PENDING) {
             $customerSubModel->updateStatus($id, SUBSCRIPTION_STATUS_ACTIVE);
+
+            // Notify Customer and Chef
+            try {
+                require_once APP_PATH . '/models/Notification.php';
+                $notif = new Notification();
+                $startDateFormatted = !empty($sub['start_date']) ? date('d M Y', strtotime($sub['start_date'])) : 'tomorrow';
+                $notif->createForUser(
+                    (int) $sub['customer_id'],
+                    'customer',
+                    'Subscription Approved! 🎉',
+                    'Your subscription for "' . ($sub['plan_name'] ?? 'Tiffin Plan') . '" has been approved! Deliveries start ' . $startDateFormatted . '.',
+                    'order_update',
+                    '/my-subscriptions'
+                );
+                $notif->notifyKitchenOwner(
+                    (int) $sub['kitchen_id'],
+                    'Subscription Request Approved',
+                    'Subscription request from ' . ($sub['customer_name'] ?? 'Customer') . ' for "' . ($sub['plan_name'] ?? 'Plan') . '" has been approved by Admin.',
+                    'order_update',
+                    '/chef/subscriptions'
+                );
+            } catch (Throwable $ne) {
+                error_log('[Kravyo] Admin sub approval notification failed: ' . $ne->getMessage());
+            }
+
             Session::setFlash('success', 'Subscription approved successfully.');
         } else {
             Session::setFlash('danger', 'Invalid subscription or already processed.');
@@ -245,9 +330,26 @@ class AdminController extends Controller {
         require_once APP_PATH . '/models/CustomerSubscription.php';
         $customerSubModel = new CustomerSubscription();
 
-        $sub = $customerSubModel->findById($id);
+        $sub = $customerSubModel->findWithDetails($id);
         if ($sub && $sub['status'] === SUBSCRIPTION_STATUS_PENDING) {
             $customerSubModel->updateStatus($id, SUBSCRIPTION_STATUS_CANCELLED);
+
+            // Notify Customer and Chef
+            try {
+                require_once APP_PATH . '/models/Notification.php';
+                $notif = new Notification();
+                $notif->createForUser(
+                    (int) $sub['customer_id'],
+                    'customer',
+                    'Subscription Request Rejected',
+                    'Your subscription request for "' . ($sub['plan_name'] ?? 'Tiffin Plan') . '" was rejected by Admin.',
+                    'order_update',
+                    '/my-subscriptions'
+                );
+            } catch (Throwable $ne) {
+                error_log('[Kravyo] Admin sub reject notification failed: ' . $ne->getMessage());
+            }
+
             Session::setFlash('success', 'Subscription rejected and cancelled.');
         } else {
             Session::setFlash('danger', 'Invalid subscription or already processed.');
@@ -655,7 +757,7 @@ class AdminController extends Controller {
         $limit     = max(1, min(20, (int)($_POST['test_limit'] ?? 8)));
 
         // Verify the user exists and is actually a customer
-        $userModel = $this->userModel;
+        $userModel = $this->deliveryUserModel;
         $user      = $userModel->findById($userId);
         if (!$user || $user['role'] !== 'customer') {
             Session::setFlash('danger', 'Customer ID ' . $userId . ' not found or is not a customer account.');
@@ -756,4 +858,200 @@ class AdminController extends Controller {
 
         $this->redirect('/admin/orders');
     }
+
+    // ─── Delivery Partner Management ─────────────────────────────────────────
+
+    /**
+     * Delivery Partners Management List
+     */
+    public function deliveryPartners(): void {
+        require_once APP_PATH . '/models/DeliveryPartner.php';
+        $dpModel = new DeliveryPartner();
+
+        $statusFilter = $_GET['status'] ?? null;
+        $partners = $dpModel->findAllWithUser($statusFilter);
+        $availableCities = $dpModel->getAvailableCities();
+
+        $this->render('admin/delivery_partners', [
+            'title'           => 'Delivery Partners',
+            'partners'        => $partners,
+            'statusFilter'    => $statusFilter,
+            'availableCities' => $availableCities,
+        ]);
+    }
+
+    /**
+     * Force ALL delivery partners to go online or offline (Admin Testing Feature)
+     */
+    public function forceDeliveryStatus(): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/DeliveryPartner.php';
+        $dpModel = new DeliveryPartner();
+
+        $action = $_POST['action'] ?? '';
+        $city   = !empty($_POST['city']) ? sanitize($_POST['city']) : null;
+        
+        if ($action === 'online') {
+            $dpModel->bulkUpdateOnlineStatus(1, $city);
+            $msg = $city ? "All delivery partners in {$city} have been forced ONLINE." : "All delivery partners globally have been forced ONLINE.";
+            Session::setFlash('success', $msg);
+        } elseif ($action === 'offline') {
+            $dpModel->bulkUpdateOnlineStatus(0, $city);
+            $msg = $city ? "All delivery partners in {$city} have been forced OFFLINE." : "All delivery partners globally have been forced OFFLINE.";
+            Session::setFlash('warning', $msg);
+        } else {
+            Session::setFlash('danger', 'Invalid action.');
+        }
+
+        $this->redirect('/admin/delivery-partners');
+    }
+
+    /**
+     * Update delivery partner verification status (Approve/Reject)
+     */
+    public function updateDeliveryPartnerStatus(): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/DeliveryPartner.php';
+        $dpModel = new DeliveryPartner();
+
+        $id     = (int)($_POST['id'] ?? 0);
+        $status = sanitize($_POST['status'] ?? '');
+        $notes  = sanitize($_POST['notes'] ?? '');
+
+        if (!in_array($status, [DELIVERY_VERIFICATION_APPROVED, DELIVERY_VERIFICATION_REJECTED, DELIVERY_VERIFICATION_SUSPENDED])) {
+            Session::setFlash('danger', 'Invalid status.');
+            $this->redirect('/admin/delivery-partners');
+            return;
+        }
+
+        $partner = $dpModel->findWithUser($id);
+        if (!$partner) {
+            Session::setFlash('danger', 'Delivery partner not found.');
+            $this->redirect('/admin/delivery-partners');
+            return;
+        }
+
+        if ($dpModel->updateVerificationStatus($id, $status, $notes)) {
+            $label = ucfirst($status);
+            Session::setFlash('success', 'Delivery partner <strong>' . sanitize($partner['full_name']) . '</strong> has been ' . $label . '.');
+            
+            // Notify partner
+            try {
+                require_once APP_PATH . '/models/Notification.php';
+                $notif = new Notification();
+                $notif->create([
+                    'user_id' => (int)$partner['user_id'], 'user_type' => 'delivery',
+                    'title'   => 'Account ' . $label,
+                    'message' => 'Your delivery partner account has been ' . strtolower($label) . '. ' . ($notes ? 'Note: ' . $notes : ''),
+                    'type'    => 'system',
+                    'is_read' => 0,
+                ]);
+            } catch (Exception $e) {}
+        } else {
+            Session::setFlash('danger', 'Failed to update status.');
+        }
+
+        $this->redirect('/admin/delivery-partners');
+    }
+
+    /**
+     * Assign a delivery partner to an order
+     */
+    public function assignDeliveryPartner(): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/Order.php';
+        require_once APP_PATH . '/models/DeliveryPartner.php';
+        
+        $orderModel = new Order();
+        $dpModel    = new DeliveryPartner();
+
+        $orderId   = (int)($_POST['order_id'] ?? 0);
+        $partnerId = (int)($_POST['delivery_partner_id'] ?? 0);
+
+        if ($orderId <= 0 || $partnerId <= 0) {
+            Session::setFlash('danger', 'Invalid order or delivery partner selection.');
+            $this->redirect('/admin/orders');
+            return;
+        }
+
+        $order = $orderModel->findByIdWithDetails($orderId);
+        if (!$order) {
+            Session::setFlash('danger', 'Order not found.');
+            $this->redirect('/admin/orders');
+            return;
+        }
+
+        if (!in_array($order['order_status'], [ORDER_STATUS_PREPARING, ORDER_STATUS_READY_FOR_PICKUP, ORDER_STATUS_ACCEPTED])) {
+            Session::setFlash('warning', 'Order must be accepted or preparing to assign a delivery partner.');
+            $this->redirect('/admin/orders');
+            return;
+        }
+
+        $partner = $dpModel->findWithUser($partnerId);
+        if (!$partner || $partner['verification_status'] !== DELIVERY_VERIFICATION_APPROVED) {
+            Session::setFlash('danger', 'Delivery partner is not approved or not found.');
+            $this->redirect('/admin/orders');
+            return;
+        }
+
+        if ($orderModel->assignDeliveryPartner($orderId, $partnerId)) {
+            // Notify delivery partner
+            try {
+                require_once APP_PATH . '/models/Notification.php';
+                $notif = new Notification();
+                $notif->create([
+                    'user_id' => (int)$partner['user_id'], 'user_type' => 'delivery',
+                    'title'   => 'New Delivery Assigned!',
+                    'message' => 'You have been assigned to deliver order #' . sanitize($order['order_number']) . '. Please check your dashboard.',
+                    'type'    => 'order_update',
+                    'link'    => '/delivery/order/' . $orderId,
+                    'is_read' => 0,
+                ]);
+            } catch (Exception $e) {}
+
+            Session::setFlash('success', 'Delivery partner assigned successfully to order #' . sanitize($order['order_number']) . '.');
+        } else {
+            Session::setFlash('danger', 'Failed to assign delivery partner.');
+        }
+
+        $this->redirect('/admin/orders');
+    }
+
+    /**
+     * View all customer reports (Resolution Center)
+     * GET /admin/reports-center
+     */
+    public function reportsCenter(): void {
+        require_once APP_PATH . '/models/CustomerReport.php';
+        $reportModel = new CustomerReport();
+        $reports = $reportModel->findAllReports();
+
+        $this->render('admin/reports_center', [
+            'title'   => 'Resolution Center',
+            'reports' => $reports
+        ]);
+    }
+
+    /**
+     * Update report status and admin notes
+     * POST /admin/reports-center/update
+     */
+    public function updateReportStatus(): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/CustomerReport.php';
+        $reportModel = new CustomerReport();
+
+        $reportId = (int)$_POST['report_id'];
+        $status = sanitize($_POST['status'] ?? 'pending');
+        $adminNotes = sanitize($_POST['admin_notes'] ?? '');
+
+        if ($reportModel->updateStatus($reportId, $status, $adminNotes)) {
+            Session::setFlash('success', 'Report status updated successfully.');
+        } else {
+            Session::setFlash('danger', 'Failed to update report status.');
+        }
+
+        $this->redirect('/admin/reports-center');
+    }
 }
+

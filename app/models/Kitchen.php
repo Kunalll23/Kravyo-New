@@ -12,7 +12,7 @@ class Kitchen extends Model {
     public function findByUserId(int $userId): ?array {
         $sql = "SELECT k.*, u.full_name AS chef_name, u.email AS chef_email, u.phone AS chef_phone
                 FROM {$this->table} k
-                JOIN users u ON k.user_id = u.id
+                JOIN chefs u ON k.user_id = u.id
                 WHERE k.user_id = :user_id
                 LIMIT 1";
         $stmt = $this->db->prepare($sql);
@@ -27,7 +27,7 @@ class Kitchen extends Model {
     public function findPendingKitchens(): array {
         $sql = "SELECT k.*, u.full_name AS chef_name, u.email AS chef_email, u.phone AS chef_phone
                 FROM {$this->table} k
-                JOIN users u ON k.user_id = u.id
+                JOIN chefs u ON k.user_id = u.id
                 WHERE k.approval_status = :status
                 ORDER BY k.created_at DESC";
         $stmt = $this->db->prepare($sql);
@@ -41,7 +41,7 @@ class Kitchen extends Model {
     public function findAllApproved(): array {
         $sql = "SELECT k.*, u.full_name AS chef_name
                 FROM {$this->table} k
-                JOIN users u ON k.user_id = u.id
+                JOIN chefs u ON k.user_id = u.id
                 WHERE k.approval_status = :status
                 ORDER BY k.created_at DESC";
         $stmt = $this->db->prepare($sql);
@@ -55,7 +55,7 @@ class Kitchen extends Model {
     public function findAllWithChef(?string $status = null): array {
         $sql = "SELECT k.*, u.full_name AS chef_name, u.email AS chef_email, u.phone AS chef_phone
                 FROM {$this->table} k
-                JOIN users u ON k.user_id = u.id";
+                JOIN chefs u ON k.user_id = u.id";
         $params = [];
 
         if ($status !== null) {
@@ -129,7 +129,7 @@ class Kitchen extends Model {
         $sql = "SELECT k.*, u.full_name AS chef_name,
                        (SELECT COUNT(*) FROM menu_items mi WHERE mi.kitchen_id = k.id AND mi.is_available = 1) AS dish_count
                 FROM {$this->table} k
-                JOIN users u ON k.user_id = u.id
+                JOIN chefs u ON k.user_id = u.id
                 WHERE k.approval_status = 'approved'";
         $params = [];
 
@@ -172,7 +172,7 @@ class Kitchen extends Model {
         $sql = "SELECT k.*, u.full_name AS chef_name, u.email AS chef_email, u.phone AS chef_phone,
                        (SELECT COUNT(*) FROM menu_items mi WHERE mi.kitchen_id = k.id AND mi.is_available = 1) AS dish_count
                 FROM {$this->table} k
-                JOIN users u ON k.user_id = u.id
+                JOIN chefs u ON k.user_id = u.id
                 WHERE k.id = :id AND k.approval_status = 'approved'
                 LIMIT 1";
         $stmt = $this->db->prepare($sql);
@@ -189,5 +189,195 @@ class Kitchen extends Model {
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    /**
+     * Find approved kitchens near given latitude/longitude within radius (km)
+     * Uses bounding-box pre-filtering + Haversine formula for exact distance.
+     *
+     * @param float $lat User latitude (-90 to 90)
+     * @param float $lng User longitude (-180 to 180)
+     * @param float $radiusKm Search radius in kilometers (default 10)
+     * @param array $filters Optional filters: keyword, open_only, sort
+     * @param int $limit Maximum results to return
+     * @return array List of nearby approved kitchens with distance (km) and rating
+     */
+    public function findNearby(float $lat, float $lng, float $radiusKm = 10.0, array $filters = [], int $limit = 50): array {
+        $radiusKm = max(1.0, min(200.0, (float) $radiusKm));
+
+        // Bounding box: 1 deg lat ≈ 111.045 km
+        $latDelta = $radiusKm / 111.045;
+        $latMin = max(-90.0, $lat - $latDelta);
+        $latMax = min(90.0, $lat + $latDelta);
+
+        // 1 deg lng ≈ 111.045 * cos(lat) km
+        $cosLat = cos(deg2rad($lat));
+        if (abs($cosLat) < 0.0001) {
+            $cosLat = 0.0001;
+        }
+        $lngDelta = $radiusKm / (111.045 * $cosLat);
+        $lngMin = max(-180.0, $lng - $lngDelta);
+        $lngMax = min(180.0, $lng + $lngDelta);
+
+        $latFloat = (float) $lat;
+        $lngFloat = (float) $lng;
+        $latMinFloat = (float) $latMin;
+        $latMaxFloat = (float) $latMax;
+        $lngMinFloat = (float) $lngMin;
+        $lngMaxFloat = (float) $lngMax;
+        $radiusFloat = (float) $radiusKm;
+
+        $sql = "SELECT k.id, k.user_id, k.kitchen_name, k.personal_story, k.address, k.city, k.pincode,
+                       k.fssai_license, k.hygiene_badge, k.is_open, k.banner_image, k.latitude, k.longitude,
+                       u.full_name AS chef_name,
+                       (SELECT COUNT(*) FROM menu_items mi WHERE mi.kitchen_id = k.id AND mi.is_available = 1) AS dish_count,
+                       (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.kitchen_id = k.id) AS avg_rating,
+                       (SELECT COUNT(*) FROM reviews r WHERE r.kitchen_id = k.id) AS review_count,
+                       ROUND(
+                           6371 * ACOS(
+                               LEAST(1.0, GREATEST(-1.0,
+                                   COS(RADIANS({$latFloat})) * COS(RADIANS(k.latitude)) *
+                                   COS(RADIANS(k.longitude) - RADIANS({$lngFloat})) +
+                                   SIN(RADIANS({$latFloat})) * SIN(RADIANS(k.latitude))
+                               ))
+                           ), 2
+                       ) AS distance
+                FROM {$this->table} k
+                JOIN chefs u ON k.user_id = u.id
+                WHERE k.approval_status = 'approved'
+                  AND k.latitude IS NOT NULL
+                  AND k.longitude IS NOT NULL
+                  AND k.latitude BETWEEN {$latMinFloat} AND {$latMaxFloat}
+                  AND k.longitude BETWEEN {$lngMinFloat} AND {$lngMaxFloat}";
+
+        $params = [];
+
+        // Keyword search
+        if (!empty($filters['keyword'])) {
+            $sql .= " AND (k.kitchen_name LIKE :keyword OR k.address LIKE :keyword2 OR k.city LIKE :keyword3 OR u.full_name LIKE :keyword4)";
+            $kw = '%' . $filters['keyword'] . '%';
+            $params['keyword']  = $kw;
+            $params['keyword2'] = $kw;
+            $params['keyword3'] = $kw;
+            $params['keyword4'] = $kw;
+        }
+
+        // Open only filter
+        if (!empty($filters['open_only'])) {
+            $sql .= " AND k.is_open = 1";
+        }
+
+        $sql .= " HAVING distance <= {$radiusFloat}";
+
+        // Sorting
+        $sort = $filters['sort'] ?? 'distance';
+        switch ($sort) {
+            case 'rating':
+                $sql .= " ORDER BY avg_rating DESC, distance ASC";
+                break;
+            case 'open':
+                $sql .= " ORDER BY k.is_open DESC, distance ASC";
+                break;
+            case 'distance':
+            default:
+                $sql .= " ORDER BY distance ASC";
+                break;
+        }
+
+        $sql .= " LIMIT " . (int)$limit;
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Get all approved kitchens with non-null coordinates (for initial map overview or browse)
+     */
+    public function findAllWithCoordinates(array $filters = [], int $limit = 60): array {
+        $sql = "SELECT k.id, k.user_id, k.kitchen_name, k.personal_story, k.address, k.city, k.pincode,
+                       k.fssai_license, k.hygiene_badge, k.is_open, k.banner_image, k.latitude, k.longitude,
+                       u.full_name AS chef_name,
+                       (SELECT COUNT(*) FROM menu_items mi WHERE mi.kitchen_id = k.id AND mi.is_available = 1) AS dish_count,
+                       (SELECT ROUND(AVG(r.rating), 1) FROM reviews r WHERE r.kitchen_id = k.id) AS avg_rating,
+                       (SELECT COUNT(*) FROM reviews r WHERE r.kitchen_id = k.id) AS review_count
+                FROM {$this->table} k
+                JOIN chefs u ON k.user_id = u.id
+                WHERE k.approval_status = 'approved'
+                  AND k.latitude IS NOT NULL
+                  AND k.longitude IS NOT NULL";
+        
+        $params = [];
+
+        if (!empty($filters['city'])) {
+            $sql .= " AND k.city = :city";
+            $params['city'] = $filters['city'];
+        }
+
+        if (!empty($filters['keyword'])) {
+            $sql .= " AND (k.kitchen_name LIKE :keyword OR k.address LIKE :keyword2 OR k.city LIKE :keyword3 OR u.full_name LIKE :keyword4)";
+            $kw = '%' . $filters['keyword'] . '%';
+            $params['keyword']  = $kw;
+            $params['keyword2'] = $kw;
+            $params['keyword3'] = $kw;
+            $params['keyword4'] = $kw;
+        }
+
+        if (!empty($filters['open_only'])) {
+            $sql .= " AND k.is_open = 1";
+        }
+
+        $sql .= " ORDER BY k.is_open DESC, k.created_at DESC LIMIT " . (int)$limit;
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Update kitchen latitude and longitude coordinates
+     */
+    public function updateCoordinates(int $id, ?float $lat, ?float $lng): bool {
+        $sql = "UPDATE {$this->table} SET latitude = :lat, longitude = :lng WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute([
+            'lat' => $lat,
+            'lng' => $lng,
+            'id'  => $id
+        ]);
+    }
+
+    /**
+     * Get featured kitchens for a specific city
+     */
+    public function getFeaturedKitchens(int $limit = 4, string $city = '', string $keyword = '', ?float $lat = null, ?float $lng = null): array {
+        $distanceSelect = "NULL AS distance";
+        if ($lat !== null && $lng !== null) {
+            $distanceSelect = "ROUND(6371 * ACOS(LEAST(1.0, GREATEST(-1.0, COS(RADIANS({$lat})) * COS(RADIANS(k.latitude)) * COS(RADIANS(k.longitude) - RADIANS({$lng})) + SIN(RADIANS({$lat})) * SIN(RADIANS(k.latitude))))), 1) AS distance";
+        }
+
+        $sql = "SELECT k.*, u.full_name AS chef_name, {$distanceSelect}
+                FROM {$this->table} k
+                JOIN chefs u ON k.user_id = u.id
+                WHERE k.approval_status = 'approved'
+                  AND k.is_open = 1";
+        
+        $params = [];
+        if (!empty($city)) {
+            $sql .= " AND k.city = :city";
+            $params['city'] = $city;
+        }
+        if (!empty($keyword)) {
+            $sql .= " AND (k.kitchen_name LIKE :keyword OR u.full_name LIKE :keyword2 OR k.personal_story LIKE :keyword3)";
+            $params['keyword']  = '%' . $keyword . '%';
+            $params['keyword2'] = '%' . $keyword . '%';
+            $params['keyword3'] = '%' . $keyword . '%';
+        }
+
+        $sql .= " ORDER BY k.id DESC LIMIT " . (int)$limit; // Simple sorting for now
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll();
     }
 }

@@ -124,7 +124,11 @@
                                                         </select>
                                                     </div>
                                                     <div class="mb-3">
-                                                        <label class="form-label fw-semibold">Street Address / Flat No.</label>
+                                                        <label class="form-label fw-semibold">Apartment No / Room No</label>
+                                                        <input type="text" class="form-control" name="apartment" value="<?= sanitize($address['apartment'] ?? '') ?>" placeholder="e.g. Flat 402, Block B / Room 12">
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label fw-semibold">Street Address / Society / Area</label>
                                                         <textarea class="form-control" name="street_address" rows="2" required><?= sanitize($address['street_address']) ?></textarea>
                                                     </div>
                                                     <div class="mb-3">
@@ -161,41 +165,69 @@
 
 <!-- Add Address Modal -->
 <div class="modal fade" id="addAddressModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content border-0 shadow">
             <div class="modal-header bg-light border-0">
                 <h5 class="modal-title fw-bold">Add New Address</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="<?= url('/profile/address/add') ?>" method="POST">
+            <form action="<?= url('/profile/address/add') ?>" method="POST" id="profileAddAddressForm">
                 <div class="modal-body p-4">
                     <?= csrf_field() ?>
                     
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Address Type</label>
-                        <select class="form-select" name="address_type" required>
-                            <option value="Home" selected>Home</option>
-                            <option value="Work">Work</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Street Address / Flat No.</label>
-                        <textarea class="form-control" name="street_address" rows="2" placeholder="e.g. 101, A Wing, Omkar Society..." required></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Landmark (Optional)</label>
-                        <input type="text" class="form-control" name="landmark" placeholder="e.g. Near City Mall">
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-6">
-                            <label class="form-label fw-semibold">City</label>
-                            <input type="text" class="form-control" name="city" required>
+                    <div class="row g-3">
+                        <!-- Row 1: Address Type (col-md-4) + Apartment No / Room No (col-md-8) -->
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Address Type</label>
+                            <select class="form-select" name="address_type" required>
+                                <option value="Home" selected>🏠 Home</option>
+                                <option value="Work">🏢 Work</option>
+                                <option value="Other">📍 Other</option>
+                            </select>
                         </div>
-                        <div class="col-6">
-                            <label class="form-label fw-semibold">Pincode</label>
-                            <input type="text" class="form-control" name="pincode" pattern="[0-9]{6}" title="Please enter a valid 6-digit pincode" required>
+                        <div class="col-md-8">
+                            <label class="form-label fw-semibold">Apartment No / Room No *</label>
+                            <input type="text" class="form-control" name="apartment" id="profile_apartment" placeholder="e.g. Flat 402, Block B / Room 12">
                         </div>
+
+                        <!-- Row 2: Street Address (Full-width col-12 for Google Places Autocomplete) -->
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Street Address *</label>
+                            <input type="text" class="form-control" name="street_address" id="profile_street_address" placeholder="Search society, building name, street, area..." required>
+                        </div>
+
+                        <!-- Row 3: Landmark + City + Pincode -->
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Landmark (Optional)</label>
+                            <input type="text" class="form-control" name="landmark" id="profile_landmark" placeholder="Near...">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">City *</label>
+                            <input type="text" class="form-control" name="city" id="profile_city" placeholder="e.g. Surat" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold">Pincode *</label>
+                            <input type="text" class="form-control" name="pincode" id="profile_pincode" pattern="[0-9]{6}" title="Please enter a valid 6-digit pincode" placeholder="e.g. 395007" required>
+                        </div>
+                    </div>
+
+                    <!-- Map Location Picker Section -->
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <label class="form-label fw-semibold mb-0">
+                                <i class="bi bi-pin-map-fill text-danger me-1"></i>Pin your exact location on the map *
+                            </label>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btnProfileDetectLoc">
+                                <i class="bi bi-crosshair me-1"></i> Detect My Location
+                            </button>
+                        </div>
+                        <p class="small text-muted mb-2">Drag the marker to your exact building to help our delivery partners find you.</p>
+
+                        <!-- Google Maps loader & Container -->
+                        <?php include __DIR__ . '/../partials/google_maps_loader.php'; ?>
+                        <div id="profileAddressMap" style="height: 240px; border-radius: 8px; border: 2px solid #dee2e6; z-index: 1;"></div>
+                        <input type="hidden" name="latitude" id="profile_lat">
+                        <input type="hidden" name="longitude" id="profile_lng">
                     </div>
                 </div>
                 <div class="modal-footer border-0 bg-light">
@@ -206,3 +238,148 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let profileMap = null;
+    let profileMarker = null;
+    let profileMapInitialized = false;
+
+    const addAddressModalEl = document.getElementById('addAddressModal');
+    if (!addAddressModalEl) return;
+
+    // Initialize or resize map when modal opens
+    addAddressModalEl.addEventListener('shown.bs.modal', function () {
+        if (!profileMapInitialized && typeof KravyoMaps !== 'undefined') {
+            KravyoMaps.init().then(() => {
+                const latInput = document.getElementById('profile_lat');
+                const lngInput = document.getElementById('profile_lng');
+                const initialLat = 21.1702;
+                const initialLng = 72.8311;
+
+                if (latInput && !latInput.value) latInput.value = initialLat;
+                if (lngInput && !lngInput.value) lngInput.value = initialLng;
+
+                profileMap = KravyoMaps.createMap('profileAddressMap', initialLat, initialLng, 14);
+                profileMarker = KravyoMaps.addDraggableMarker(profileMap, initialLat, initialLng, function(lat, lng) {
+                    if (latInput) latInput.value = lat.toFixed(8);
+                    if (lngInput) lngInput.value = lng.toFixed(8);
+                });
+
+                // Attach Google Places Autocomplete to profile_street_address
+                KravyoMaps.initAutocomplete('profile_street_address', profileMap, profileMarker, function(pos, place) {
+                    if (latInput) latInput.value = pos.lat.toFixed(8);
+                    if (lngInput) lngInput.value = pos.lng.toFixed(8);
+
+                    if (place.address_components) {
+                        let city = '';
+                        let pincode = '';
+
+                        place.address_components.forEach(component => {
+                            const types = component.types;
+                            if (types.includes('locality')) city = component.long_name;
+                            if (types.includes('postal_code')) pincode = component.long_name;
+                        });
+
+                        const cityInput = document.getElementById('profile_city');
+                        const zipInput = document.getElementById('profile_pincode');
+                        const landmarkInput = document.getElementById('profile_landmark');
+
+                        if (city && cityInput) cityInput.value = city;
+                        if (pincode && zipInput) zipInput.value = pincode;
+
+                        if (place.name && landmarkInput && place.name !== city) {
+                            landmarkInput.value = place.name;
+                        }
+                    }
+                });
+
+                // Map click to move marker
+                profileMap.addListener('click', function(e) {
+                    const lat = e.latLng.lat();
+                    const lng = e.latLng.lng();
+                    if (profileMarker) profileMarker.position = e.latLng;
+                    if (latInput) latInput.value = lat.toFixed(8);
+                    if (lngInput) lngInput.value = lng.toFixed(8);
+                });
+
+                profileMapInitialized = true;
+            });
+        } else if (profileMap) {
+            // Re-trigger layout resize for Bootstrap modal
+            if (typeof google !== 'undefined' && google.maps && google.maps.event) {
+                google.maps.event.trigger(profileMap, 'resize');
+                const latInput = document.getElementById('profile_lat');
+                const lngInput = document.getElementById('profile_lng');
+                if (latInput && lngInput && latInput.value && lngInput.value) {
+                    profileMap.setCenter({ lat: parseFloat(latInput.value), lng: parseFloat(lngInput.value) });
+                }
+            }
+        }
+    });
+
+    // Detect My Location
+    const detectBtn = document.getElementById('btnProfileDetectLoc');
+    if (detectBtn) {
+        detectBtn.addEventListener('click', function() {
+            if (!navigator.geolocation) {
+                alert('Geolocation is not supported by your browser.');
+                return;
+            }
+            detectBtn.disabled = true;
+            detectBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Detecting...';
+
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    detectBtn.disabled = false;
+                    detectBtn.innerHTML = '<i class="bi bi-crosshair me-1"></i> Detect My Location';
+                    const uLat = pos.coords.latitude;
+                    const uLng = pos.coords.longitude;
+
+                    const newPos = { lat: uLat, lng: uLng };
+                    const latInput = document.getElementById('profile_lat');
+                    const lngInput = document.getElementById('profile_lng');
+
+                    if (profileMarker) profileMarker.position = newPos;
+                    if (profileMap) profileMap.setCenter(newPos);
+
+                    if (latInput) latInput.value = uLat.toFixed(8);
+                    if (lngInput) lngInput.value = uLng.toFixed(8);
+
+                    // Reverse Geocoding
+                    if (KravyoMaps.getLibs && KravyoMaps.getLibs().Geocoder) {
+                        const geocoder = new (KravyoMaps.getLibs().Geocoder)();
+                        geocoder.geocode({ location: newPos }, function(results, status) {
+                            if (status === 'OK' && results[0]) {
+                                const place = results[0];
+                                const streetInput = document.getElementById('profile_street_address');
+                                const cityInput = document.getElementById('profile_city');
+                                const zipInput = document.getElementById('profile_pincode');
+
+                                if (streetInput) streetInput.value = place.formatted_address;
+
+                                let city = '';
+                                let pincode = '';
+                                place.address_components.forEach(component => {
+                                    const types = component.types;
+                                    if (types.includes('locality')) city = component.long_name;
+                                    if (types.includes('postal_code')) pincode = component.long_name;
+                                });
+
+                                if (city && cityInput) cityInput.value = city;
+                                if (pincode && zipInput) zipInput.value = pincode;
+                            }
+                        });
+                    }
+                },
+                function(err) {
+                    detectBtn.disabled = false;
+                    detectBtn.innerHTML = '<i class="bi bi-crosshair me-1"></i> Detect My Location';
+                    alert('Unable to detect location: ' + err.message);
+                },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        });
+    }
+});
+</script>

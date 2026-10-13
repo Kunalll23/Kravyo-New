@@ -152,7 +152,44 @@ class SubscriptionController extends Controller {
 
         try {
             $customerSubModel->create($data);
-            Session::setFlash('success', 'You have successfully requested to subscribe to "' . sanitize($plan['plan_name']) . '"! It is currently pending Admin approval.');
+
+            // Send Notifications
+            try {
+                require_once APP_PATH . '/models/Notification.php';
+                $notifModel = new Notification();
+                $customerName = Session::get('user_name') ?: 'A customer';
+
+                // 1. Notify the Chef about the new incoming subscription request
+                $notifModel->notifyKitchenOwner(
+                    (int) $plan['kitchen_id'],
+                    'New Subscription Request! 📋',
+                    $customerName . ' requested your tiffin plan "' . $plan['plan_name'] . '" (' . ucfirst($plan['plan_type']) . '). Please review and approve.',
+                    'order_update',
+                    '/chef/subscriptions'
+                );
+
+                // 2. Notify the Customer that their request was submitted
+                $notifModel->createForUser(
+                    $customerId,
+                    'customer',
+                    'Subscription Request Sent 📋',
+                    'Your request for "' . $plan['plan_name'] . '" was submitted to ' . ($plan['kitchen_name'] ?? 'the chef') . '. You will be notified once approved.',
+                    'order_update',
+                    '/my-subscriptions'
+                );
+
+                // 3. Notify Admins
+                $notifModel->notifyAdmins(
+                    'New Subscription Request',
+                    $customerName . ' requested plan "' . $plan['plan_name'] . '" from ' . ($plan['kitchen_name'] ?? 'Kitchen') . '.',
+                    'order_update',
+                    '/admin/subscriptions'
+                );
+            } catch (Throwable $ne) {
+                error_log('[Kravyo] Subscription notification failed: ' . $ne->getMessage());
+            }
+
+            Session::setFlash('success', 'You have successfully requested to subscribe to "' . sanitize($plan['plan_name']) . '"! It is currently pending approval.');
             $this->redirect('/my-subscriptions');
         } catch (Exception $e) {
             Session::setFlash('danger', 'Failed to subscribe. Please try again.');
@@ -167,6 +204,7 @@ class SubscriptionController extends Controller {
     public function mySubscriptions(): void {
         Middleware::role(ROLE_CUSTOMER);
 
+        require_once APP_PATH . '/models/Subscription.php';
         require_once APP_PATH . '/models/CustomerSubscription.php';
         require_once APP_PATH . '/models/SubscriptionDelivery.php';
         
@@ -226,6 +264,23 @@ class SubscriptionController extends Controller {
         }
 
         $customerSubModel->updateStatus($subscriptionId, SUBSCRIPTION_STATUS_CANCELLED);
+
+        // Notify Kitchen Owner
+        try {
+            require_once APP_PATH . '/models/Notification.php';
+            $notif = new Notification();
+            $customerName = Session::get('user_name') ?: 'A customer';
+            $notif->notifyKitchenOwner(
+                (int) $sub['kitchen_id'],
+                'Subscription Cancelled',
+                $customerName . ' has cancelled their active subscription.',
+                'order_update',
+                '/chef/subscriptions'
+            );
+        } catch (Throwable $ne) {
+            error_log('[Kravyo] Sub cancellation notification failed: ' . $ne->getMessage());
+        }
+
         Session::setFlash('success', 'Your subscription has been cancelled successfully.');
         $this->redirect('/my-subscriptions');
     }

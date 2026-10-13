@@ -40,7 +40,7 @@ class Subscription extends Model {
                        u.full_name AS chef_name
                 FROM {$this->table} s
                 JOIN kitchens k ON s.kitchen_id = k.id
-                JOIN users u ON k.user_id = u.id
+                JOIN chefs u ON k.user_id = u.id
                 WHERE s.id = :id
                 LIMIT 1";
         $stmt = $this->db->prepare($sql);
@@ -57,7 +57,7 @@ class Subscription extends Model {
                        k.hygiene_badge, u.full_name AS chef_name
                 FROM {$this->table} s
                 JOIN kitchens k ON s.kitchen_id = k.id
-                JOIN users u ON k.user_id = u.id
+                JOIN chefs u ON k.user_id = u.id
                 WHERE s.is_active = 1
                   AND k.approval_status = 'approved'
                   AND k.is_open = 1";
@@ -130,4 +130,47 @@ class Subscription extends Model {
         $stmt->execute(['id' => $planId, 'kitchen_id' => $kitchenId]);
         return $stmt->fetch() !== false;
     }
+
+    /**
+     * Get structured meal timing schedule for a plan
+     */
+    public static function getMealSchedule(array $plan): array {
+        $meals = (int) ($plan['meals_per_day'] ?? 1);
+        $schedule = [];
+
+        if ($meals >= 3) {
+            $schedule['breakfast'] = [
+                'type'        => 'breakfast',
+                'label'       => 'Breakfast',
+                'icon'        => 'bi-sunrise',
+                'time'        => !empty($plan['breakfast_time']) ? $plan['breakfast_time'] : '08:00 AM - 09:00 AM',
+                'color'       => 'warning',
+                'badge_color' => 'warning'
+            ];
+        }
+
+        // Lunch is included in 1, 2, and 3 meals/day
+        $schedule['lunch'] = [
+            'type'        => 'lunch',
+            'label'       => 'Lunch',
+            'icon'        => 'bi-sun',
+            'time'        => !empty($plan['lunch_time']) ? $plan['lunch_time'] : '12:30 PM - 01:30 PM',
+            'color'       => 'primary',
+            'badge_color' => 'primary'
+        ];
+
+        if ($meals >= 2) {
+            $schedule['dinner'] = [
+                'type'        => 'dinner',
+                'label'       => 'Dinner',
+                'icon'        => 'bi-moon-stars',
+                'time'        => !empty($plan['dinner_time']) ? $plan['dinner_time'] : '07:30 PM - 08:30 PM',
+                'color'       => 'info',
+                'badge_color' => 'info'
+            ];
+        }
+
+        return $schedule;
+    }
 }
+

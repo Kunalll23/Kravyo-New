@@ -15,7 +15,7 @@
         <?php if ($totalActive > 0): ?>
             <div class="mt-3">
                 <span class="badge bg-warning text-dark fs-6 px-4 py-2 rounded-pill fw-bold">
-                    <i class="bi bi-broadcast-pin me-1"></i><?= $totalActive ?> Deal<?= $totalActive !== 1 ? 's' : '' ?> Live Right Now
+                    <i class="bi bi-broadcast-pin me-1"></i><?= $totalActive ?> Deal<?= $totalActive !== 1 ? 's' : '' ?> Live Right Now<?= !empty($filters['city']) ? ' in ' . sanitize($filters['city']) : '' ?>
                 </span>
             </div>
         <?php endif; ?>
@@ -25,15 +25,16 @@
 <!-- Filter Bar -->
 <section class="py-4 border-bottom bg-white shadow-sm sticky-top" style="top: 70px; z-index: 100;">
     <div class="container">
-        <form method="GET" action="<?= url('/zero-waste') ?>" class="row g-2 align-items-center">
+        <form method="GET" action="<?= ctx_url('/zero-waste') ?>" class="row g-2 align-items-center">
             <!-- Veg Filter -->
             <div class="col-auto">
-                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2">
-                    <input class="form-check-input" type="checkbox" id="veg_filter" name="veg"
-                           <?= !empty($filters['is_veg']) ? 'checked' : '' ?>>
-                    <label class="form-check-label fw-semibold small" for="veg_filter">
+                <div class="form-check form-switch mb-0 d-flex align-items-center gap-2 ps-0">
+                    <label class="form-check-label fw-semibold small" for="veg_filter" style="cursor: pointer;">
                         🌿 Veg Only
                     </label>
+                    <input class="form-check-input m-0" type="checkbox" id="veg_filter" name="veg" role="switch"
+                           style="cursor: pointer;"
+                           <?= !empty($filters['is_veg']) ? 'checked' : '' ?>>
                 </div>
             </div>
 
@@ -66,7 +67,7 @@
             </div>
             <?php if (!empty($filters['city']) || !empty($filters['is_veg'])): ?>
                 <div class="col-auto">
-                    <a href="<?= url('/zero-waste') ?>" class="btn btn-outline-secondary btn-sm">
+                    <a href="<?= ctx_url('/zero-waste?city=') ?>" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-x-circle me-1"></i>Clear
                     </a>
                 </div>
@@ -83,23 +84,30 @@
             <!-- Empty State -->
             <div class="text-center py-5">
                 <div class="mb-3" style="font-size:4rem;">♻️</div>
-                <h3 class="fw-bold">No active deals right now</h3>
+                <h3 class="fw-bold">No active deals right now<?= !empty($filters['city']) ? ' in ' . sanitize($filters['city']) : '' ?></h3>
                 <p class="text-muted mb-4">
-                    Home chefs post end-of-day deals in the evenings. Check back later or browse the full menu!
+                    Home chefs <?= !empty($filters['city']) ? 'in ' . sanitize($filters['city']) : '' ?> post end-of-day deals in the evenings. Check back later or browse all cities!
                 </p>
-                <a href="<?= ctx_url('/menu') ?>" class="btn btn-kravyo-primary me-2">
-                    <i class="bi bi-egg-fried me-2"></i>Browse Full Menu
-                </a>
-                <a href="<?= ctx_url('/kitchens') ?>" class="btn btn-outline-secondary">
-                    <i class="bi bi-shop me-2"></i>Explore Kitchens
-                </a>
+                <div class="d-flex gap-2 justify-content-center">
+                    <?php if (!empty($filters['city'])): ?>
+                        <a href="<?= ctx_url('/zero-waste?city=') ?>" class="btn btn-warning text-dark fw-bold">
+                            <i class="bi bi-globe me-1"></i>View All Cities Deals
+                        </a>
+                    <?php endif; ?>
+                    <a href="<?= ctx_url('/menu') ?>" class="btn btn-kravyo-primary">
+                        <i class="bi bi-egg-fried me-1"></i>Browse Full Menu
+                    </a>
+                    <a href="<?= ctx_url('/kitchens') ?>" class="btn btn-outline-secondary">
+                        <i class="bi bi-shop me-1"></i>Explore Kitchens
+                    </a>
+                </div>
             </div>
 
         <?php else: ?>
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h5 class="fw-bold mb-0">
                     Showing <span class="text-success"><?= count($deals) ?></span> deal<?= count($deals) !== 1 ? 's' : '' ?>
-                    <?= !empty($filters['city']) ? 'in ' . sanitize($filters['city']) : '' ?>
+                    <?= !empty($filters['city']) ? 'in ' . sanitize($filters['city']) : 'across all cities' ?>
                 </h5>
                 <small class="text-muted"><i class="bi bi-arrow-clockwise me-1"></i>Deals auto-expire — act fast!</small>
             </div>
@@ -107,20 +115,37 @@
             <div class="row g-4">
                 <?php foreach ($deals as $deal): ?>
                     <?php
+                        $isSoldOut    = ($deal['status'] === 'sold_out' || (int)$deal['quantity_available'] <= 0);
                         $minRemaining = (int) $deal['minutes_remaining'];
                         $urgencyClass = $minRemaining <= 30 ? 'danger' : ($minRemaining <= 90 ? 'warning' : 'success');
                         $urgencyText  = $minRemaining <= 0 ? 'Expiring soon'
                                       : ($minRemaining < 60 ? $minRemaining . 'm left'
                                       : floor($minRemaining/60) . 'h ' . ($minRemaining%60) . 'm left');
+                        $urgencyBadgeStyle = match($urgencyClass) {
+                            'danger'  => 'background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5;',
+                            'warning' => 'background-color: #fef3c7; color: #b45309; border: 1px solid #fde68a;',
+                            default   => 'background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;',
+                        };
+                        $urgencyIcon = match($urgencyClass) {
+                            'danger'  => 'bi-alarm-fill',
+                            'warning' => 'bi-alarm',
+                            default   => 'bi-clock-history',
+                        };
                     ?>
                     <div class="col-sm-6 col-lg-4">
-                        <div class="card kravyo-card h-100 border-0 position-relative overflow-hidden zero-waste-card">
+                        <div class="card kravyo-card h-100 border-0 position-relative overflow-hidden zero-waste-card <?= $isSoldOut ? 'border border-secondary-subtle' : '' ?>">
 
-                            <!-- Discount Badge -->
+                            <!-- Discount Badge / Sold Out Badge -->
                             <div class="position-absolute top-0 start-0 m-2 z-1">
-                                <span class="badge bg-success fs-6 fw-800 px-3 py-2 rounded-pill shadow">
-                                    <?= (int) $deal['discount_pct'] ?>% OFF
-                                </span>
+                                <?php if ($isSoldOut): ?>
+                                    <span class="badge bg-secondary fs-6 fw-800 px-3 py-2 rounded-pill shadow">
+                                        <i class="bi bi-slash-circle me-1"></i>SOLD OUT
+                                    </span>
+                                <?php else: ?>
+                                    <span class="badge bg-success fs-6 fw-800 px-3 py-2 rounded-pill shadow">
+                                        <?= (int) $deal['discount_pct'] ?>% OFF
+                                    </span>
+                                <?php endif; ?>
                             </div>
 
                             <!-- Veg/Non-veg badge -->
@@ -131,36 +156,62 @@
                                 </span>
                             </div>
 
-                            <!-- Dish Image -->
-                            <?php if (!empty($deal['dish_image'])): ?>
-                                <img src="<?= url('/uploads/dishes/' . $deal['dish_image']) ?>"
-                                     alt="<?= sanitize($deal['item_name']) ?>"
-                                     class="card-img-top object-fit-cover" style="height: 180px;">
-                            <?php else: ?>
-                                <div class="card-img-top d-flex align-items-center justify-content-center bg-light"
-                                     style="height: 180px; font-size: 4rem;">
-                                    🍱
-                                </div>
-                            <?php endif; ?>
+                            <!-- Dish Image with Sold Out Overlay -->
+                            <div class="position-relative overflow-hidden" style="height: 180px;">
+                                <?php if (!empty($deal['dish_image'])): ?>
+                                    <img src="<?= url('/uploads/dishes/' . $deal['dish_image']) ?>"
+                                         alt="<?= sanitize($deal['item_name']) ?>"
+                                         class="w-100 h-100 object-fit-cover"
+                                         style="<?= $isSoldOut ? 'filter: grayscale(85%) opacity(0.8);' : '' ?>">
+                                <?php else: ?>
+                                    <div class="w-100 h-100 d-flex align-items-center justify-content-center bg-light"
+                                         style="font-size: 4rem; <?= $isSoldOut ? 'filter: grayscale(85%) opacity(0.8);' : '' ?>">
+                                        🍱
+                                    </div>
+                                <?php endif; ?>
+
+                                <?php if ($isSoldOut): ?>
+                                    <div class="position-absolute top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+                                         style="background: rgba(0, 0, 0, 0.38);">
+                                        <span class="badge bg-dark bg-opacity-90 text-white border border-light border-opacity-50 px-3 py-2 rounded-pill fs-6 fw-bold shadow">
+                                            <i class="bi bi-slash-circle me-1 text-danger"></i>SOLD OUT
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
 
                             <div class="card-body d-flex flex-column p-3">
 
-                                <!-- Urgency Timer -->
-                                <div class="d-flex align-items-center gap-2 mb-2">
-                                    <span class="badge bg-<?= $urgencyClass ?> bg-opacity-15 text-<?= $urgencyClass ?> fw-semibold small px-2 py-1">
-                                        <i class="bi bi-alarm me-1"></i><?= $urgencyText ?>
-                                    </span>
-                                    <span class="badge bg-secondary bg-opacity-15 text-secondary fw-semibold small px-2 py-1">
-                                        <?= (int) $deal['quantity_available'] ?> portion<?= $deal['quantity_available'] != 1 ? 's' : '' ?> left
-                                    </span>
-                                    <?php if ($deal['quantity_available'] <= 3): ?>
-                                        <span class="badge bg-danger fw-semibold small px-2 py-1 ms-1">
-                                            <i class="bi bi-fire me-1"></i>Almost Gone!
+                                <!-- Urgency Timer & Portion Count Badges -->
+                                <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                    <?php if ($isSoldOut): ?>
+                                        <span class="badge rounded-pill fw-semibold px-2 py-1 d-inline-flex align-items-center"
+                                              style="background-color: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 0.75rem;">
+                                            <i class="bi bi-slash-circle me-1"></i>Sold Out
                                         </span>
+                                        <span class="badge rounded-pill fw-semibold px-2 py-1 d-inline-flex align-items-center"
+                                              style="background-color: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; font-size: 0.75rem;">
+                                            <i class="bi bi-box-seam me-1"></i>0 portions left
+                                        </span>
+                                    <?php else: ?>
+                                        <span class="badge rounded-pill fw-semibold px-2 py-1 d-inline-flex align-items-center"
+                                              style="<?= $urgencyBadgeStyle ?> font-size: 0.75rem;">
+                                            <i class="bi <?= $urgencyIcon ?> me-1"></i><?= $urgencyText ?>
+                                        </span>
+                                        <span class="badge rounded-pill fw-semibold px-2 py-1 d-inline-flex align-items-center"
+                                              style="background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; font-size: 0.75rem;">
+                                            <i class="bi bi-box-seam me-1"></i><?= (int) $deal['quantity_available'] ?> portion<?= $deal['quantity_available'] != 1 ? 's' : '' ?> left
+                                        </span>
+                                        <?php if ($deal['quantity_available'] <= 3): ?>
+                                            <span class="badge rounded-pill fw-semibold px-2 py-1 d-inline-flex align-items-center"
+                                                  style="background-color: #fff1f2; color: #e11d48; border: 1px solid #fecdd3; font-size: 0.75rem;">
+                                                <i class="bi bi-fire me-1"></i>Almost Gone!
+                                            </span>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </div>
 
-                                <h6 class="fw-bold mb-1"><?= sanitize($deal['item_name']) ?></h6>
+                                <h6 class="fw-bold mb-1 <?= $isSoldOut ? 'text-muted' : '' ?>"><?= sanitize($deal['item_name']) ?></h6>
 
                                 <div class="d-flex align-items-center gap-1 mb-2 text-muted small">
                                     <i class="bi bi-shop me-1"></i>
@@ -186,13 +237,17 @@
                                         <span class="text-muted text-decoration-line-through small">
                                             ₹<?= number_format((float)$deal['original_price'], 2) ?>
                                         </span>
-                                        <div class="fw-800 text-success fs-5">
+                                        <div class="fw-800 <?= $isSoldOut ? 'text-muted' : 'text-success' ?> fs-5">
                                             ₹<?= number_format((float)$deal['discounted_price'], 2) ?>
                                         </div>
                                     </div>
 
-                                    <!-- Add to Cart with Quantity Selector -->
-                                    <?php if (Session::get('user_id') && Session::get('user_role') === 'customer'): ?>
+                                    <!-- Actions: Disabled button if Sold Out -->
+                                    <?php if ($isSoldOut): ?>
+                                        <button type="button" class="btn btn-secondary btn-sm fw-semibold px-3 disabled" disabled style="height:32px; opacity:0.75;">
+                                            <i class="bi bi-slash-circle me-1"></i>Sold Out
+                                        </button>
+                                    <?php elseif (Session::get('user_id') && Session::get('user_role') === ROLE_CUSTOMER && Session::currentContext() === Session::CUSTOMER_SESSION): ?>
                                         <?php $maxStock = (int) $deal['quantity_available']; ?>
                                         <form action="<?= url('/cart/add') ?>" method="POST" class="d-flex align-items-center gap-2 flex-nowrap">
                                             <?= csrf_field() ?>
@@ -206,9 +261,9 @@
                                                     <i class="bi bi-dash"></i>
                                                 </button>
                                                 <input type="number" name="quantity"
-                                                       class="form-control border-0 text-center px-0 zw-qty-input fw-bold"
-                                                       value="1" min="1" max="<?= $maxStock ?>" readonly
-                                                       style="width:30px; height:32px; font-size:.85rem; -moz-appearance:textfield;">
+                                                        class="form-control border-0 text-center px-0 zw-qty-input fw-bold"
+                                                        value="1" min="1" max="<?= $maxStock ?>" readonly
+                                                        style="width:30px; height:32px; font-size:.85rem; -moz-appearance:textfield;">
                                                 <button type="button"
                                                         class="btn btn-outline-secondary border-0 px-2 py-0 zw-qty-plus"
                                                         data-max="<?= $maxStock ?>"
@@ -220,7 +275,7 @@
                                                 <i class="bi bi-cart-plus me-1"></i>Add
                                             </button>
                                         </form>
-                                    <?php elseif (!Session::get('user_id')): ?>
+                                    <?php elseif (!Session::get('user_id') && Session::currentContext() === Session::CUSTOMER_SESSION): ?>
                                         <a href="<?= url('/login') ?>" class="btn btn-outline-success btn-sm fw-semibold px-3">
                                             <i class="bi bi-box-arrow-in-right me-1"></i>Login to Order
                                         </a>
