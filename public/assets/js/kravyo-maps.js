@@ -56,9 +56,29 @@
         el.innerHTML = '<div class="kv-map-error"><i class="bi bi-map"></i><div>' + escapeHtml(msg) + '</div></div>';
     }
 
+    function cleanText(str) {
+        if (!str) return '';
+        var s = String(str);
+        var prev = '';
+        var iterations = 0;
+        while (s !== prev && iterations < 3) {
+            prev = s;
+            var txt = document.createElement('textarea');
+            txt.innerHTML = s;
+            s = txt.value;
+            iterations++;
+        }
+        return s.replace(/&#0*39;/g, "'")
+                .replace(/&apos;/g, "'")
+                .replace(/&#0*34;/g, '"')
+                .replace(/&quot;/g, '"')
+                .replace(/&amp;/g, '&');
+    }
+
     function escapeHtml(text) {
-        return String(text == null ? '' : text).replace(/[&<>"']/g, function (m) {
-            return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+        var cleaned = cleanText(text);
+        return String(cleaned == null ? '' : cleaned).replace(/[<>"']/g, function (m) {
+            return { '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": "'" }[m];
         });
     }
 
@@ -203,7 +223,8 @@
         },
         /** Teardrop pin with a Bootstrap icon. */
         pin: function (color, icon, title) {
-            return '<div class="kv-pin" title="' + escapeHtml(title || '') + '">' +
+            var cTitle = cleanText(title || '');
+            return '<div class="kv-pin" title="' + cTitle.replace(/"/g, '&quot;') + '">' +
                 '<div class="kv-pin-head" style="background:' + (color || '#ff6b35') + '"></div>' +
                 '<div class="kv-pin-icon"><i class="bi ' + (icon || 'bi-shop') + '"></i></div></div>';
         },
@@ -262,13 +283,12 @@
     /**
      * Swiggy/Zomato-style route: dark border + solid vibrant inner line. Falls back to a dashed straight line.
      */
-    function RouteLine(libs, map, color) {
+    function RouteLine(libs, map, color, haloColor) {
         this.libs = libs;
         this.map = map;
         this.color = color || '#3b82f6';
-        
-        // Zomato style line has a dark blue/black outline (the "halo") and a vibrant blue center
-        this.halo = new libs.Polyline({ map: map, strokeColor: '#1e3a8a', strokeOpacity: 1.0, strokeWeight: 8, zIndex: 1 });
+        var border = haloColor || (this.color === '#ef4444' || this.color === '#f59e0b' ? '#78350f' : (this.color === '#10b981' ? '#064e3b' : '#1e3a8a'));
+        this.halo = new libs.Polyline({ map: map, strokeColor: border, strokeOpacity: 0.9, strokeWeight: 8, zIndex: 1 });
         this.line = new libs.Polyline({ map: map, strokeColor: this.color, strokeOpacity: 1.0, strokeWeight: 5, zIndex: 2 });
         this.path = [];
     }
@@ -450,8 +470,9 @@
         },
         addStaticMarker: function(map, lat, lng, title, type) {
             if (!globalLibs) return null;
-            var iconHtml = type === 'restaurant' ? icons.kitchen(title) : (type === 'home' ? icons.customer(title) : icons.pin('#000', 'bi-geo-alt-fill', title));
-            return htmlMarker(globalLibs, map, { lat: Number(lat), lng: Number(lng) }, iconHtml, { title: title });
+            var cTitle = cleanText(title || '');
+            var iconHtml = type === 'restaurant' ? icons.kitchen(cTitle) : (type === 'home' ? icons.customer(cTitle) : icons.pin('#000', 'bi-geo-alt-fill', cTitle));
+            return htmlMarker(globalLibs, map, { lat: Number(lat), lng: Number(lng) }, iconHtml, { title: cTitle });
         },
         addDraggableMarker: function(map, lat, lng, onChange) {
             if (!globalLibs) return null;
@@ -471,16 +492,18 @@
                 animateMarker(globalLibs, driverMarkers[id], pos);
             }
         },
-        drawRoute: function(map, origin, dest, waypoint, color) {
+        drawRoute: function(map, origin, dest, waypoint, color, haloColor) {
             return fetchRoute(origin, dest, waypoint).then(function(data) {
-                if (!globalLibs) return { setMap: function(){} };
-                var renderer = new RouteLine(globalLibs, map, color || '#2563eb');
+                if (!globalLibs) return { setMap: function(){}, data: data };
+                var renderer = new RouteLine(globalLibs, map, color || '#2563eb', haloColor);
                 if (data && data.polyline) {
                     renderer.setEncoded(data.polyline);
                 } else {
                     renderer.setStraight(origin, dest);
                 }
                 return {
+                    renderer: renderer,
+                    data: data,
                     setMap: function(m) {
                         if (!m) renderer.clear();
                     }

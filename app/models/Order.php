@@ -88,7 +88,7 @@ class Order extends Model {
     /**
      * Find all orders for a kitchen (chef order management)
      */
-    public function findByKitchenId(int $kitchenId, ?string $status = null): array {
+    public function findByKitchenId(int $kitchenId, ?string $status = null, ?string $search = null): array {
         $sql = "SELECT o.*, u.full_name AS customer_name, u.phone AS customer_phone,
                        a.street_address, a.landmark, a.city AS delivery_city, a.pincode AS delivery_pincode,
                        du.full_name AS delivery_partner_name, du.phone AS delivery_partner_phone
@@ -103,6 +103,14 @@ class Order extends Model {
         if ($status !== null) {
             $sql .= " AND o.order_status = :status";
             $params['status'] = $status;
+        }
+
+        if (!empty($search)) {
+            $sql .= " AND (o.order_number LIKE :search1 OR u.full_name LIKE :search2 OR u.phone LIKE :search3)";
+            $term = '%' . trim($search) . '%';
+            $params['search1'] = $term;
+            $params['search2'] = $term;
+            $params['search3'] = $term;
         }
 
         $sql .= " ORDER BY o.created_at DESC";
@@ -127,6 +135,16 @@ class Order extends Model {
         $sql = "UPDATE {$this->table} SET payment_status = :status WHERE id = :id";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute(['status' => $status, 'id' => $id]);
+    }
+
+    /**
+     * Save the Razorpay payment_id against an order after successful payment verification.
+     * This ID is required later to issue automated refunds via the Razorpay Refund API.
+     */
+    public function saveRazorpayPaymentId(int $id, string $paymentId): bool {
+        $sql  = "UPDATE {$this->table} SET razorpay_payment_id = :payment_id WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute(['payment_id' => $paymentId, 'id' => $id]);
     }
 
     /**
@@ -529,28 +547,93 @@ class Order extends Model {
     }
 
     /**
-     * All platform orders for admin listing with details
+     * All platform orders for admin listing with details and advanced filtering
      */
-    public function findAllWithDetails(?string $status = null, ?string $search = null, int $limit = 100): array {
-        $sql = "SELECT o.*, k.kitchen_name, u.full_name AS customer_name, du.full_name AS delivery_partner_name
+    public function findAllWithDetails(
+        ?string $status = null,
+        ?string $search = null,
+        int $limit = 200,
+        ?string $city = null,
+        ?string $dispatchStatus = null,
+        ?int $kitchenId = null,
+        ?string $paymentStatus = null,
+        ?string $dateRange = null
+    ): array {
+        $sql = "SELECT o.*, 
+                       k.kitchen_name, k.city AS kitchen_city,
+                       u.full_name AS customer_name, u.phone AS customer_phone,
+                       du.full_name AS delivery_partner_name, du.phone AS delivery_partner_phone,
+                       a.city AS delivery_city
                 FROM {$this->table} o
                 JOIN kitchens k ON o.kitchen_id = k.id
                 JOIN customers u ON o.customer_id = u.id
+                LEFT JOIN addresses a ON o.address_id = a.id
                 LEFT JOIN delivery_partners dp ON o.delivery_partner_id = dp.id
                 LEFT JOIN delivery_users du ON dp.user_id = du.id
                 WHERE 1=1";
         $params = [];
 
-        if ($status !== null) {
+        // Order Status Filter
+        if ($status !== null && $status !== '' && $status !== 'all') {
             $sql .= " AND o.order_status = :status";
             $params['status'] = $status;
         }
 
+        // Search Filter (Order #, Customer Name, Customer Phone, Kitchen Name)
         if ($search !== null && trim($search) !== '') {
-            // Strip any leading text if user enters "Order ID: 15" or just "15"
-            // Let's just do a basic LIKE match on order_number
-            $sql .= " AND o.order_number LIKE :search";
-            $params['search'] = '%' . trim($search) . '%';
+            $term = '%' . trim($search) . '%';
+            $sql .= " AND (o.order_number LIKE :search1 OR u.full_name LIKE :search2 OR u.phone LIKE :search3 OR k.kitchen_name LIKE :search4)";
+            $params['search1'] = $term;
+            $params['search2'] = $term;
+            $params['search3'] = $term;
+            $params['search4'] = $term;
+        }
+
+        // City Filter
+        if ($city !== null && $city !== '' && $city !== 'all') {
+            $sql .= " AND (k.city = :city1 OR a.city = :city2)";
+            $params['city1'] = $city;
+            $params['city2'] = $city;
+        }
+
+        // Delivery / Dispatch Status Filter
+        if ($dispatchStatus !== null && $dispatchStatus !== '' && $dispatchStatus !== 'all') {
+            if ($dispatchStatus === 'no_rider') {
+                $sql .= " AND o.dispatch_status = 'no_rider'";
+            } elseif ($dispatchStatus === 'auto_assigning') {
+                $sql .= " AND o.dispatch_status IN ('cascading', 'broadcasting')";
+            } elseif ($dispatchStatus === 'assigned') {
+                $sql .= " AND o.dispatch_status = 'assigned'";
+            } elseif ($dispatchStatus === 'out_for_delivery') {
+                $sql .= " AND o.delivery_status = 'out_for_delivery'";
+            } elseif ($dispatchStatus === 'unassigned') {
+                $sql .= " AND (o.delivery_partner_id IS NULL OR o.delivery_partner_id = 0)";
+            }
+        }
+
+        // Kitchen Filter
+        if ($kitchenId !== null && $kitchenId > 0) {
+            $sql .= " AND o.kitchen_id = :kitchen_id";
+            $params['kitchen_id'] = $kitchenId;
+        }
+
+        // Payment Status Filter
+        if ($paymentStatus !== null && $paymentStatus !== '' && $paymentStatus !== 'all') {
+            $sql .= " AND o.payment_status = :payment_status";
+            $params['payment_status'] = $paymentStatus;
+        }
+
+        // Date Range Filter
+        if ($dateRange !== null && $dateRange !== '' && $dateRange !== 'all') {
+            if ($dateRange === 'today') {
+                $sql .= " AND DATE(o.created_at) = CURDATE()";
+            } elseif ($dateRange === 'yesterday') {
+                $sql .= " AND DATE(o.created_at) = DATE_SUB(CURDATE(), INTERVAL 1 DAY)";
+            } elseif ($dateRange === '7days') {
+                $sql .= " AND o.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+            } elseif ($dateRange === 'this_month') {
+                $sql .= " AND o.created_at >= DATE_FORMAT(NOW(), '%Y-%m-01 00:00:00')";
+            }
         }
 
         $sql .= " ORDER BY o.created_at DESC LIMIT {$limit}";

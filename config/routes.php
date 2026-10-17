@@ -114,6 +114,7 @@ return [
     'POST /chef/subscription/approve/{id}'=> 'ChefController@approveSubscription',
     'POST /chef/subscription/reject/{id}' => 'ChefController@rejectSubscription',
     'GET /chef/reports'         => 'ChefController@dishReports',
+    'GET /chef/reviews'         => 'ChefController@reviews',
 
     // --- Chef Notification Routes ---
     'GET /chef/notifications'                => 'NotificationController@index',
@@ -197,8 +198,11 @@ return [
     'GET /admin/reviews'        => 'AdminController@reviews',
     'POST /admin/review/delete/{id}' => 'AdminController@deleteReview',
     'GET /admin/reports-center' => 'AdminController@reportsCenter',
-    'POST /admin/reports-center/update' => 'AdminController@updateReportStatus',
-    'GET /admin/zero-waste'     => 'AdminController@zeroWaste',
+    'GET /admin/zero-waste'               => 'AdminController@zeroWaste',
+    'GET /admin/zero-waste/export'        => 'AdminController@exportZeroWaste',
+    'POST /admin/zero-waste/delete/{id}'  => 'AdminController@deleteZeroWasteListing',
+    'POST /admin/zero-waste/expire/{id}'  => 'AdminController@expireZeroWasteListing',
+    'POST /admin/zero-waste/sweep-expired' => 'AdminController@sweepExpiredZeroWaste',
     'GET /admin/ai-recommendations'   => 'AdminController@aiRecommendations',
     'POST /admin/ai-config/update'    => 'AdminController@updateAiConfig',
     'POST /admin/ai-test'             => 'AdminController@testAiRecommendation',
@@ -246,6 +250,8 @@ return [
     'POST /delivery/order/{id}/complete'       => 'DeliveryController@completeDelivery',
     'POST /delivery/order/{id}/failed'         => 'DeliveryController@failedDelivery',
     'POST /delivery/location/update'           => 'DeliveryController@updateLocation',
+    'POST /delivery/set-dummy-location'        => 'DeliveryController@setDummyLocation',
+    'POST /delivery/reset-location'            => 'DeliveryController@resetLocation',
     'GET /delivery/history'                    => 'DeliveryController@history',
 
     // --- Delivery Notification Routes ---

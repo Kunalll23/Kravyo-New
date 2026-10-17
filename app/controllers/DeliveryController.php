@@ -230,12 +230,18 @@ class DeliveryController extends Controller {
         $completedCount   = $this->orderModel->countCompletedDeliveries($partnerId);
         $totalEarnings    = $this->orderModel->getDeliveryEarnings($partnerId);
 
+        require_once APP_PATH . '/models/Kitchen.php';
+        $kitchenModel = new Kitchen();
+        $city = $partner['city'] ?? 'Surat';
+        $cityKitchens = $kitchenModel->findApprovedByCity($city);
+
         $this->render('delivery/dashboard', [
             'title'          => 'Delivery Dashboard',
             'partner'        => $partner,
             'activeOrders'   => $activeOrders,
             'completedCount' => $completedCount,
             'totalEarnings'  => $totalEarnings,
+            'cityKitchens'   => $cityKitchens,
         ]);
     }
 
@@ -304,6 +310,63 @@ class DeliveryController extends Controller {
         ]);
 
         echo json_encode(['success' => true, 'message' => 'Location updated.']);
+    }
+
+    /**
+     * Set dummy/demo location for testing cascade matching
+     * POST /delivery/set-dummy-location
+     */
+    public function setDummyLocation(): void {
+        Middleware::deliveryAuth();
+        Middleware::verifyCsrf();
+
+        header('Content-Type: application/json');
+
+        $partnerId = (int) Session::get('delivery_partner_id');
+        $lat = filter_input(INPUT_POST, 'latitude', FILTER_VALIDATE_FLOAT);
+        $lng = filter_input(INPUT_POST, 'longitude', FILTER_VALIDATE_FLOAT);
+
+        if ($lat === false || $lng === false || $lat < -90 || $lat > 90 || $lng < -180 || $lng > 180) {
+            echo json_encode(['success' => false, 'message' => 'Invalid coordinates.']);
+            exit;
+        }
+
+        // Update database with custom testing coordinates and fresh heartbeat
+        $db = Database::getInstance();
+        $sql = "UPDATE delivery_partners 
+                SET current_latitude = :lat, current_longitude = :lng, 
+                    location_updated_at = NOW(), last_seen_at = NOW() 
+                WHERE id = :id";
+        $stmt = $db->prepare($sql);
+        $stmt->execute(['lat' => $lat, 'lng' => $lng, 'id' => $partnerId]);
+
+        echo json_encode([
+            'success'   => true, 
+            'message'   => 'Dummy location saved successfully.',
+            'latitude'  => $lat,
+            'longitude' => $lng
+        ]);
+        exit;
+    }
+
+    /**
+     * Reset location to live device GPS
+     * POST /delivery/reset-location
+     */
+    public function resetLocation(): void {
+        Middleware::deliveryAuth();
+        Middleware::verifyCsrf();
+
+        header('Content-Type: application/json');
+
+        $partnerId = (int) Session::get('delivery_partner_id');
+        $this->partnerModel->touchHeartbeat($partnerId);
+
+        echo json_encode([
+            'success' => true,
+            'message' => 'Dummy location cleared. Live device GPS restored.'
+        ]);
+        exit;
     }
 
     // ─── Broadcast Dispatch Methods (Phase 12) ───────────────────────────────

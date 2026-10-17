@@ -220,13 +220,19 @@ $city = trim($_GET['city'] ?? '');
                 ? UPLOAD_URL . '/kitchens/' . $k['banner_image'] 
                 : null;
 
+            $cleanField = function(?string $val): string {
+                if ($val === null || $val === '') return '';
+                $dec = html_entity_decode(html_entity_decode($val, ENT_QUOTES | ENT_HTML5, 'UTF-8'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                return trim(preg_replace('/&#0*39;/', "'", $dec));
+            };
+
             $kitchens[] = [
                 'id'             => (int)$k['id'],
-                'name'           => htmlspecialchars($k['kitchen_name'], ENT_QUOTES, 'UTF-8'),
-                'chef_name'      => htmlspecialchars($k['chef_name'], ENT_QUOTES, 'UTF-8'),
-                'address'        => htmlspecialchars($k['address'], ENT_QUOTES, 'UTF-8'),
-                'city'           => htmlspecialchars($k['city'], ENT_QUOTES, 'UTF-8'),
-                'pincode'        => htmlspecialchars($k['pincode'], ENT_QUOTES, 'UTF-8'),
+                'name'           => $cleanField($k['kitchen_name']),
+                'chef_name'      => $cleanField($k['chef_name']),
+                'address'        => $cleanField($k['address']),
+                'city'           => $cleanField($k['city']),
+                'pincode'        => $cleanField($k['pincode']),
                 'latitude'       => (float)$k['latitude'],
                 'longitude'      => (float)$k['longitude'],
                 'distance'       => $distanceKm,
@@ -738,11 +744,21 @@ $city = trim($_GET['city'] ?? '');
             Session::setFlash('success', 'Address deleted successfully.');
         } catch (PDOException $e) {
             // Error 1451 is "Cannot delete or update a parent row: a foreign key constraint fails"
+            // In real-world apps, soft-delete so past order records remain intact while removing it for the customer
             if ($e->getCode() == 23000 || str_contains($e->getMessage(), '1451')) {
-                Session::setFlash('danger', 'Cannot delete this address because it is associated with an existing order or subscription.');
+                $addressModel->update($addressId, ['is_deleted' => 1]);
+                Session::setFlash('success', 'Address deleted successfully.');
             } else {
                 Session::setFlash('danger', 'An error occurred while deleting the address.');
             }
+        }
+
+        // Re-sync session selected_city with remaining active addresses
+        $remainingAddresses = $addressModel->findByUserId($userId);
+        if (!empty($remainingAddresses) && !empty($remainingAddresses[0]['city'])) {
+            Session::set('selected_city', $remainingAddresses[0]['city']);
+        } else {
+            Session::set('selected_city', 'Surat');
         }
 
         $this->redirect('/profile');

@@ -38,17 +38,27 @@ class DeliveryPartner extends Model {
     }
 
     /**
-     * Get all delivery partners with user info (for admin management)
+     * Get all delivery partners with user info (for admin management) with optional status & city filter
      */
-    public function findAllWithUser(?string $status = null): array {
+    public function findAllWithUser(?string $status = null, ?string $city = null): array {
         $sql = "SELECT dp.*, u.full_name, u.email, u.phone, u.status AS user_status
                 FROM {$this->table} dp
                 JOIN delivery_users u ON dp.user_id = u.id";
+        $conditions = [];
         $params = [];
 
-        if ($status !== null) {
-            $sql .= " WHERE dp.verification_status = :status";
+        if ($status !== null && $status !== '' && $status !== 'all') {
+            $conditions[] = "dp.verification_status = :status";
             $params['status'] = $status;
+        }
+
+        if ($city !== null && $city !== '' && $city !== 'all') {
+            $conditions[] = "LOWER(dp.city) = LOWER(:city)";
+            $params['city'] = $city;
+        }
+
+        if (!empty($conditions)) {
+            $sql .= " WHERE " . implode(' AND ', $conditions);
         }
 
         $sql .= " ORDER BY dp.created_at DESC";
@@ -94,6 +104,34 @@ class DeliveryPartner extends Model {
         return $stmt->execute(['is_online' => $isOnline, 'id' => $id]);
     }
 
+    /**
+     * Reset all delivery partners to offline (e.g. system cleanup or admin reset)
+     */
+    public function resetAllOffline(?string $city = null): bool {
+        $sql = "UPDATE {$this->table} SET is_online = 0, is_busy = 0";
+        $params = [];
+        if ($city !== null && $city !== '' && $city !== 'all') {
+            $sql .= " WHERE LOWER(city) = LOWER(:city)";
+            $params['city'] = $city;
+        }
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute($params);
+    }
+
+    /**
+     * Automatically reset stale riders whose last heartbeat is older than threshold (default 5 mins)
+     * or who have never sent a heartbeat
+     */
+    public function cleanupStaleOnlinePartners(int $timeoutMinutes = 5): int {
+        $sql = "UPDATE {$this->table} 
+                SET is_online = 0, is_busy = 0 
+                WHERE is_online = 1 
+                  AND (last_seen_at IS NULL OR last_seen_at < DATE_SUB(NOW(), INTERVAL :mins MINUTE))";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['mins' => $timeoutMinutes]);
+        return $stmt->rowCount();
+    }
+
     public function bulkUpdateOnlineStatus(int $isOnline, ?string $city = null): bool {
         // Mock coordinates for testing to ensure they fall within the 5km radius
         $lat = null;
@@ -102,7 +140,7 @@ class DeliveryPartner extends Model {
             $lat = 21.1702; // Default Surat
             $lng = 72.8311;
             if (strtolower($city) === 'ahmedabad') { $lat = 23.0225; $lng = 72.5714; }
-            if (strtolower($city) === 'vadodara') { $lat = 22.3072; $lng = 73.1812; }
+            if (strtolower($city) === 'bardoli') { $lat = 21.1202; $lng = 73.1127; }
         }
 
         if ($city) {
@@ -136,10 +174,23 @@ class DeliveryPartner extends Model {
      * Get unique list of cities where delivery partners (or users) are located
      */
     public function getAvailableCities(): array {
-        $sql = "SELECT DISTINCT city FROM addresses WHERE city IS NOT NULL AND city != '' ORDER BY city ASC";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute();
-        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $sql = "SELECT DISTINCT city FROM delivery_partners WHERE city IS NOT NULL AND city != ''
+                UNION
+                SELECT DISTINCT city FROM kitchens WHERE city IS NOT NULL AND city != ''
+                UNION
+                SELECT DISTINCT city FROM addresses WHERE city IS NOT NULL AND city != ''
+                ORDER BY city ASC";
+        try {
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+            $cities = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            if (!empty($cities)) {
+                return $cities;
+            }
+        } catch (\Exception $e) {
+            // fallback
+        }
+        return ['Ahmedabad', 'Bardoli', 'Bengaluru', 'Delhi', 'Mumbai', 'Pune', 'Surat'];
     }
 
     /**
@@ -280,7 +331,13 @@ class DeliveryPartner extends Model {
     /**
      * Find eligible riders for a broadcast in a specific city
      */
-    public function findEligibleInCity(string $city): array {
+    public function findEligibleInCity(string $city, array $excludePartnerIds = []): array {
+        $excludeSql = '';
+        if (!empty($excludePartnerIds)) {
+            $placeholders = implode(',', array_map('intval', $excludePartnerIds));
+            $excludeSql = " AND dp.id NOT IN ($placeholders)";
+        }
+
         $sql = "SELECT dp.id
                 FROM {$this->table} dp
                 JOIN delivery_users u ON dp.user_id = u.id
@@ -293,7 +350,8 @@ class DeliveryPartner extends Model {
                   )
                   AND dp.verification_status = 'approved'
                   AND u.status = 'active'
-                  AND dp.last_seen_at >= DATE_SUB(NOW(), INTERVAL 300 SECOND)";
+                  AND dp.last_seen_at >= DATE_SUB(NOW(), INTERVAL 300 SECOND)
+                  {$excludeSql}";
         $stmt = $this->db->prepare($sql);
         $stmt->execute(['city' => $city]);
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
@@ -312,7 +370,7 @@ class DeliveryPartner extends Model {
      * Find and rank candidate riders for Smart Cascade targeted ping
      * Considers distance, completed deliveries, rating, and recency
      */
-    public function findRankedCandidatesForKitchen(float $kitchenLat, float $kitchenLng, string $city, array $excludePartnerIds = [], float $maxRadiusKm = 15.0): array {
+    public function findRankedCandidatesForKitchen(float $kitchenLat, float $kitchenLng, string $city, array $excludePartnerIds = [], float $maxRadiusKm = 25.0): array {
         $excludeSql = '';
         if (!empty($excludePartnerIds)) {
             $placeholders = implode(',', array_map('intval', $excludePartnerIds));

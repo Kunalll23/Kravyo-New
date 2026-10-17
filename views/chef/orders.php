@@ -3,16 +3,46 @@
 
 <section class="py-4" id="chefOrdersLive" data-live-refresh>
     <div class="container">
-        <div class="d-flex align-items-center justify-content-between mb-4">
-            <h2 class="fw-800 mb-0">
-                <i class="bi bi-receipt-cutoff me-2 text-warning"></i>Incoming Orders
-            </h2>
-            <?php if (($statusCounts['pending'] ?? 0) > 0): ?>
-                <span class="badge bg-danger px-3 py-2 fs-6 rounded-pill pulse-badge">
-                    <?= $statusCounts['pending'] ?> New Order<?= $statusCounts['pending'] > 1 ? 's' : '' ?>!
-                </span>
-            <?php endif; ?>
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-4">
+            <div class="d-flex align-items-center gap-3">
+                <h2 class="fw-800 mb-0">
+                    <i class="bi bi-receipt-cutoff me-2 text-warning"></i>Incoming Orders
+                </h2>
+                <?php if (($statusCounts['pending'] ?? 0) > 0): ?>
+                    <span class="badge bg-danger px-3 py-2 fs-6 rounded-pill pulse-badge">
+                        <?= $statusCounts['pending'] ?> New Order<?= $statusCounts['pending'] > 1 ? 's' : '' ?>!
+                    </span>
+                <?php endif; ?>
+            </div>
+
+            <!-- Order Search Bar -->
+            <form action="<?= url('/chef/orders') ?>" method="GET" class="d-flex align-items-center gap-2 m-0" style="min-width: 280px; max-width: 440px;">
+                <?php if (!empty($statusFilter) && $statusFilter !== 'all' && empty($search)): ?>
+                    <input type="hidden" name="status" value="<?= sanitize($statusFilter) ?>">
+                <?php endif; ?>
+                <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                    <input type="text" name="search" class="form-control form-control-sm border-start-0" 
+                           placeholder="Search order #, customer, phone..." 
+                           value="<?= sanitize($search ?? '') ?>">
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary rounded-pill px-3">Search</button>
+                <?php if (!empty($search)): ?>
+                    <a href="<?= url('/chef/orders') ?>" class="btn btn-sm btn-outline-secondary rounded-pill px-2 text-nowrap" title="Reset Search">
+                        <i class="bi bi-x-circle"></i>
+                    </a>
+                <?php endif; ?>
+            </form>
         </div>
+
+        <?php if (!empty($search)): ?>
+            <div class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between rounded-pill mb-3">
+                <span class="small">
+                    <i class="bi bi-funnel-fill me-1"></i> Showing orders matching: <strong>"<?= sanitize($search) ?>"</strong> (<?= count($orders) ?> found)
+                </span>
+                <a href="<?= url('/chef/orders') ?>" class="btn btn-sm btn-outline-secondary py-0 px-2 rounded-pill" style="font-size:0.75rem;">Clear Filter</a>
+            </div>
+        <?php endif; ?>
 
         <!-- Status Filter Tabs -->
         <div class="admin-filter-tabs mb-4">
@@ -31,7 +61,7 @@
                 ?>
                     <li class="nav-item">
                         <a class="nav-link <?= $statusFilter === $key ? 'active' : '' ?>"
-                           href="<?= url('/chef/orders?status=' . $key) ?>">
+                           href="<?= url('/chef/orders?status=' . $key . (!empty($search) ? '&search=' . urlencode($search) : '')) ?>">
                             <i class="bi <?= $tab['icon'] ?> me-1"></i>
                             <?= $tab['label'] ?>
                             <?php if (($statusCounts[$key] ?? 0) > 0): ?>
@@ -74,12 +104,23 @@
                     
                     $exactTime = date('h:i A', strtotime($order['created_at']));
                     ?>
-                    <div class="col-12">
-                        <div class="chef-order-card <?= $order['order_status'] === 'pending' ? 'order-new' : '' ?>">
+                    <?php
+                    $isTargetMatch = (!empty($search) && (stripos($order['order_number'], $search) !== false || (string)$order['id'] === $search));
+                    ?>
+                    <div class="col-12" id="order-<?= $order['id'] ?>">
+                        <div class="chef-order-card <?= $order['order_status'] === 'pending' ? 'order-new' : '' ?> <?= $isTargetMatch ? 'border-2 border-warning shadow-lg' : '' ?>"
+                             <?= $isTargetMatch ? 'style="border: 2.5px solid #f59e0b !important; background-color: #fffdf5 !important;"' : '' ?>>
                             <!-- Order Header -->
                             <div class="d-flex justify-content-between align-items-start mb-3">
                                 <div>
-                                    <h6 class="fw-bold mb-0">#<?= sanitize($order['order_number']) ?></h6>
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <h6 class="fw-bold mb-0">#<?= sanitize($order['order_number']) ?></h6>
+                                        <?php if ($isTargetMatch): ?>
+                                            <span class="badge bg-warning text-dark px-2 py-1 rounded-pill small">
+                                                <i class="bi bi-pin-angle-fill me-1"></i> Target Order
+                                            </span>
+                                        <?php endif; ?>
+                                    </div>
                                     <small class="text-muted fw-bold">
                                         <i class="bi bi-clock me-1"></i><?= $exactTime ?> <span class="text-secondary fw-normal">(<?= $timeAgo ?>)</span>
                                     </small>

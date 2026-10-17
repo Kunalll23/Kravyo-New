@@ -190,6 +190,38 @@ class DispatchService {
             $this->offerModel->markDeclined($orderId, $declinedByPartnerId);
         }
 
+        // If this order is currently in 'broadcasting' state:
+        // A rider declining only marks their offer as declined. Do NOT re-trigger broadcast!
+        if ($order['dispatch_status'] === 'broadcasting') {
+            $timeline = $this->offerModel->getTimelineForOrder($orderId);
+            $hasPending = false;
+            foreach ($timeline as $t) {
+                if ($t['status'] === 'pending') {
+                    $hasPending = true;
+                    break;
+                }
+            }
+            if (!$hasPending) {
+                // Every rider has declined or timed out in Round 4
+                $this->orderModel->setDispatchStatus($orderId, 'no_rider', 4);
+                try {
+                    $kitchenCity = '';
+                    if (!empty($order['kitchen_id'])) {
+                        $k = $this->kitchenModel->find((int)$order['kitchen_id']);
+                        $kitchenCity = $k['city'] ?? '';
+                    }
+                    $notification = new Notification();
+                    $notification->notifyAdmins(
+                        'No Riders Available',
+                        "All riders in {$kitchenCity} declined Order #{$order['order_number']} during Round 4 Broadcast.",
+                        'system_alert',
+                        '/admin/dispatch-monitor?order=' . urlencode($order['order_number']) . ($kitchenCity ? '&city=' . urlencode($kitchenCity) : '')
+                    );
+                } catch (Throwable $e) {}
+            }
+            return true;
+        }
+
         $currentRound = (int)$order['dispatch_round'];
         $nextRound    = $currentRound + 1;
 
@@ -217,18 +249,27 @@ class DispatchService {
         $kitchen = $this->kitchenModel->find((int)$order['kitchen_id']);
         $city = $kitchen['city'] ?? 'Surat';
 
-        $eligiblePartners = $this->partnerModel->findEligibleInCity($city);
+        $excludedRiders = $this->orderModel->getRejectedDriverIds($orderId);
+        
+        // 1. First look for fresh riders in the city who haven't received a targeted ping yet
+        $eligiblePartners = $this->partnerModel->findEligibleInCity($city, $excludedRiders);
+
+        // 2. If all online riders in the city were already pinged 1-by-1 (e.g. Bardoli with 3 riders),
+        // open Round 4 broadcast to ALL active/online riders in the city as a shared priority pool!
+        if (empty($eligiblePartners)) {
+            $eligiblePartners = $this->partnerModel->findEligibleInCity($city);
+        }
 
         if (empty($eligiblePartners)) {
-            // No riders available in the city
-            $this->orderModel->setDispatchStatus($orderId, 'broadcasting', 4);
+            // Truly no riders online in the city at all
+            $this->orderModel->setDispatchStatus($orderId, 'no_rider', 4);
             try {
                 $notification = new Notification();
                 $notification->notifyAdmins(
                     'No Riders Available',
-                    "Order #{$order['order_number']} could not find any active riders in {$city}.",
+                    "Order #{$order['order_number']} could not find any active riders in {$city} (zero riders online or available).",
                     'system_alert',
-                    '/admin/dispatch-monitor'
+                    '/admin/dispatch-monitor?order=' . urlencode($order['order_number']) . '&city=' . urlencode($city)
                 );
             } catch (Throwable $e) {}
             return true;
@@ -281,6 +322,7 @@ class DispatchService {
             try {
                 $order = $this->orderModel->find($orderId);
                 $dp = $this->partnerModel->findWithUser($partnerId);
+                $riderName = $dp['full_name'] ?? 'A rider';
                 if ($dp && !empty($dp['user_id'])) {
                     (new Notification())->createForUser(
                         (int)$dp['user_id'],
@@ -334,18 +376,23 @@ class DispatchService {
                 // 120 seconds total broadcast limit
                 if ($elapsed >= 120) {
                     $round = (int)$order['dispatch_round'];
+                    $orderNo = $order['order_number'] ?? ('#' . $orderId);
                     $this->offerModel->markExpired($orderId, $round);
-                    $this->orderModel->setDispatchStatus($orderId, 'no_rider');
+                    $this->orderModel->setDispatchStatus($orderId, 'no_rider', 4);
 
                     // Escalate to Admin
                     try {
                         $notification = new Notification();
-                        $orderNo = $order['order_number'] ?? $orderId;
+                        $kitchenCity = '';
+                        if (!empty($order['kitchen_id'])) {
+                            $k = $this->kitchenModel->find((int)$order['kitchen_id']);
+                            $kitchenCity = $k['city'] ?? '';
+                        }
                         $notification->notifyAdmins(
                             'No Delivery Partner Found',
                             "Order #{$orderNo} timed out after cascading and broadcast dispatch with no rider accepting.",
                             'system_alert',
-                            '/admin/dispatch-monitor'
+                            '/admin/dispatch-monitor?order=' . urlencode($orderNo) . ($kitchenCity ? '&city=' . urlencode($kitchenCity) : '')
                         );
                         if (!empty($order['kitchen_id'])) {
                             $notification->notifyKitchenOwner(
@@ -386,6 +433,11 @@ class DispatchService {
         foreach ($orders as $order) {
             $orderId = (int)$order['id'];
             $round   = (int)$order['dispatch_round'];
+
+            $excludedRiders = $this->orderModel->getRejectedDriverIds($orderId);
+            if (in_array($partnerId, $excludedRiders, true)) {
+                continue; // Rider already rejected this order
+            }
 
             $checkSql = "SELECT id FROM delivery_offers WHERE order_id = :order_id AND delivery_partner_id = :dp_id";
             $checkStmt = $db->prepare($checkSql);

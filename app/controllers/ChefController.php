@@ -763,16 +763,22 @@ class ChefController extends Controller {
 
         $kitchenId = (int) $kitchen['id'];
 
-        // Get filter from query string
+        // Get search and filter from query string
+        $search = !empty($_GET['search']) ? sanitize(trim($_GET['search'])) : null;
         $statusFilter = $_GET['status'] ?? 'all';
         $validStatuses = ['all', 'pending', 'accepted', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'];
         if (!in_array($statusFilter, $validStatuses)) {
             $statusFilter = 'all';
         }
 
-        // Fetch orders based on filter
+        // If searching without explicit status, default to all statuses so delivered or active orders are found
+        if (!empty($search) && empty($_GET['status'])) {
+            $statusFilter = 'all';
+        }
+
+        // Fetch orders based on filter & search
         $filterStatus = ($statusFilter === 'all') ? null : $statusFilter;
-        $orders = $orderModel->findByKitchenId($kitchenId, $filterStatus);
+        $orders = $orderModel->findByKitchenId($kitchenId, $filterStatus, $search);
 
         // Attach order items and timeline to each order
         foreach ($orders as &$order) {
@@ -800,6 +806,7 @@ class ChefController extends Controller {
             'orders'       => $orders,
             'statusFilter' => $statusFilter,
             'statusCounts' => $statusCounts,
+            'search'       => $search,
         ]);
     }
 
@@ -913,6 +920,29 @@ class ChefController extends Controller {
             $orderModel->updatePaymentStatus($orderId, PAYMENT_STATUS_COMPLETED);
         }
 
+        // ── REFUND PROCESSING ON CHEF REJECTION ───────────────────────────────
+        // When chef rejects a pending order that was already paid online, initiate a refund
+        $chefRejectRefundMessage = '';
+        if (
+            $newStatus === ORDER_STATUS_CANCELLED &&
+            $order['payment_method'] !== PAYMENT_METHOD_COD &&
+            $order['payment_status'] === PAYMENT_STATUS_COMPLETED &&
+            !empty($order['razorpay_payment_id'])
+        ) {
+            require_once APP_PATH . '/services/RazorpayService.php';
+            $amountPaise = (int) round((float) $order['total_amount'] * 100);
+            $refundResult = RazorpayService::processRefund($order['razorpay_payment_id'], $amountPaise);
+
+            if ($refundResult['success']) {
+                $orderModel->updatePaymentStatus($orderId, PAYMENT_STATUS_REFUNDED);
+                $chefRejectRefundMessage = 'Your refund of ₹' . number_format((float)$order['total_amount'], 2) . ' has been initiated (Ref: ' . $refundResult['refund_id'] . '). It will reflect in 5–7 business days.';
+            } else {
+                error_log('[Kravyo] Chef-reject refund failed for order #' . $order['order_number'] . ': ' . $refundResult['error']);
+                $chefRejectRefundMessage = 'We could not process your refund automatically. Please contact support with order number #' . $order['order_number'] . '.';
+            }
+        }
+        // ── END REFUND PROCESSING ──────────────────────────────────────────────
+
         $statusLabels = [
             ORDER_STATUS_ACCEPTED         => 'accepted',
             ORDER_STATUS_PREPARING        => 'marked as preparing',
@@ -930,6 +960,11 @@ class ChefController extends Controller {
             $orderNo     = $order['order_number'];
             $kitchenName = $kitchen['kitchen_name'] ?? 'Your home chef';
 
+            // Build dynamic rejection message based on actual refund outcome
+            $rejectionDetail = !empty($chefRejectRefundMessage)
+                ? $chefRejectRefundMessage
+                : 'Sorry, ' . $kitchenName . ' could not accept your order #' . $orderNo . '.';
+
             $statusNotifs = [
                 ORDER_STATUS_ACCEPTED => [
                     'Order Confirmed! #' . $orderNo,
@@ -937,7 +972,7 @@ class ChefController extends Controller {
                 ],
                 ORDER_STATUS_CANCELLED => [
                     'Order Rejected #' . $orderNo,
-                    'Sorry, ' . $kitchenName . ' could not accept your order #' . $orderNo . '. Any online payment will be refunded.',
+                    $rejectionDetail,
                 ],
             ];
 
@@ -1630,6 +1665,64 @@ class ChefController extends Controller {
         $this->render('chef/dish_reports', [
             'title'   => 'Dish Reports & Feedback',
             'reports' => $reports
+        ]);
+    }
+
+    /**
+     * Customer Reviews & Feedback Dashboard for Chef
+     * GET /chef/reviews
+     */
+    public function reviews(): void {
+        $userId  = Session::get('user_id');
+        $kitchen = $this->kitchenModel->findByUserId($userId);
+
+        if (!$kitchen) {
+            Session::setFlash('danger', 'You must create a kitchen profile first.');
+            $this->redirect('/chef/profile');
+            return;
+        }
+
+        $kitchenId = (int) $kitchen['id'];
+
+        require_once APP_PATH . '/models/Review.php';
+        require_once APP_PATH . '/models/MenuItem.php';
+
+        $reviewModel   = new Review();
+        $menuItemModel = new MenuItem();
+
+        // Collect filters from GET
+        $dishId    = !empty($_GET['dish_id']) ? (int) $_GET['dish_id'] : null;
+        $rating    = !empty($_GET['rating']) ? sanitize($_GET['rating']) : null;
+        $timeRange = !empty($_GET['time_range']) ? sanitize($_GET['time_range']) : 'all';
+        $startDate = !empty($_GET['start_date']) ? sanitize($_GET['start_date']) : null;
+        $endDate   = !empty($_GET['end_date']) ? sanitize($_GET['end_date']) : null;
+        $sort      = !empty($_GET['sort']) ? sanitize($_GET['sort']) : 'recent';
+        $search    = !empty($_GET['search']) ? sanitize($_GET['search']) : null;
+
+        $filters = [
+            'dish_id'    => $dishId,
+            'rating'     => $rating,
+            'time_range' => $timeRange,
+            'start_date' => $startDate,
+            'end_date'   => $endDate,
+            'sort'       => $sort,
+            'search'     => $search,
+        ];
+
+        // Fetch data
+        $reviews       = $reviewModel->findFilteredForChef($kitchenId, $filters);
+        $metrics       = $reviewModel->getKitchenReviewMetrics($kitchenId);
+        $dishSummaries = $reviewModel->getDishRatingsSummary($kitchenId);
+        $menuItems     = $menuItemModel->findByKitchenId($kitchenId);
+
+        $this->render('chef/reviews', [
+            'title'         => 'Customer Reviews & Feedback',
+            'kitchen'       => $kitchen,
+            'reviews'       => $reviews,
+            'metrics'       => $metrics,
+            'dishSummaries' => $dishSummaries,
+            'menuItems'     => $menuItems,
+            'filters'       => $filters,
         ]);
     }
 }

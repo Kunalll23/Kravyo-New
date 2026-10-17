@@ -63,21 +63,6 @@
         </div>
     </div>
 
-    <!-- Live Dispatch Monitor Call-To-Action -->
-    <div class="card kravyo-card border-0 mb-4 border border-warning shadow-sm">
-        <div class="card-header bg-warning text-dark fw-bold d-flex justify-content-between align-items-center">
-            <span><i class="bi bi-broadcast"></i> Live Dispatch Monitor (Auto-Cascading)</span>
-            <span class="badge bg-danger pulse-animation">LIVE</span>
-        </div>
-        <div class="card-body text-center py-5">
-            <h5 class="fw-bold mb-3">Real-Time Delivery & Dispatch Tracking</h5>
-            <p class="text-muted mb-4">View live rider GPS coordinates, online/busy statuses, and monitor auto-cascading dispatch broadcasts to riders in real-time.</p>
-            <a href="<?= url('/admin/dispatch-monitor') ?>" class="btn btn-warning btn-lg fw-bold px-5 shadow-sm">
-                <i class="bi bi-display me-2"></i> Open Full Dispatch Board
-            </a>
-        </div>
-    </div>
-
     <!-- Pending Kitchens Quick List -->
     <div class="card kravyo-card border-0">
         <div class="card-body p-4">
@@ -172,55 +157,99 @@
             </a>
         </div>
     </div>
-</div>
-
-<!-- Module 3.11 — Admin Broadcast Notification -->
+</div><!-- Module 3.11 — Targeted Broadcast & Push Console (Swiggy / Zomato Ops Standard) -->
 <div class="container pb-5">
     <div class="row">
         <div class="col-lg-8 offset-lg-2">
-            <div class="card border-0 shadow-sm">
-                <div class="card-header bg-dark text-white d-flex align-items-center gap-2">
-                    <i class="bi bi-megaphone-fill text-warning"></i>
-                    <span class="fw-bold">Broadcast Notification to All Users</span>
-                    <span class="badge bg-warning text-dark ms-auto">Module 3.11</span>
+            <div class="card border-0 shadow-sm rounded-3 overflow-hidden">
+                <div class="card-header bg-dark text-white d-flex align-items-center gap-2 py-3">
+                    <i class="bi bi-megaphone-fill text-warning fs-5"></i>
+                    <div>
+                        <div class="fw-bold">Targeted Broadcast & Push Console</div>
+                        <div class="text-white-50 small" style="font-size:0.75rem;">Send targeted marketing campaigns, weather alerts, or operational updates</div>
+                    </div>
+                    <span class="badge bg-warning text-dark ms-auto fw-bold">Swiggy/Zomato Ops Style</span>
                 </div>
                 <div class="card-body p-4">
-                    <form action="<?= url('/admin/broadcast') ?>" method="POST">
+                    <form action="<?= url('/admin/broadcast') ?>" method="POST" id="broadcastForm">
                         <?= csrf_field() ?>
                         <div class="row g-3">
-                            <div class="col-md-8">
-                                <label class="form-label fw-semibold" for="bc_title">Notification Title</label>
+                            <!-- Notification Title -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold" for="bc_title">Notification Title <span class="text-danger">*</span></label>
                                 <input type="text"
                                        id="bc_title"
                                        name="title"
                                        class="form-control"
                                        maxlength="100"
-                                       placeholder="e.g. Weekend Special Discount!"
+                                       placeholder="e.g. Weekend Flat 20% Off or Heavy Rain Delay"
                                        required>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label fw-semibold" for="bc_type">Type</label>
+
+                            <!-- Notification Type -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold" for="bc_type">Category / Type</label>
                                 <select id="bc_type" name="type" class="form-select">
-                                    <option value="promotion">🎉 Promotion</option>
-                                    <option value="system_alert">⚠️ System Alert</option>
-                                    <option value="kitchen_update">🍳 Kitchen Update</option>
+                                    <option value="promotion">🎉 Promotion / Discount Offer</option>
+                                    <option value="system_alert">⚠️ System Alert / Weather Delay</option>
+                                    <option value="kitchen_update">🍳 Kitchen Policy / Hygiene Update</option>
+                                    <option value="order_update">🛵 Rider Incentive / Operations Notice</option>
                                 </select>
                             </div>
+
+                            <!-- Target Audience (Swiggy / Zomato Style) -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold" for="bc_audience">
+                                    <i class="bi bi-people-fill text-primary me-1"></i>Target Audience
+                                </label>
+                                <select id="bc_audience" name="target_audience" class="form-select" onchange="updateBroadcastSummary()">
+                                    <option value="all">🌐 Everyone (All Active Users)</option>
+                                    <option value="customers">👥 Customers Only (Promos & Discounts)</option>
+                                    <option value="chefs">🍳 Chefs Only (Kitchen Policies & Standards)</option>
+                                    <option value="delivery">🛵 Delivery Partners Only (Incentives & Road Alerts)</option>
+                                </select>
+                            </div>
+
+                            <!-- Target City (Swiggy / Zomato Style) -->
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold" for="bc_city">
+                                    <i class="bi bi-geo-alt-fill text-danger me-1"></i>Target City
+                                </label>
+                                <select id="bc_city" name="target_city" class="form-select" onchange="updateBroadcastSummary()">
+                                    <option value="all">📍 All Cities (Statewide / Platform-wide)</option>
+                                    <?php if (!empty($cities)): ?>
+                                        <?php foreach ($cities as $c): ?>
+                                            <option value="<?= sanitize($c) ?>"><?= sanitize($c) ?></option>
+                                        <?php endforeach; ?>
+                                    <?php else: ?>
+                                        <option value="Surat">Surat</option>
+                                        <option value="Bardoli">Bardoli</option>
+                                    <?php endif; ?>
+                                </select>
+                            </div>
+
+                            <!-- Message Content -->
                             <div class="col-12">
-                                <label class="form-label fw-semibold" for="bc_message">Message</label>
+                                <label class="form-label fw-semibold" for="bc_message">Broadcast Message <span class="text-danger">*</span></label>
                                 <textarea id="bc_message"
                                           name="message"
                                           class="form-control"
                                           rows="3"
                                           maxlength="500"
-                                          placeholder="Write your announcement here…"
+                                          placeholder="Write your announcement here..."
                                           required></textarea>
-                                <div class="form-text text-muted">This will be sent to all active customers and chefs.</div>
+                                <div class="d-flex justify-content-between align-items-center mt-1">
+                                    <div class="form-text text-muted" id="broadcastAudienceSummary">
+                                        <i class="bi bi-info-circle me-1"></i>Notice will be delivered to: <strong>Everyone</strong> across <strong>All Cities</strong>.
+                                    </div>
+                                    <small class="text-muted"><span id="charCount">0</span>/500</small>
+                                </div>
                             </div>
-                            <div class="col-12 text-end">
-                                <button type="submit" class="btn btn-warning fw-bold px-4"
-                                        onclick="return confirm('Send this broadcast to ALL active users?')">
-                                    <i class="bi bi-send-fill me-2"></i>Send Broadcast
+
+                            <!-- Submit Button -->
+                            <div class="col-12 text-end pt-2 border-top">
+                                <button type="submit" class="btn btn-warning fw-bold px-4 shadow-sm" id="sendBroadcastBtn">
+                                    <i class="bi bi-send-fill me-2"></i>Send Targeted Broadcast
                                 </button>
                             </div>
                         </div>
@@ -230,3 +259,28 @@
         </div>
     </div>
 </div>
+
+<script>
+function updateBroadcastSummary() {
+    const audienceSelect = document.getElementById('bc_audience');
+    const citySelect = document.getElementById('bc_city');
+    const summaryEl = document.getElementById('broadcastAudienceSummary');
+    
+    const audienceText = audienceSelect.options[audienceSelect.selectedIndex].text.replace(/\(.*\)/, '').trim();
+    const cityText = citySelect.options[citySelect.selectedIndex].text.replace(/\(.*\)/, '').trim();
+    
+    summaryEl.innerHTML = `<i class="bi bi-info-circle me-1 text-primary"></i>Notice will be delivered to: <strong>${audienceText}</strong> in <strong>${cityText}</strong>.`;
+}
+
+document.getElementById('bc_message').addEventListener('input', function() {
+    document.getElementById('charCount').textContent = this.value.length;
+});
+
+document.getElementById('broadcastForm').addEventListener('submit', function(e) {
+    const audienceText = document.getElementById('bc_audience').options[document.getElementById('bc_audience').selectedIndex].text;
+    const cityText = document.getElementById('bc_city').options[document.getElementById('bc_city').selectedIndex].text;
+    if (!confirm(`Are you sure you want to broadcast this notification to:\n\nTarget: ${audienceText}\nCity: ${cityText}`)) {
+        e.preventDefault();
+    }
+});
+</script>

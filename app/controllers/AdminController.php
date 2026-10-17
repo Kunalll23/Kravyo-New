@@ -49,10 +49,18 @@ class AdminController extends Controller {
 
         $pendingKitchens = $this->kitchenModel->findPendingKitchens();
 
+        // Fetch cities for targeted broadcast console
+        $db = Database::getInstance();
+        $cities = $db->query("SELECT DISTINCT city FROM kitchens WHERE city IS NOT NULL AND city != '' UNION SELECT DISTINCT city FROM addresses WHERE city IS NOT NULL AND city != '' ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($cities)) {
+            $cities = ['Surat', 'Bardoli', 'Ahmedabad', 'Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Jaipur', 'Hyderabad'];
+        }
+
         $this->render('admin/dashboard', [
             'title'          => 'Admin Dashboard',
             'stats'          => $stats,
-            'pendingKitchens'=> $pendingKitchens
+            'pendingKitchens'=> $pendingKitchens,
+            'cities'         => $cities,
         ]);
     }
 
@@ -178,7 +186,7 @@ class AdminController extends Controller {
     // ---- Placeholder methods for future phases ----
 
     /**
-     * All platform orders listing with status filter
+     * All platform orders listing with status, city, dispatch, kitchen, payment, and date filters
      * GET /admin/orders
      */
     public function orders(): void {
@@ -186,17 +194,40 @@ class AdminController extends Controller {
         $orderModel = new Order();
 
         $statusFilter = sanitize($_GET['status'] ?? 'all');
-        $validStatuses = ['all', 'pending', 'accepted', 'preparing', 'out_for_delivery', 'delivered', 'cancelled'];
-        if (!in_array($statusFilter, $validStatuses)) {
+        $validStatuses = ['all', 'pending', 'accepted', 'preparing', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'cancelled'];
+        if (!in_array($statusFilter, $validStatuses, true)) {
             $statusFilter = 'all';
         }
 
-        $filterStatus = ($statusFilter === 'all') ? null : $statusFilter;
-        $searchQuery  = isset($_GET['search']) ? sanitize($_GET['search']) : null;
+        $filterStatus   = ($statusFilter === 'all') ? null : $statusFilter;
+        $searchQuery    = isset($_GET['search']) ? sanitize($_GET['search']) : null;
+        $cityFilter     = (!empty($_GET['city']) && $_GET['city'] !== 'all') ? sanitize($_GET['city']) : null;
+        $dispatchFilter = (!empty($_GET['dispatch_status']) && $_GET['dispatch_status'] !== 'all') ? sanitize($_GET['dispatch_status']) : null;
+        $kitchenFilter  = (!empty($_GET['kitchen_id']) && (int)$_GET['kitchen_id'] > 0) ? (int)$_GET['kitchen_id'] : null;
+        $paymentFilter  = (!empty($_GET['payment_status']) && $_GET['payment_status'] !== 'all') ? sanitize($_GET['payment_status']) : null;
+        $dateFilter     = (!empty($_GET['date_range']) && $_GET['date_range'] !== 'all') ? sanitize($_GET['date_range']) : null;
         
-        $orders       = $orderModel->findAllWithDetails($filterStatus, $searchQuery, 150);
+        $orders = $orderModel->findAllWithDetails(
+            $filterStatus,
+            $searchQuery,
+            200,
+            $cityFilter,
+            $dispatchFilter,
+            $kitchenFilter,
+            $paymentFilter,
+            $dateFilter
+        );
         $orderStats   = $orderModel->getPlatformOrderStats();
         $totalOrders  = array_sum($orderStats);
+
+        // Fetch cities and kitchens for filter dropdowns
+        $db = Database::getInstance();
+        $cities = $db->query("SELECT DISTINCT city FROM kitchens WHERE city IS NOT NULL AND city != '' UNION SELECT DISTINCT city FROM addresses WHERE city IS NOT NULL AND city != '' ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($cities)) {
+            $cities = ['Surat', 'Bardoli', 'Ahmedabad', 'Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Jaipur', 'Hyderabad'];
+        }
+
+        $kitchens = $db->query("SELECT id, kitchen_name, city FROM kitchens ORDER BY kitchen_name ASC")->fetchAll();
 
         require_once APP_PATH . '/models/DeliveryPartner.php';
         $dpModel = new DeliveryPartner();
@@ -207,6 +238,13 @@ class AdminController extends Controller {
             'orders'                    => $orders,
             'statusFilter'              => $statusFilter,
             'searchQuery'               => $searchQuery,
+            'cityFilter'                => $cityFilter,
+            'dispatchFilter'            => $dispatchFilter,
+            'kitchenFilter'             => $kitchenFilter,
+            'paymentFilter'             => $paymentFilter,
+            'dateFilter'                => $dateFilter,
+            'cities'                    => $cities,
+            'kitchens'                  => $kitchens,
             'orderStats'                => $orderStats,
             'totalOrders'               => $totalOrders,
             'availableDeliveryPartners' => $availableDeliveryPartners,
@@ -221,50 +259,84 @@ class AdminController extends Controller {
         $dispatchService = new DispatchService();
         // Sweep expired
         $dispatchService->sweepExpired();
+
+        $db = Database::getInstance();
+        $cities = $db->query("SELECT DISTINCT city FROM delivery_partners WHERE city IS NOT NULL AND city != '' ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($cities)) {
+            $cities = ['Surat', 'Bardoli', 'Ahmedabad', 'Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Jaipur', 'Hyderabad'];
+        }
         
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
             header('Content-Type: application/json');
-            $db = Database::getInstance();
             
-            $city = $_GET['city'] ?? 'Surat';
-            $sql = "SELECT dp.*, u.full_name, u.phone, u.email 
-                    FROM delivery_partners dp 
-                    JOIN delivery_users u ON dp.user_id = u.id 
-                    WHERE dp.city = :city";
-            $stmt = $db->prepare($sql);
-            $stmt->execute(['city' => $city]);
+            $city = trim($_GET['city'] ?? '');
+            if (!empty($city) && $city !== 'all') {
+                $sql = "SELECT dp.*, u.full_name, u.phone, u.email 
+                        FROM delivery_partners dp 
+                        JOIN delivery_users u ON dp.user_id = u.id 
+                        WHERE dp.city = :city
+                        ORDER BY dp.is_online DESC, dp.is_busy ASC, u.full_name ASC";
+                $stmt = $db->prepare($sql);
+                $stmt->execute(['city' => $city]);
+            } else {
+                $sql = "SELECT dp.*, u.full_name, u.phone, u.email 
+                        FROM delivery_partners dp 
+                        JOIN delivery_users u ON dp.user_id = u.id 
+                        ORDER BY dp.city ASC, dp.is_online DESC, u.full_name ASC";
+                $stmt = $db->prepare($sql);
+                $stmt->execute();
+            }
             $riders = $stmt->fetchAll();
             
             $offerModel = new DeliveryOffer();
-            // Fetch live orders, ordered by newest first
-            $ordersSql = "SELECT * FROM orders WHERE dispatch_status IN ('cascading', 'broadcasting', 'no_rider', 'assigned') ORDER BY id DESC";
+            // Fetch live orders with kitchen and customer details, ordered by newest first
+            $ordersSql = "SELECT o.*, 
+                                 k.kitchen_name, k.city AS kitchen_city, k.address AS kitchen_address,
+                                 c.full_name AS customer_name, c.phone AS customer_phone,
+                                 a.street_address AS delivery_address, a.city AS delivery_city,
+                                 du.full_name AS assigned_rider_name, du.phone AS assigned_rider_phone
+                          FROM orders o
+                          LEFT JOIN kitchens k ON o.kitchen_id = k.id
+                          LEFT JOIN customers c ON o.customer_id = c.id
+                          LEFT JOIN addresses a ON o.address_id = a.id
+                          LEFT JOIN delivery_partners dp ON o.delivery_partner_id = dp.id
+                          LEFT JOIN delivery_users du ON dp.user_id = du.id
+                          WHERE o.dispatch_status IN ('cascading', 'broadcasting', 'no_rider', 'assigned')
+                          ORDER BY o.id DESC";
             $orders = $db->query($ordersSql)->fetchAll();
             
             $liveOrders = [];
             foreach ($orders as $order) {
-                // If it's assigned, only show it for a short time or keep it in the list if recently assigned
-                if ($order['dispatch_status'] === 'assigned' && strtotime($order['updated_at']) < time() - 3600) {
+                // If it's assigned, only show it for a short time or keep it in the list if recently assigned (within 1 hour)
+                if ($order['dispatch_status'] === 'assigned' && strtotime($order['updated_at'] ?? $order['created_at']) < time() - 3600) {
                     continue;
                 }
                 
-                // If it's no_rider, remove it from the live board after 1 hour so it doesn't clutter
-                if ($order['dispatch_status'] === 'no_rider' && strtotime($order['updated_at']) < time() - 3600) {
+                // If it's no_rider, remove it from the live board after 2 hours
+                if ($order['dispatch_status'] === 'no_rider' && strtotime($order['updated_at'] ?? $order['created_at']) < time() - 7200) {
                     continue;
                 }
                 
                 $timeline = $offerModel->getTimelineForOrder($order['id']);
                 $liveOrders[] = [
-                    'order' => $order,
+                    'order'    => $order,
                     'timeline' => $timeline
                 ];
             }
             
-            echo json_encode(['success' => true, 'riders' => $riders, 'orders' => $liveOrders]);
+            echo json_encode([
+                'success' => true, 
+                'cities'  => $cities,
+                'riders'  => $riders, 
+                'orders'  => $liveOrders
+            ]);
             exit;
         }
 
         View::render('admin/dispatch_board', [
-            'title' => 'Live Dispatch Board'
+            'title'       => 'Live Dispatch Board',
+            'cities'      => $cities,
+            'defaultCity' => 'Surat'
         ]);
     }
 
@@ -556,13 +628,20 @@ class AdminController extends Controller {
     public function broadcast(): void {
         Middleware::verifyCsrf();
 
-        $title   = trim($_POST['title']   ?? '');
-        $message = trim($_POST['message'] ?? '');
-        $type    = $_POST['type'] ?? 'promotion';
+        $title    = trim($_POST['title']   ?? '');
+        $message  = trim($_POST['message'] ?? '');
+        $type     = $_POST['type'] ?? 'promotion';
+        $audience = $_POST['target_audience'] ?? 'all';
+        $city     = trim($_POST['target_city'] ?? 'all');
 
         $allowedTypes = ['promotion', 'system_alert', 'order_update', 'kitchen_update'];
         if (!in_array($type, $allowedTypes, true)) {
             $type = 'promotion';
+        }
+
+        $allowedAudiences = ['all', 'customers', 'chefs', 'delivery'];
+        if (!in_array($audience, $allowedAudiences, true)) {
+            $audience = 'all';
         }
 
         if (empty($title) || empty($message)) {
@@ -573,26 +652,69 @@ class AdminController extends Controller {
 
         require_once APP_PATH . '/models/Notification.php';
         $notifModel = new Notification();
-        $count = $notifModel->broadcast($title, $message, $type);
-        Session::setFlash('success', 'Announcement broadcasted successfully to users.');
+        $count = $notifModel->broadcastTargeted($title, $message, $type, $audience, $city);
+        
+        $cityLabel = ($city === 'all') ? 'all cities' : $city;
+        $audienceLabel = [
+            'all'       => 'all active users',
+            'customers' => 'customers',
+            'chefs'     => 'chefs',
+            'delivery'  => 'delivery partners'
+        ][$audience] ?? 'users';
+
+        Session::setFlash('success', "Targeted broadcast sent successfully to {$count} {$audienceLabel} in {$cityLabel}.");
         $this->redirect('/admin/dashboard');
     }
 
     // ─── Admin Review Management ────────────────────────────────────────────────
 
     /**
-     * View all reviews across the platform
+     * View all reviews across the platform with analytics & rich filtering
      * GET /admin/reviews
      */
     public function reviews(): void {
         require_once APP_PATH . '/models/Review.php';
         $reviewModel = new Review();
-        
-        $reviews = $reviewModel->findAllWithDetails();
+        $db = Database::getInstance();
+
+        // Extract filters
+        $kitchenId = !empty($_GET['kitchen_id']) ? (int) $_GET['kitchen_id'] : null;
+        $city      = (!empty($_GET['city']) && $_GET['city'] !== 'all') ? sanitize($_GET['city']) : null;
+        $rating    = !empty($_GET['rating']) ? sanitize($_GET['rating']) : null;
+        $timeRange = !empty($_GET['time_range']) ? sanitize($_GET['time_range']) : 'all';
+        $startDate = !empty($_GET['start_date']) ? sanitize($_GET['start_date']) : null;
+        $endDate   = !empty($_GET['end_date']) ? sanitize($_GET['end_date']) : null;
+        $search    = !empty($_GET['search']) ? sanitize(trim($_GET['search'])) : null;
+        $sort      = !empty($_GET['sort']) ? sanitize($_GET['sort']) : 'recent';
+
+        $filters = [
+            'kitchen_id' => $kitchenId,
+            'city'       => $city,
+            'rating'     => $rating,
+            'time_range' => $timeRange,
+            'start_date' => $startDate,
+            'end_date'   => $endDate,
+            'search'     => $search,
+            'sort'       => $sort,
+        ];
+
+        $reviews = $reviewModel->findFilteredForAdmin($filters);
+        $metrics = $reviewModel->getPlatformReviewMetrics();
+
+        // Dropdown lists
+        $kitchens = $db->query("SELECT id, kitchen_name, city FROM kitchens ORDER BY kitchen_name ASC")->fetchAll();
+        $cities = $db->query("SELECT DISTINCT city FROM kitchens WHERE city IS NOT NULL AND city != '' UNION SELECT DISTINCT city FROM addresses WHERE city IS NOT NULL AND city != '' ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($cities)) {
+            $cities = ['Surat', 'Bardoli', 'Ahmedabad', 'Mumbai', 'Delhi', 'Bangalore', 'Pune'];
+        }
 
         $this->render('admin/reviews', [
-            'title'   => 'Admin - Review Management',
-            'reviews' => $reviews
+            'title'     => 'Admin - Review Management',
+            'reviews'   => $reviews,
+            'metrics'   => $metrics,
+            'kitchens'  => $kitchens,
+            'cities'    => $cities,
+            'filters'   => $filters,
         ]);
     }
 
@@ -634,27 +756,202 @@ class AdminController extends Controller {
     public function zeroWaste(): void {
         require_once APP_PATH . '/models/ZeroWasteItem.php';
         $zwModel = new ZeroWasteItem();
+        $db = Database::getInstance();
 
-        // Optional status filter
-        $statusFilter = sanitize($_GET['status'] ?? 'all');
+        // Extract filters
+        $status    = sanitize($_GET['status'] ?? 'all');
         $validStatuses = ['all', 'active', 'sold_out', 'expired'];
-        if (!in_array($statusFilter, $validStatuses, true)) {
-            $statusFilter = 'all';
+        if (!in_array($status, $validStatuses, true)) {
+            $status = 'all';
         }
 
-        $filterParam = ($statusFilter === 'all') ? null : $statusFilter;
+        $search    = !empty($_GET['search']) ? sanitize(trim($_GET['search'])) : null;
+        $city      = (!empty($_GET['city']) && $_GET['city'] !== 'all') ? sanitize($_GET['city']) : null;
+        $kitchenId = !empty($_GET['kitchen_id']) ? (int) $_GET['kitchen_id'] : null;
+        $timeRange = !empty($_GET['time_range']) ? sanitize($_GET['time_range']) : 'all';
 
-        $listings    = $zwModel->findAllWithAdminDetails($filterParam);
+        $filters = [
+            'status'     => ($status === 'all') ? null : $status,
+            'search'     => $search,
+            'city'       => $city,
+            'kitchen_id' => $kitchenId,
+            'time_range' => $timeRange,
+        ];
+
+        $listings    = $zwModel->findAllWithAdminDetails($filters);
         $stats       = $zwModel->getPlatformStats();
         $byKitchen   = $zwModel->getStatsByKitchen();
+
+        // Dropdown lists
+        $kitchens = $db->query("SELECT id, kitchen_name, city FROM kitchens ORDER BY kitchen_name ASC")->fetchAll();
+        $cities = $db->query("SELECT DISTINCT city FROM kitchens WHERE city IS NOT NULL AND city != '' UNION SELECT DISTINCT city FROM addresses WHERE city IS NOT NULL AND city != '' ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($cities)) {
+            $cities = ['Surat', 'Bardoli', 'Ahmedabad', 'Mumbai', 'Delhi', 'Bangalore', 'Pune'];
+        }
 
         $this->render('admin/zero_waste', [
             'title'        => 'Zero Waste Management',
             'listings'     => $listings,
             'stats'        => $stats,
             'byKitchen'    => $byKitchen,
-            'statusFilter' => $statusFilter,
+            'statusFilter' => $status,
+            'filters'      => [
+                'status'     => $status,
+                'search'     => $search ?? '',
+                'city'       => $city ?? '',
+                'kitchen_id' => $kitchenId,
+                'time_range' => $timeRange,
+            ],
+            'kitchens'     => $kitchens,
+            'cities'       => $cities,
         ]);
+    }
+
+    /**
+     * Export Zero Waste listings as CSV report
+     * GET /admin/zero-waste/export
+     */
+    public function exportZeroWaste(): void {
+        require_once APP_PATH . '/models/ZeroWasteItem.php';
+        $zwModel = new ZeroWasteItem();
+
+        $status    = sanitize($_GET['status'] ?? 'all');
+        $search    = !empty($_GET['search']) ? sanitize(trim($_GET['search'])) : null;
+        $city      = (!empty($_GET['city']) && $_GET['city'] !== 'all') ? sanitize($_GET['city']) : null;
+        $kitchenId = !empty($_GET['kitchen_id']) ? (int) $_GET['kitchen_id'] : null;
+        $timeRange = !empty($_GET['time_range']) ? sanitize($_GET['time_range']) : 'all';
+
+        $filters = [
+            'status'     => ($status === 'all') ? null : $status,
+            'search'     => $search,
+            'city'       => $city,
+            'kitchen_id' => $kitchenId,
+            'time_range' => $timeRange,
+        ];
+
+        $listings = $zwModel->findAllWithAdminDetails($filters);
+
+        if (ob_get_level()) {
+            ob_end_clean();
+        }
+
+        $filename = 'kravyo_zero_waste_report_' . date('Ymd_His') . '.csv';
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        $out = fopen('php://output', 'w');
+        // UTF-8 BOM for Excel
+        fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
+
+        fputcsv($out, [
+            'Listing ID',
+            'Food Item',
+            'Dietary',
+            'Kitchen Name',
+            'City',
+            'Original Price (INR)',
+            'Discounted Price (INR)',
+            'Discount %',
+            'Quantity Available',
+            'Orders Rescued',
+            'Expiry Date Time',
+            'Status',
+            'Listed Date'
+        ]);
+
+        foreach ($listings as $item) {
+            fputcsv($out, [
+                '#' . $item['id'],
+                $item['item_name'],
+                !empty($item['is_veg']) ? 'Vegetarian' : 'Non-Vegetarian',
+                $item['kitchen_name'],
+                $item['city'],
+                number_format((float)$item['original_price'], 2, '.', ''),
+                number_format((float)$item['discounted_price'], 2, '.', ''),
+                $item['discount_pct'] . '%',
+                $item['quantity'],
+                $item['claimed_qty'] ?? 0,
+                $item['expiry_time'],
+                ucwords(str_replace('_', ' ', $item['status'])),
+                $item['created_at']
+            ]);
+        }
+
+        fclose($out);
+        exit;
+    }
+
+    /**
+     * Delete a zero waste listing
+     * POST /admin/zero-waste/delete/{id}
+     */
+    public function deleteZeroWasteListing(string $id): void {
+        Middleware::verifyCsrf();
+
+        require_once APP_PATH . '/models/ZeroWasteItem.php';
+        $zwModel = new ZeroWasteItem();
+        $listingId = (int)$id;
+
+        $listing = $zwModel->find($listingId);
+        if (!$listing) {
+            Session::setFlash('danger', 'Zero Waste listing not found.');
+            $this->redirect('/admin/zero-waste');
+            return;
+        }
+
+        try {
+            $zwModel->delete($listingId);
+            Session::setFlash('success', 'Zero Waste listing #' . $listingId . ' deleted successfully.');
+        } catch (Exception $e) {
+            Session::setFlash('danger', 'Failed to delete listing: ' . $e->getMessage());
+        }
+
+        $this->redirect('/admin/zero-waste');
+    }
+
+    /**
+     * Force-expire an active listing
+     * POST /admin/zero-waste/expire/{id}
+     */
+    public function expireZeroWasteListing(string $id): void {
+        Middleware::verifyCsrf();
+
+        require_once APP_PATH . '/models/ZeroWasteItem.php';
+        $zwModel = new ZeroWasteItem();
+        $listingId = (int)$id;
+
+        $listing = $zwModel->find($listingId);
+        if (!$listing) {
+            Session::setFlash('danger', 'Zero Waste listing not found.');
+            $this->redirect('/admin/zero-waste');
+            return;
+        }
+
+        if ($zwModel->forceExpire($listingId)) {
+            Session::setFlash('success', 'Listing #' . $listingId . ' marked as expired.');
+        } else {
+            Session::setFlash('danger', 'Failed to update listing status.');
+        }
+
+        $this->redirect('/admin/zero-waste');
+    }
+
+    /**
+     * Sweep stale listings whose expiry time has passed
+     * POST /admin/zero-waste/sweep-expired
+     */
+    public function sweepExpiredZeroWaste(): void {
+        Middleware::verifyCsrf();
+
+        require_once APP_PATH . '/models/ZeroWasteItem.php';
+        $zwModel = new ZeroWasteItem();
+        $zwModel->markExpired();
+
+        Session::setFlash('success', 'Past-expiry Zero Waste deals swept and updated.');
+        $this->redirect('/admin/zero-waste');
     }
 
     // ─── Admin AI Recommendation Management (Module 3.7) ──────────────────────
@@ -868,14 +1165,20 @@ class AdminController extends Controller {
         require_once APP_PATH . '/models/DeliveryPartner.php';
         $dpModel = new DeliveryPartner();
 
-        $statusFilter = $_GET['status'] ?? null;
-        $partners = $dpModel->findAllWithUser($statusFilter);
+        // Automatic live staleness cleanup: any rider without a heartbeat in the last 5 mins is marked offline
+        $dpModel->cleanupStaleOnlinePartners(5);
+
+        $statusFilter = !empty($_GET['status']) ? sanitize($_GET['status']) : null;
+        $cityFilter   = (!empty($_GET['city']) && $_GET['city'] !== 'all') ? sanitize($_GET['city']) : null;
+
+        $partners = $dpModel->findAllWithUser($statusFilter, $cityFilter);
         $availableCities = $dpModel->getAvailableCities();
 
         $this->render('admin/delivery_partners', [
             'title'           => 'Delivery Partners',
             'partners'        => $partners,
             'statusFilter'    => $statusFilter,
+            'cityFilter'      => $cityFilter,
             'availableCities' => $availableCities,
         ]);
     }

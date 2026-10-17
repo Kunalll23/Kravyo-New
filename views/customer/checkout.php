@@ -1,4 +1,10 @@
 <!-- Phase 6: Checkout Page — Address Selection & Payment Method -->
+<?php
+    // Kitchen GPS injected for frontend 15 km delivery range check
+    $checkoutKitchenLat = isset($kitchenLat) ? (float)$kitchenLat : null;
+    $checkoutKitchenLng = isset($kitchenLng) ? (float)$kitchenLng : null;
+    $maxDeliveryKm = 15;
+?>
 <section class="py-4">
     <div class="container">
         <h2 class="fw-800 mb-4">
@@ -7,6 +13,16 @@
 
         <form method="POST" action="<?= url('/order/place') ?>" id="checkoutForm">
             <?= csrf_field() ?>
+
+            <!-- Delivery Range Warning Banner -->
+            <div id="deliveryRangeAlert" class="alert alert-danger d-none mb-4 fw-semibold" role="alert" style="border-left: 4px solid #dc3545;">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <span id="deliveryRangeMsg">Your delivery address is too far from the kitchen.</span>
+            </div>
+            <div id="deliveryRangeOk" class="alert alert-success d-none mb-3 py-2 small" role="alert">
+                <i class="bi bi-check-circle-fill me-2"></i>
+                <span id="deliveryRangeOkMsg">Delivery available!</span>
+            </div>
 
             <div class="row g-4">
                 <!-- Left: Address & Payment -->
@@ -255,11 +271,131 @@
 <!-- Razorpay Integration Script -->
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script>
+// ── Kitchen GPS & 15 km delivery limit ───────────────────────────────────────
+const KITCHEN_LAT = <?= json_encode($checkoutKitchenLat) ?>;
+const KITCHEN_LNG = <?= json_encode($checkoutKitchenLng) ?>;
+const MAX_DELIVERY_KM = <?= (int)$maxDeliveryKm ?>;
+
+/** Haversine formula — returns distance in km between two lat/lng points */
+function haversineKm(lat1, lng1, lat2, lng2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat/2)**2 +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLng/2)**2;
+    return R * 2 * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * Checks distance from kitchen to deliveryLat/deliveryLng.
+ * Shows warning banner and disables/enables the place order button.
+ * @param {number} deliveryLat
+ * @param {number} deliveryLng
+ * @param {string} [addressLabel] - human-readable label for message
+ */
+function checkDeliveryRange(deliveryLat, deliveryLng, addressLabel) {
+    const alertEl   = document.getElementById('deliveryRangeAlert');
+    const alertMsg  = document.getElementById('deliveryRangeMsg');
+    const okEl      = document.getElementById('deliveryRangeOk');
+    const okMsg     = document.getElementById('deliveryRangeOkMsg');
+    const placeBtn  = document.getElementById('placeOrderBtn');
+
+    if (!KITCHEN_LAT || !KITCHEN_LNG || !deliveryLat || !deliveryLng) {
+        if (alertEl) alertEl.classList.add('d-none');
+        if (okEl) okEl.classList.add('d-none');
+        return;
+    }
+
+    const distKm = haversineKm(KITCHEN_LAT, KITCHEN_LNG, parseFloat(deliveryLat), parseFloat(deliveryLng));
+    const distStr = distKm.toFixed(1) + ' km';
+
+    if (distKm > MAX_DELIVERY_KM) {
+        // Too far — show error, disable button
+        if (alertEl) {
+            alertEl.classList.remove('d-none');
+            alertMsg.textContent = '🚫 Delivery not available — your address is ' + distStr +
+                ' away from the kitchen. We only deliver within ' + MAX_DELIVERY_KM + ' km.';
+        }
+        if (okEl) okEl.classList.add('d-none');
+        if (placeBtn) {
+            placeBtn.disabled = true;
+            placeBtn.classList.add('btn-secondary');
+            placeBtn.classList.remove('btn-kravyo-primary');
+        }
+    } else {
+        // Within range — clear error, enable button
+        if (alertEl) alertEl.classList.add('d-none');
+        if (okEl) {
+            okEl.classList.remove('d-none');
+            okMsg.textContent = '✅ Delivery available! Kitchen is ' + distStr + ' away.';
+        }
+        if (placeBtn) {
+            placeBtn.disabled = false;
+            placeBtn.classList.remove('btn-secondary');
+            placeBtn.classList.add('btn-kravyo-primary');
+        }
+    }
+}
+
+// ── Address radio selection listener ─────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function() {
+    const addressRadios = document.querySelectorAll('input[name="address_id"]');
+    const savedAddressData = <?= json_encode(array_map(function($a) {
+        return [
+            'id'  => $a['id'],
+            'lat' => isset($a['latitude'])  ? (float)$a['latitude']  : null,
+            'lng' => isset($a['longitude']) ? (float)$a['longitude'] : null,
+            'label' => ($a['address_type'] ?? 'Address') . ' — ' . ($a['city'] ?? '')
+        ];
+    }, $addresses ?? [])) ?>;
+
+    function getAddressById(id) {
+        return savedAddressData.find(a => String(a.id) === String(id)) || null;
+    }
+
+    // Check currently selected address on page load
+    const checkedRadio = document.querySelector('input[name="address_id"]:checked');
+    if (checkedRadio) {
+        const addrData = getAddressById(checkedRadio.value);
+        if (addrData && addrData.lat && addrData.lng) {
+            checkDeliveryRange(addrData.lat, addrData.lng, addrData.label);
+        }
+    }
+
+    // Re-check when address selection changes
+    addressRadios.forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            const addrData = getAddressById(this.value);
+            if (addrData && addrData.lat && addrData.lng) {
+                checkDeliveryRange(addrData.lat, addrData.lng, addrData.label);
+            } else {
+                // Address has no GPS — hide banners
+                const alertEl = document.getElementById('deliveryRangeAlert');
+                const okEl    = document.getElementById('deliveryRangeOk');
+                if (alertEl) alertEl.classList.add('d-none');
+                if (okEl) okEl.classList.add('d-none');
+            }
+        });
+    });
+});
+</script>
+
+<script>
 document.addEventListener('DOMContentLoaded', function() {
     const checkoutForm = document.getElementById('checkoutForm');
     
     if (checkoutForm) {
         checkoutForm.addEventListener('submit', function(e) {
+            // Block submit if order button is disabled (distance check failed)
+            const btn = document.getElementById('placeOrderBtn');
+            if (btn && btn.disabled) {
+                e.preventDefault();
+                const alertEl = document.getElementById('deliveryRangeAlert');
+                if (alertEl) alertEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                return;
+            }
+
             const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
             
             if (paymentMethod === 'online') {
@@ -274,7 +410,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
 
                 // Show loading state on button
-                const btn = document.getElementById('placeOrderBtn');
                 const originalBtnHtml = btn.innerHTML;
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Initiating Payment...';
                 btn.disabled = true;
@@ -309,27 +444,39 @@ document.addEventListener('DOMContentLoaded', function() {
                                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Verifying Payment...';
                                 btn.disabled = true;
 
+                                const csrfVal = document.querySelector('input[name="_csrf"]')?.value || "<?= csrf_token() ?>";
                                 const verifyForm = new FormData();
                                 verifyForm.append('razorpay_payment_id', response.razorpay_payment_id);
                                 verifyForm.append('razorpay_order_id', response.razorpay_order_id);
                                 verifyForm.append('razorpay_signature', response.razorpay_signature);
                                 verifyForm.append('kravyo_order_id', data.kravyo_order_id);
-                                verifyForm.append('csrf_token', "<?= $_SESSION['csrf_token'] ?? '' ?>");
+                                verifyForm.append('_csrf', csrfVal);
+                                verifyForm.append('csrf_token', csrfVal);
                                 
                                 fetch("<?= url('/order/verify-payment') ?>", {
                                     method: "POST",
+                                    headers: {
+                                        'X-Requested-With': 'XMLHttpRequest',
+                                        'X-CSRF-TOKEN': csrfVal
+                                    },
                                     body: verifyForm
                                 })
-                                .then(res => res.json())
-                                .then(vData => {
-                                    if(vData.success) {
-                                        window.location.href = "<?= url('/order/track/') ?>" + data.kravyo_order_id;
+                                .then(async res => {
+                                    let vData;
+                                    try {
+                                        vData = await res.json();
+                                    } catch(e) {
+                                        vData = { success: false, message: 'Server returned non-JSON response.' };
+                                    }
+                                    if(vData && vData.success) {
+                                        window.location.href = "<?= url('/order/track') ?>/" + data.kravyo_order_id;
                                     } else {
-                                        alert('Payment verification failed. If money was deducted, please contact support.');
+                                        alert((vData && vData.message) ? vData.message : 'Payment verification failed.');
                                         btn.innerHTML = originalBtnHtml;
                                         btn.disabled = false;
                                     }
                                 }).catch(err => {
+                                    console.error('Verify error:', err);
                                     alert("Server error during verification.");
                                     btn.innerHTML = originalBtnHtml;
                                     btn.disabled = false;
@@ -383,12 +530,15 @@ document.addEventListener('DOMContentLoaded', function() {
             const marker = KravyoMaps.addDraggableMarker(map, initialLat, initialLng, function(lat, lng) {
                 latInput.value = lat.toFixed(8);
                 lngInput.value = lng.toFixed(8);
+                // Re-check distance when user drags the marker
+                checkDeliveryRange(lat, lng, 'Pinned location');
             });
             
             // Attach Autocomplete
             KravyoMaps.initAutocomplete('new_street_address', map, marker, function(pos, place) {
                 latInput.value = pos.lat.toFixed(8);
                 lngInput.value = pos.lng.toFixed(8);
+                checkDeliveryRange(pos.lat, pos.lng, place.name || 'Selected address');
                 
                 // Auto-fill form fields based on selected place
                 if (place.address_components) {
@@ -428,6 +578,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 marker.position = e.latLng;
                 latInput.value = lat.toFixed(8);
                 lngInput.value = lng.toFixed(8);
+                checkDeliveryRange(lat, lng, 'Clicked location');
             });
             
             const detectBtn = document.getElementById('btnCustomerDetectLoc');
@@ -452,6 +603,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             
                             latInput.value = uLat.toFixed(8);
                             lngInput.value = uLng.toFixed(8);
+                            checkDeliveryRange(uLat, uLng, 'Your GPS location');
                             
                             // Perform Reverse Geocoding
                             if (KravyoMaps.getLibs && KravyoMaps.getLibs().Geocoder) {

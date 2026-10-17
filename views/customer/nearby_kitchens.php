@@ -1,5 +1,23 @@
 <!-- Phase 11: Nearby Cloud Kitchens Interactive Map Feature -->
 <?php include __DIR__ . '/../partials/google_maps_loader.php'; ?>
+<?php
+if (!function_exists('clean_plain_output')) {
+    function clean_plain_output(?string $str): string {
+        if ($str === null || $str === '') return '';
+        $decoded = html_entity_decode(html_entity_decode((string)$str, ENT_QUOTES | ENT_HTML5, 'UTF-8'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $decoded = preg_replace('/&#0*39;/', "'", $decoded);
+        return htmlspecialchars($decoded, ENT_NOQUOTES, 'UTF-8');
+    }
+}
+if (!function_exists('clean_attr_output')) {
+    function clean_attr_output(?string $str): string {
+        if ($str === null || $str === '') return '';
+        $decoded = html_entity_decode(html_entity_decode((string)$str, ENT_QUOTES | ENT_HTML5, 'UTF-8'), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $decoded = preg_replace('/&#0*39;/', "'", $decoded);
+        return htmlspecialchars($decoded, ENT_COMPAT, 'UTF-8');
+    }
+}
+?>
 
 <style>
 /* ── Nearby Kitchens Map Styles ────────────────────────────────────────── */
@@ -107,7 +125,7 @@
     box-shadow: 0 2px 8px rgba(255,107,53,0.3);
 }
 
-/* ── Custom Leaflet Markers ────────────────────────────────────────── */
+/* ── Custom Map Markers ────────────────────────────────────────── */
 .customer-marker-pulse {
     position: relative;
     width: 24px;
@@ -422,7 +440,7 @@
                         <div class="nearby-kitchen-card p-3" data-id="<?= (int)$k['id'] ?>" data-lat="<?= (float)$k['latitude'] ?>" data-lng="<?= (float)$k['longitude'] ?>">
                             <div class="d-flex gap-3">
                                 <?php if (!empty($k['banner_image'])): ?>
-                                    <img src="<?= UPLOAD_URL . '/kitchens/' . $k['banner_image'] ?>" alt="<?= sanitize($k['kitchen_name']) ?>" class="nearby-card-thumb">
+                                    <img src="<?= UPLOAD_URL . '/kitchens/' . $k['banner_image'] ?>" alt="<?= clean_attr_output($k['kitchen_name']) ?>" class="nearby-card-thumb">
                                 <?php else: ?>
                                     <div class="nearby-card-thumb-placeholder">
                                         <i class="bi bi-shop"></i>
@@ -432,7 +450,7 @@
                                 <div class="flex-grow-1 min-w-0">
                                     <div class="d-flex justify-content-between align-items-start gap-1">
                                         <h6 class="fw-bold mb-1 text-truncate text-dark">
-                                            <?= sanitize($k['kitchen_name']) ?>
+                                            <?= clean_plain_output($k['kitchen_name']) ?>
                                         </h6>
                                         <?php if ((int)$k['is_open'] === 1): ?>
                                             <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill small py-1 px-2" style="font-size:0.72rem;">
@@ -447,7 +465,7 @@
 
                                     <div class="text-muted small mb-2 d-flex align-items-center gap-1">
                                         <i class="bi bi-person text-secondary"></i>
-                                        <span class="text-truncate"><?= sanitize($k['chef_name']) ?></span>
+                                        <span class="text-truncate"><?= clean_plain_output($k['chef_name']) ?></span>
                                         <?php if (($k['hygiene_badge'] ?? '') === 'verified'): ?>
                                             <span class="badge bg-info-subtle text-info border border-info-subtle rounded-pill ms-1" style="font-size:0.68rem;" title="Hygiene Verified">
                                                 <i class="bi bi-shield-check"></i> Verified
@@ -477,7 +495,7 @@
                                     </div>
 
                                     <p class="small text-muted mb-2 text-truncate">
-                                        <i class="bi bi-geo-alt me-1 text-danger"></i><?= sanitize($k['address']) ?>, <?= sanitize($k['city']) ?>
+                                        <i class="bi bi-geo-alt me-1 text-danger"></i><?= clean_plain_output($k['address']) ?>, <?= clean_plain_output($k['city']) ?>
                                     </p>
 
                                     <div class="d-flex justify-content-between align-items-center pt-1">
@@ -494,7 +512,7 @@
             </div>
         </div>
 
-        <!-- Right: Interactive Leaflet Map -->
+        <!-- Right: Interactive Google Map -->
         <div class="col-lg-7 order-1 order-lg-2">
             <div class="position-relative">
                 <!-- Floating Map Buttons -->
@@ -520,7 +538,7 @@
                     </span>
                 </div>
 
-                <!-- Leaflet Container -->
+                <!-- Google Map Container -->
                 <div id="nearbyMap"></div>
             </div>
         </div>
@@ -594,7 +612,7 @@
                     'surat': [21.1702, 72.8311],
                     'mumbai': [19.0760, 72.8777],
                     'ahmedabad': [23.0225, 72.5714],
-                    'vadodara': [22.3072, 73.1812],
+                    'bardoli': [21.1202, 73.1127],
                     'rajkot': [22.3039, 70.8022],
                     'delhi': [28.6139, 77.2090],
                     'bengaluru': [12.9716, 77.5946],
@@ -789,7 +807,7 @@
             bounds.extend(pos);
 
             var isOpen = (parseInt(k.is_open, 10) === 1 || k.is_open === true);
-            var title = escapeHtml(k.name || k.kitchen_name);
+            var title = cleanText(k.name || k.kitchen_name);
 
             var marker = KravyoMaps.addStaticMarker(map, lat, lng, title, 'restaurant');
             
@@ -838,26 +856,26 @@
             markersMap[k.id] = marker;
         });
 
-        // Include user location in bounds if exists
-        if (state.userLat && state.userLng) {
+        // Include user location & radius perimeter in bounds so radius zoom level is preserved
+        if (state.userLat && state.userLng && state.radius) {
+            var c = new google.maps.LatLng(state.userLat, state.userLng);
+            bounds.extend(c);
+            var rCircle = new google.maps.Circle({ center: c, radius: state.radius * 1000 });
+            var rBounds = rCircle.getBounds();
+            if (rBounds) {
+                bounds.union(rBounds);
+            }
+        } else if (state.userLat && state.userLng) {
             bounds.extend({ lat: state.userLat, lng: state.userLng });
         }
 
-        // Fit map bounds to show all kitchens and user
-        if (Object.keys(markersMap).length > 0 || (state.userLat && state.radius)) {
-            // If no kitchens found but we have user location, fake bounds based on radius
-            if (Object.keys(markersMap).length === 0 && state.userLat) {
-                var c = new google.maps.LatLng(state.userLat, state.userLng);
-                var r = state.radius * 1000;
-                var circle = new google.maps.Circle({ center: c, radius: r });
-                bounds = circle.getBounds();
-            }
+        // Fit map bounds to show radius perimeter and all kitchens
+        if (!bounds.isEmpty()) {
+            map.fitBounds(bounds, 30);
             
-            map.fitBounds(bounds);
-            
-            // Limit max zoom so it doesn't zoom in too close when there's only 1 item
+            // Limit max zoom so it doesn't zoom in excessively
             var listener = google.maps.event.addListener(map, "idle", function() { 
-                if (map.getZoom() > 15) map.setZoom(15); 
+                if (map.getZoom() > 16) map.setZoom(16); 
                 google.maps.event.removeListener(listener); 
             });
         }
@@ -905,7 +923,7 @@
             var isVerified = (k.hygiene_badge === 'verified');
 
             var bannerHtml = k.banner_url 
-                ? '<img src="' + escapeHtml(k.banner_url) + '" alt="' + kitchenName + '" class="nearby-card-thumb">'
+                ? '<img src="' + escapeHtml(k.banner_url) + '" alt="' + kitchenName.replace(/"/g, '&quot;') + '" class="nearby-card-thumb">'
                 : '<div class="nearby-card-thumb-placeholder"><i class="bi bi-shop"></i></div>';
 
             var statusBadge = isOpen
@@ -1063,6 +1081,52 @@
     }
 
     // ── 6. UI Controls & Event Listeners ──────────────────────────────────
+    function applyRadiusZoom(radiusKm) {
+        if (!map) return;
+
+        var center = (state.userLat && state.userLng)
+            ? new google.maps.LatLng(state.userLat, state.userLng)
+            : map.getCenter();
+
+        if (!center) return;
+
+        // 1. Update visual perimeter circle on the map
+        if (userAccuracyCircle) {
+            userAccuracyCircle.setCenter(center);
+            userAccuracyCircle.setRadius(radiusKm * 1000);
+            userAccuracyCircle.setMap(map);
+        } else if (typeof google !== 'undefined' && google.maps && google.maps.Circle) {
+            userAccuracyCircle = new google.maps.Circle({
+                strokeColor: '#2563eb',
+                strokeOpacity: 0.8,
+                strokeWeight: 1.5,
+                fillColor: '#3b82f6',
+                fillOpacity: 0.05,
+                map: map,
+                center: center,
+                radius: radiusKm * 1000
+            });
+        }
+
+        // 2. Compute exact circle bounds for instant smooth zoom in / zoom out
+        var rCircle = new google.maps.Circle({
+            center: center,
+            radius: radiusKm * 1000
+        });
+        var circleBounds = rCircle.getBounds();
+
+        if (circleBounds) {
+            map.fitBounds(circleBounds, 30);
+        } else {
+            // Direct zoom fallback (2km->14, 5km->13, 10km->12, 20km->11, 50km->9)
+            var zoomMap = { 2: 14, 5: 13, 10: 12, 20: 11, 50: 9 };
+            map.setCenter(center);
+            if (zoomMap[radiusKm]) {
+                map.setZoom(zoomMap[radiusKm]);
+            }
+        }
+    }
+
     function setupControls() {
         // Use location button
         var btnUseLoc = document.getElementById('btnUseLocation');
@@ -1072,13 +1136,17 @@
             });
         }
 
-        // Radius buttons
+        // Radius buttons - instant zoom in / zoom out
         var radiusButtons = document.querySelectorAll('.radius-btn');
         radiusButtons.forEach(function(btn) {
             btn.addEventListener('click', function() {
                 radiusButtons.forEach(function(b) { b.classList.remove('active'); });
                 this.classList.add('active');
                 state.radius = parseFloat(this.getAttribute('data-radius'));
+                
+                // Instantly zoom in or zoom out to match the selected radius
+                applyRadiusZoom(state.radius);
+                
                 fetchNearbyKitchens();
             });
         });
@@ -1095,6 +1163,7 @@
                         b.classList.remove('active');
                     }
                 });
+                applyRadiusZoom(state.radius);
                 fetchNearbyKitchens();
             });
         });
@@ -1114,6 +1183,7 @@
                         b.classList.remove('active');
                     }
                 });
+                applyRadiusZoom(50);
                 fetchNearbyKitchens();
             });
         }
@@ -1149,7 +1219,7 @@
                         'surat': [21.1702, 72.8311],
                         'mumbai': [19.0760, 72.8777],
                         'ahmedabad': [23.0225, 72.5714],
-                        'vadodara': [22.3072, 73.1812],
+                        'bardoli': [21.1202, 73.1127],
                         'rajkot': [22.3039, 70.8022],
                         'delhi': [28.6139, 77.2090],
                         'bengaluru': [12.9716, 77.5946],
@@ -1296,16 +1366,40 @@
         }
     }
 
+    function cleanText(str) {
+        if (!str) return '';
+        var s = String(str);
+        var prev = '';
+        var count = 0;
+        while (s !== prev && count < 3) {
+            prev = s;
+            var txt = document.createElement('textarea');
+            txt.innerHTML = s;
+            s = txt.value;
+            count++;
+        }
+        return s.replace(/&#0*39;/g, "'")
+                .replace(/&apos;/g, "'")
+                .replace(/&#0*34;/g, '"')
+                .replace(/&quot;/g, '"')
+                .replace(/&amp;/g, '&');
+    }
+
+    function decodeHtmlEntities(str) {
+        return cleanText(str);
+    }
+
     function escapeHtml(text) {
-        if (!text) return '';
-        var mapObj = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#039;'
-        };
-        return String(text).replace(/[&<>"']/g, function(m) { return mapObj[m]; });
+        if (text === null || text === undefined) return '';
+        var cleaned = cleanText(text);
+        return String(cleaned).replace(/[<>"']/g, function(m) {
+            return {
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": "'"
+            }[m];
+        });
     }
 
     // ── 7. DOM Ready ──────────────────────────────────────────────────────

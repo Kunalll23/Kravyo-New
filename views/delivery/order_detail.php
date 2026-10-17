@@ -92,13 +92,49 @@
                         <div id="gpsError" class="alert alert-danger d-none small py-2 mb-0"></div>
                         <div id="gpsSuccess" class="alert alert-success d-none small py-2 mb-0"><i class="bi bi-broadcast"></i> Location updating...</div>
                         
+                        <!-- Route Summary & Legend Bar -->
+                        <div class="row g-2 mt-2 mb-2" id="routeLegendBar">
+                            <div class="col-sm-6">
+                                <div class="p-2 rounded-3 border bg-white d-flex align-items-center justify-content-between shadow-sm">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge rounded-circle p-2" style="background:#f59e0b; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;">
+                                            <i class="bi bi-shop text-white" style="font-size:0.85rem;"></i>
+                                        </span>
+                                        <div>
+                                            <div class="fw-bold small text-dark">Leg 1: Rider ➔ Kitchen</div>
+                                            <small class="text-muted" id="leg1Details">Pickup at <?= sanitize($order['kitchen_name']) ?></small>
+                                        </div>
+                                    </div>
+                                    <span class="badge bg-warning text-dark px-2 py-1" id="leg1Status">
+                                        <?= in_array($order['delivery_status'], ['picked_up', 'out_for_delivery']) ? '✅ Picked Up' : 'To Kitchen' ?>
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div class="p-2 rounded-3 border bg-white d-flex align-items-center justify-content-between shadow-sm">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge rounded-circle p-2" style="background:#2563eb; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;">
+                                            <i class="bi bi-house-door-fill text-white" style="font-size:0.85rem;"></i>
+                                        </span>
+                                        <div>
+                                            <div class="fw-bold small text-dark">Leg 2: Kitchen ➔ Customer</div>
+                                            <small class="text-muted" id="leg2Details">Deliver to <?= sanitize($order['customer_name'] ?? 'Customer') ?></small>
+                                        </div>
+                                    </div>
+                                    <span class="badge bg-primary text-white px-2 py-1" id="leg2Status">
+                                        <?= in_array($order['delivery_status'], ['picked_up', 'out_for_delivery']) ? '🚚 En Route' : 'Delivery Leg' ?>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Google Maps integration -->
                         <?php 
                         $portal = 'delivery';
                         include __DIR__ . '/../partials/google_maps_loader.php'; 
                         ?>
                         
-                        <div id="dpNavMap" class="mt-3 d-none" style="height: 380px; border-radius: 8px; z-index: 1;"></div>
+                        <div id="dpNavMap" class="mt-2 d-none" style="height: 420px; border-radius: 8px; z-index: 1;"></div>
                     </div>
 
                     <script>
@@ -169,70 +205,63 @@
                             // Update Partner Marker
                             KravyoMaps.updateDriverLocation(map, 'partner_me', startLat, startLng);
 
-                            // Fit bounds to include all active markers
+                            // Fit bounds to include all 3 key points: Rider, Kitchen, and Customer
                             let pointsToFit = [{lat: startLat, lng: startLng}, {lat: kitchenLat, lng: kitchenLng}];
                             if (destinationLatLng) {
                                 pointsToFit.push(destinationLatLng);
                             }
-                            KravyoMaps.fitToBounds(map, pointsToFit, 50, 16);
+                            KravyoMaps.fitToBounds(map, pointsToFit, 50, 15);
 
-                            // Calculate Routing
-                            const newPoint = { lat: startLat, lng: startLng };
-                            let shouldRoute = false;
-                            
-                            if (!window.lastRoutedPoint || window.lastRoutePhase !== isPickedUp || (destinationLatLng && !window.destinationRouted)) {
-                                shouldRoute = true;
-                            } else {
-                                const prevPt = window.lastRoutedPoint;
-                                const R = 6371e3;
-                                const φ1 = prevPt.lat * Math.PI/180;
-                                const φ2 = newPoint.lat * Math.PI/180;
-                                const Δφ = (newPoint.lat - prevPt.lat) * Math.PI/180;
-                                const Δλ = (newPoint.lng - prevPt.lng) * Math.PI/180;
-                                const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) * Math.sin(Δλ/2);
-                                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                                const d = R * c;
-                                
-                                if (d > 40) { // 40m
-                                    shouldRoute = true;
-                                }
+                            // ── 1. ALWAYS DRAW LEG 2: Kitchen -> Customer (Blue #2563eb) ──
+                            if (destinationLatLng && !window.routeRendererKitchenCustomer) {
+                                KravyoMaps.drawRoute(map, {lat: kitchenLat, lng: kitchenLng}, destinationLatLng, null, '#2563eb', '#1e3a8a')
+                                    .then(res => {
+                                        window.routeRendererKitchenCustomer = res;
+                                        if (res && res.data && res.data.distance_m) {
+                                            const km = (res.data.distance_m / 1000).toFixed(1);
+                                            const mins = Math.round(res.data.duration_s / 60);
+                                            const el = document.getElementById('leg2Details');
+                                            if (el) el.textContent = `${km} km (${mins} mins) from kitchen`;
+                                        }
+                                    })
+                                    .catch(e => console.error('Kitchen to Customer route error:', e));
                             }
 
-                            if (shouldRoute) {
-                                let origin = newPoint;
-
-                                if (!isPickedUp) {
-                                    // Leg 1: Rider -> Kitchen (Red)
-                                    KravyoMaps.drawRoute(map, origin, {lat: kitchenLat, lng: kitchenLng}, null, '#ef4444').then(r => {
-                                        if (window.routeRenderer1 && window.routeRenderer1 !== r) window.routeRenderer1.setMap(null);
-                                        window.routeRenderer1 = r;
-                                    }).catch(e => console.error('Leg 1 route error:', e));
-
-                                    // Leg 2 Preview: Kitchen -> Customer (Blue)
-                                    if (destinationLatLng) {
-                                        KravyoMaps.drawRoute(map, {lat: kitchenLat, lng: kitchenLng}, destinationLatLng, null, '#2563eb').then(r => {
-                                            if (window.routeRenderer2 && window.routeRenderer2 !== r) window.routeRenderer2.setMap(null);
-                                            window.routeRenderer2 = r;
-                                            window.destinationRouted = true;
-                                        }).catch(e => console.error('Leg 2 route error:', e));
-                                    }
-                                } else {
-                                    // Food picked up: Direct route Rider -> Customer
-                                    if (window.routeRenderer1) {
-                                        window.routeRenderer1.setMap(null);
-                                        window.routeRenderer1 = null;
-                                    }
-                                    if (destinationLatLng) {
-                                        KravyoMaps.drawRoute(map, origin, destinationLatLng, null, '#2563eb').then(r => {
-                                            if (window.routeRenderer2 && window.routeRenderer2 !== r) window.routeRenderer2.setMap(null);
-                                            window.routeRenderer2 = r;
-                                            window.destinationRouted = true;
-                                        }).catch(e => console.error('Rider to customer route error:', e));
-                                    }
+                            // ── 2. DRAW ACTIVE LEG ──
+                            if (!isPickedUp) {
+                                // Stage 1: Rider is navigating to the kitchen (Amber/Orange #f59e0b)
+                                KravyoMaps.drawRoute(map, {lat: startLat, lng: startLng}, {lat: kitchenLat, lng: kitchenLng}, null, '#f59e0b', '#78350f')
+                                    .then(res => {
+                                        if (window.routeRendererActive && window.routeRendererActive !== res) {
+                                            window.routeRendererActive.setMap(null);
+                                        }
+                                        window.routeRendererActive = res;
+                                        if (res && res.data && res.data.distance_m) {
+                                            const km = (res.data.distance_m / 1000).toFixed(1);
+                                            const mins = Math.round(res.data.duration_s / 60);
+                                            const el = document.getElementById('leg1Details');
+                                            if (el) el.textContent = `${km} km (${mins} mins) to kitchen`;
+                                        }
+                                    })
+                                    .catch(e => console.error('Rider to Kitchen route error:', e));
+                            } else {
+                                // Stage 2: Food picked up! Rider is navigating to the customer (Emerald Green #10b981)
+                                if (destinationLatLng) {
+                                    KravyoMaps.drawRoute(map, {lat: startLat, lng: startLng}, destinationLatLng, null, '#10b981', '#064e3b')
+                                        .then(res => {
+                                            if (window.routeRendererActive && window.routeRendererActive !== res) {
+                                                window.routeRendererActive.setMap(null);
+                                            }
+                                            window.routeRendererActive = res;
+                                            if (res && res.data && res.data.distance_m) {
+                                                const km = (res.data.distance_m / 1000).toFixed(1);
+                                                const mins = Math.round(res.data.duration_s / 60);
+                                                const el = document.getElementById('leg2Details');
+                                                if (el) el.textContent = `${km} km (${mins} mins) remaining to customer`;
+                                            }
+                                        })
+                                        .catch(e => console.error('Rider to Customer route error:', e));
                                 }
-
-                                window.lastRoutedPoint = newPoint;
-                                window.lastRoutePhase = isPickedUp;
                             }
                         }
 
@@ -241,6 +270,16 @@
                             const initialLat = <?= !empty($order['delivery_partner_lat']) ? (float)$order['delivery_partner_lat'] : (!empty($order['kitchen_lat']) ? (float)$order['kitchen_lat'] : 21.1702) ?>;
                             const initialLng = <?= !empty($order['delivery_partner_lng']) ? (float)$order['delivery_partner_lng'] : (!empty($order['kitchen_lng']) ? (float)$order['kitchen_lng'] : 72.8311) ?>;
                             initMapAndRouting(initialLat, initialLng);
+
+                            // If testing with dummy location, do not let browser/PC GPS overwrite it!
+                            if (sessionStorage.getItem('kravyo_dummy_location_active') === '1') {
+                                console.log("Kravyo GPS: Dummy testing location active. Skipping watchPosition.");
+                                gpsSuccess.classList.remove('d-none');
+                                gpsSuccess.innerHTML = '<i class="bi bi-geo-alt-fill text-warning"></i> Dummy test location active (' + initialLat.toFixed(4) + ', ' + initialLng.toFixed(4) + '). PC GPS paused.';
+                                gpsStatusText.textContent = 'Dummy Mode';
+                                gpsStatusText.className = 'form-check-label fw-bold text-warning';
+                                return;
+                            }
 
                             if (!navigator.geolocation) {
                                 showError('Geolocation is not supported by your browser.');
@@ -254,6 +293,9 @@
 
                             watchId = navigator.geolocation.watchPosition(
                                 (position) => {
+                                    // Double check dummy flag
+                                    if (sessionStorage.getItem('kravyo_dummy_location_active') === '1') return;
+
                                     const lat = position.coords.latitude;
                                     const lng = position.coords.longitude;
                                     
@@ -266,12 +308,15 @@
                                     formData.append('longitude', lng);
                                     
                                     // Use form CSRF if meta not available
-                                    const formCsrf = document.querySelector('input[name="csrf_token"]') || document.querySelector('input[name="_csrf"]');
-                                    if (formCsrf) formData.append('_csrf', formCsrf.value);
-                                    else formData.append('_csrf', csrfToken);
+                                    const csrfVal = '<?= csrf_token() ?>';
+                                    formData.append('_csrf', csrfVal);
 
                                     fetch(updateUrl, {
                                         method: 'POST',
+                                        headers: {
+                                            'X-Requested-With': 'XMLHttpRequest',
+                                            'X-CSRF-TOKEN': csrfVal
+                                        },
                                         body: formData
                                     }).catch(err => console.error('GPS Update Error:', err));
                                 },

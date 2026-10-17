@@ -52,8 +52,14 @@
                         ];
                         $icon = $iconMap[$notif['type']] ?? 'bi-bell-fill text-secondary';
                     ?>
+                    <?php 
+                        $targetUrl = !empty($notif['link']) ? url($notif['link']) : '';
+                    ?>
                     <div class="d-flex align-items-start gap-3 p-3 border-bottom <?= $notif['is_read'] ? 'bg-white' : 'bg-light' ?>"
-                         style="transition:background .2s;">
+                         style="transition: background-color .15s ease-in-out; <?= $targetUrl ? 'cursor: pointer;' : '' ?>"
+                         <?= $targetUrl ? 'onclick="window.location.href=\'' . htmlspecialchars($targetUrl, ENT_QUOTES) . '\'"' : '' ?>
+                         onmouseenter="this.style.backgroundColor='#f1f5f9';"
+                         onmouseleave="this.style.backgroundColor='<?= $notif['is_read'] ? '#ffffff' : '#f8f9fa' ?>';">
                         <div class="flex-shrink-0 mt-1">
                             <i class="bi <?= $icon ?> fs-5"></i>
                         </div>
@@ -74,7 +80,7 @@
                         </div>
                         <?php if ($notif['link']): ?>
                         <div class="flex-shrink-0">
-                            <a href="<?= url($notif['link']) ?>" class="btn btn-outline-secondary btn-sm">
+                            <a href="<?= url($notif['link']) ?>" class="btn btn-outline-secondary btn-sm" onclick="event.stopPropagation();">
                                 <i class="bi bi-arrow-right"></i>
                             </a>
                         </div>

@@ -620,11 +620,16 @@
                 <div class="card kravyo-card border-0 h-100">
                     <div class="card-header bg-transparent border-bottom py-3 d-flex justify-content-between align-items-center">
                         <h5 class="fw-bold mb-0"><i class="bi bi-chat-quote me-2 text-info"></i>Recent Reviews</h5>
-                        <?php if ($avgRating > 0): ?>
-                            <span class="badge bg-warning text-dark fw-bold px-2">
-                                <?= $avgRating ?> ★
-                            </span>
-                        <?php endif; ?>
+                        <div class="d-flex align-items-center gap-2">
+                            <?php if ($avgRating > 0): ?>
+                                <span class="badge bg-warning text-dark fw-bold px-2">
+                                    <?= $avgRating ?> ★
+                                </span>
+                            <?php endif; ?>
+                            <a href="<?= url('/chef/reviews') ?>" class="btn btn-outline-primary btn-sm rounded-pill px-2 py-0 fw-semibold" style="font-size:0.75rem;">
+                                View All
+                            </a>
+                        </div>
                     </div>
                     <div class="card-body p-3">
                         <?php if (empty($recentReviews)): ?>
@@ -651,6 +656,11 @@
                                     <div class="text-muted mt-1" style="font-size:0.65rem;"><?= date('d M Y', strtotime($review['created_at'])) ?></div>
                                 </div>
                             <?php endforeach; ?>
+                            <div class="pt-2 text-center">
+                                <a href="<?= url('/chef/reviews') ?>" class="btn btn-light btn-sm w-100 fw-semibold rounded-pill text-primary border">
+                                    See All Customer Reviews <i class="bi bi-arrow-right ms-1"></i>
+                                </a>
+                            </div>
                         <?php endif; ?>
                     </div>
                 </div>

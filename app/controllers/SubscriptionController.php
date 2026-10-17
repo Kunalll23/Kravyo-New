@@ -64,7 +64,7 @@ class SubscriptionController extends Controller {
         $addresses = [];
         if (Session::has('user_id')) {
             $addressModel = new Address();
-            $addresses = $addressModel->findAll(['user_id' => Session::get('user_id')]);
+            $addresses = $addressModel->findByUserId((int) Session::get('user_id'));
         }
 
         $this->render('customer/subscription_detail', [

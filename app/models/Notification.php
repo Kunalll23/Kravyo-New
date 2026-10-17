@@ -82,22 +82,32 @@ class Notification extends Model {
     }
 
     /**
-     * Module 3.11 — Admin broadcasts a message to ALL active users.
-     * Inserts one row per user for reliable per-user read tracking.
+     * Module 3.11 — Targeted Broadcast (Swiggy / Zomato style)
+     * Broadcasts notifications to specific audience (customers, chefs, delivery, or all)
+     * and specific city or all cities.
      */
-    public function broadcast(string $title, string $message, string $type = 'promotion'): int {
+    public function broadcastTargeted(string $title, string $message, string $type = 'promotion', string $audience = 'all', string $city = 'all'): int {
         $count = 0;
         $insert = "INSERT INTO notifications (user_id, user_type, title, message, type)
                    VALUES (:user_id, :user_type, :title, :message, :type)";
         $stmt = $this->db->prepare($insert);
-        
-        $tables = ['customers' => 'customer', 'chefs' => 'chef', 'delivery_users' => 'delivery'];
-        foreach ($tables as $table => $uType) {
-            $ids = $this->db->query("SELECT id FROM {$table} WHERE status = 'active'")->fetchAll(\PDO::FETCH_COLUMN);
+
+        // 1. Customers
+        if ($audience === 'all' || $audience === 'customers') {
+            if ($city === 'all') {
+                $ids = $this->db->query("SELECT id FROM customers WHERE status = 'active'")->fetchAll(\PDO::FETCH_COLUMN);
+            } else {
+                $q = "SELECT DISTINCT c.id FROM customers c
+                      LEFT JOIN addresses a ON a.user_id = c.id
+                      WHERE c.status = 'active' AND (c.city = :city1 OR a.city = :city2)";
+                $s = $this->db->prepare($q);
+                $s->execute(['city1' => $city, 'city2' => $city]);
+                $ids = $s->fetchAll(\PDO::FETCH_COLUMN);
+            }
             foreach ($ids as $id) {
                 $stmt->execute([
                     'user_id'   => $id,
-                    'user_type' => $uType,
+                    'user_type' => 'customer',
                     'title'     => substr($title,   0, 100),
                     'message'   => substr($message, 0, 500),
                     'type'      => $type,
@@ -105,7 +115,63 @@ class Notification extends Model {
                 $count++;
             }
         }
+
+        // 2. Chefs
+        if ($audience === 'all' || $audience === 'chefs') {
+            if ($city === 'all') {
+                $ids = $this->db->query("SELECT id FROM chefs WHERE status = 'active'")->fetchAll(\PDO::FETCH_COLUMN);
+            } else {
+                $q = "SELECT DISTINCT c.id FROM chefs c
+                      LEFT JOIN kitchens k ON k.user_id = c.id
+                      WHERE c.status = 'active' AND (c.city = :city1 OR k.city = :city2)";
+                $s = $this->db->prepare($q);
+                $s->execute(['city1' => $city, 'city2' => $city]);
+                $ids = $s->fetchAll(\PDO::FETCH_COLUMN);
+            }
+            foreach ($ids as $id) {
+                $stmt->execute([
+                    'user_id'   => $id,
+                    'user_type' => 'chef',
+                    'title'     => substr($title,   0, 100),
+                    'message'   => substr($message, 0, 500),
+                    'type'      => $type,
+                ]);
+                $count++;
+            }
+        }
+
+        // 3. Delivery Partners
+        if ($audience === 'all' || $audience === 'delivery') {
+            if ($city === 'all') {
+                $ids = $this->db->query("SELECT id FROM delivery_users WHERE status = 'active'")->fetchAll(\PDO::FETCH_COLUMN);
+            } else {
+                $q = "SELECT DISTINCT u.id FROM delivery_users u
+                      LEFT JOIN delivery_partners dp ON dp.user_id = u.id
+                      WHERE u.status = 'active' AND (u.city = :city1 OR dp.city = :city2)";
+                $s = $this->db->prepare($q);
+                $s->execute(['city1' => $city, 'city2' => $city]);
+                $ids = $s->fetchAll(\PDO::FETCH_COLUMN);
+            }
+            foreach ($ids as $id) {
+                $stmt->execute([
+                    'user_id'   => $id,
+                    'user_type' => 'delivery',
+                    'title'     => substr($title,   0, 100),
+                    'message'   => substr($message, 0, 500),
+                    'type'      => $type,
+                ]);
+                $count++;
+            }
+        }
+
         return $count;
+    }
+
+    /**
+     * Backward-compatible broadcast alias
+     */
+    public function broadcast(string $title, string $message, string $type = 'promotion'): int {
+        return $this->broadcastTargeted($title, $message, $type, 'all', 'all');
     }
 
     // ─── Read ─────────────────────────────────────────────────────────────────

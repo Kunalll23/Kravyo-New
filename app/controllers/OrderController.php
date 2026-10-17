@@ -23,10 +23,17 @@ class OrderController extends Controller {
 
         require_once CONFIG_PATH . '/razorpay.php';
         require_once APP_PATH . '/models/Address.php';
+        require_once APP_PATH . '/models/Kitchen.php';
         $addressModel = new Address();
+        $kitchenModel = new Kitchen();
 
         $userId = (int) Session::get('user_id');
         $addresses = $addressModel->findByUserId($userId);
+
+        // Fetch kitchen GPS for frontend distance check
+        $kitchenForCheckout = $kitchenModel->find((int)($cart['kitchen_id'] ?? 0));
+        $kitchenLat = ($kitchenForCheckout && !empty($kitchenForCheckout['latitude']))  ? (float)$kitchenForCheckout['latitude']  : null;
+        $kitchenLng = ($kitchenForCheckout && !empty($kitchenForCheckout['longitude'])) ? (float)$kitchenForCheckout['longitude'] : null;
 
         // Calculate cart total
         $cartTotal = 0;
@@ -35,10 +42,12 @@ class OrderController extends Controller {
         }
 
         $this->render('customer/checkout', [
-            'title'     => 'Checkout — Place Your Order',
-            'cart'      => $cart,
-            'cartTotal' => round($cartTotal, 2),
-            'addresses' => $addresses,
+            'title'      => 'Checkout — Place Your Order',
+            'cart'       => $cart,
+            'cartTotal'  => round($cartTotal, 2),
+            'addresses'  => $addresses,
+            'kitchenLat' => $kitchenLat,
+            'kitchenLng' => $kitchenLng,
         ]);
     }
 
@@ -105,6 +114,40 @@ class OrderController extends Controller {
             $this->redirect('/checkout');
             return;
         }
+
+        // ── Delivery Range Check: max 15 km from kitchen ──────────────────
+        define('MAX_DELIVERY_KM', 15);
+        $deliveryLat = isset($address['latitude'])  ? (float)$address['latitude']  : null;
+        $deliveryLng = isset($address['longitude']) ? (float)$address['longitude'] : null;
+
+        if ($deliveryLat !== null && $deliveryLng !== null) {
+            require_once APP_PATH . '/models/Kitchen.php';
+            $kitchenForDistance = (new Kitchen())->find((int) $cart['kitchen_id']);
+
+            if ($kitchenForDistance && !empty($kitchenForDistance['latitude']) && !empty($kitchenForDistance['longitude'])) {
+                $kLat = (float)$kitchenForDistance['latitude'];
+                $kLng = (float)$kitchenForDistance['longitude'];
+
+                // Haversine formula
+                $earthRadius = 6371.0;
+                $dLat = deg2rad($deliveryLat - $kLat);
+                $dLng = deg2rad($deliveryLng - $kLng);
+                $a    = sin($dLat / 2) ** 2 + cos(deg2rad($kLat)) * cos(deg2rad($deliveryLat)) * sin($dLng / 2) ** 2;
+                $distKm = round($earthRadius * 2 * asin(sqrt($a)), 2);
+
+                if ($distKm > MAX_DELIVERY_KM) {
+                    $errMsg = "🚫 Delivery not available. Your address is {$distKm} km away from the kitchen. We only deliver within " . MAX_DELIVERY_KM . " km.";
+                    if (!empty($_POST['is_ajax'])) {
+                        $this->json(['success' => false, 'message' => $errMsg]);
+                        return;
+                    }
+                    Session::setFlash('danger', $errMsg);
+                    $this->redirect('/checkout');
+                    return;
+                }
+            }
+        }
+        // ── End Delivery Range Check ───────────────────────────────────────
 
         // Verify stock availability
         require_once APP_PATH . '/models/MenuItem.php';
@@ -264,60 +307,94 @@ class OrderController extends Controller {
      * POST /order/verify-payment
      */
     public function verifyPayment(): void {
-        Middleware::verifyCsrf();
-        
-        $paymentId = $_POST['razorpay_payment_id'] ?? '';
-        $orderId   = $_POST['razorpay_order_id'] ?? '';
-        $signature = $_POST['razorpay_signature'] ?? '';
-        $kravyoId  = (int)($_POST['kravyo_order_id'] ?? 0);
+        header('Content-Type: application/json');
 
-        require_once CONFIG_PATH . '/razorpay.php';
-        
-        $generatedSignature = hash_hmac('sha256', $orderId . "|" . $paymentId, RAZORPAY_KEY_SECRET);
+        if (!Session::has('user_id')) {
+            echo json_encode(['success' => false, 'message' => 'Please log in to verify payment.']);
+            exit;
+        }
 
-        if (hash_equals($generatedSignature, $signature)) {
-            // Payment Success
+        try {
+            $userId    = (int)Session::get('user_id');
+            $paymentId = trim($_POST['razorpay_payment_id'] ?? '');
+            $orderId   = trim($_POST['razorpay_order_id'] ?? '');
+            $signature = trim($_POST['razorpay_signature'] ?? '');
+            $kravyoId  = (int)($_POST['kravyo_order_id'] ?? 0);
+
+            if (empty($paymentId) || empty($orderId) || empty($signature) || $kravyoId <= 0) {
+                echo json_encode(['success' => false, 'message' => 'Incomplete payment verification payload.']);
+                exit;
+            }
+
             require_once APP_PATH . '/models/Order.php';
             $orderModel = new Order();
-            
-            // Mark as paid
-            $orderModel->updatePaymentStatus($kravyoId, PAYMENT_STATUS_COMPLETED);
-            
-            // Do the post-checkout tasks we skipped during AJAX creation
-            $cart = Session::get('cart', ['items' => []]);
-            
-            // Decrement ZW items
-            try {
-                require_once APP_PATH . '/models/ZeroWasteItem.php';
-                $zwModel = new ZeroWasteItem();
-                foreach ($cart['items'] as $item) {
-                    if (!empty($item['is_zero_waste']) && !empty($item['zero_waste_id'])) {
-                        $zwModel->decrementQuantity((int) $item['zero_waste_id'], (int) $item['quantity']);
-                    }
-                }
-            } catch (Exception $ignored) {}
+            $order = $orderModel->find($kravyoId);
 
-            Session::remove('cart');
-            
-            // Fire Notifications
-            try {
-                $order = $orderModel->findById($kravyoId);
-                require_once APP_PATH . '/models/Notification.php';
-                $notifModel = new Notification();
-                $notifModel->createForUser((int)$order['customer_id'], 'customer', 'Payment Successful!', 'Your online payment for order #' . $order['order_number'] . ' was successful.', 'order_update', '/order/track/' . $kravyoId);
+            if (!$order) {
+                echo json_encode(['success' => false, 'message' => 'Order not found.']);
+                exit;
+            }
+
+            if ((int)$order['customer_id'] !== $userId) {
+                echo json_encode(['success' => false, 'message' => 'Order access denied.']);
+                exit;
+            }
+
+            // Already completed
+            if ($order['payment_status'] === PAYMENT_STATUS_COMPLETED) {
+                echo json_encode(['success' => true]);
+                exit;
+            }
+
+            require_once CONFIG_PATH . '/razorpay.php';
+            $generatedSignature = hash_hmac('sha256', $orderId . "|" . $paymentId, RAZORPAY_KEY_SECRET);
+
+            if (hash_equals($generatedSignature, $signature)) {
+                // Payment Success — update payment status and persist Razorpay payment ID for future refunds
+                $orderModel->updatePaymentStatus($kravyoId, PAYMENT_STATUS_COMPLETED);
+                $orderModel->saveRazorpayPaymentId($kravyoId, $paymentId);
                 
-                require_once APP_PATH . '/models/Kitchen.php';
-                $kitchenModel = new Kitchen();
-                $kitchen = $kitchenModel->find((int)$order['kitchen_id']);
-                if ($kitchen) {
-                    $notifModel->createForUser((int)$kitchen['user_id'], 'chef', 'New Paid Order!', 'You have a new PAID order #' . $order['order_number'] . ' worth ' . format_currency($order['total_amount']) . '.', 'order_update', '/chef/orders');
-                }
-            } catch (Exception $ignored) {}
+                // Post-checkout cart cleanup
+                $cart = Session::get('cart', ['items' => []]);
+                
+                // Decrement ZW items if applicable
+                try {
+                    require_once APP_PATH . '/models/ZeroWasteItem.php';
+                    $zwModel = new ZeroWasteItem();
+                    foreach (($cart['items'] ?? []) as $item) {
+                        if (!empty($item['is_zero_waste']) && !empty($item['zero_waste_id'])) {
+                            $zwModel->decrementQuantity((int)$item['zero_waste_id'], (int)$item['quantity']);
+                        }
+                    }
+                } catch (Throwable $ignored) {}
 
-            Session::setFlash('success', 'Payment successful! Order confirmed.');
-            $this->json(['success' => true]);
-        } else {
-            $this->json(['success' => false, 'message' => 'Payment verification failed.']);
+                Session::remove('cart');
+                
+                // Fire Notifications
+                try {
+                    require_once APP_PATH . '/models/Notification.php';
+                    $notifModel = new Notification();
+                    $notifModel->createForUser((int)$order['customer_id'], 'customer', 'Payment Successful!', 'Your online payment for order #' . $order['order_number'] . ' was successful.', 'order_update', '/order/track/' . $kravyoId);
+                    
+                    require_once APP_PATH . '/models/Kitchen.php';
+                    $kitchenModel = new Kitchen();
+                    $kitchen = $kitchenModel->find((int)$order['kitchen_id']);
+                    if ($kitchen) {
+                        $notifModel->createForUser((int)$kitchen['user_id'], 'chef', 'New Paid Order!', 'You have a new PAID order #' . $order['order_number'] . ' worth ' . format_currency($order['total_amount']) . '.', 'order_update', '/chef/orders');
+                    }
+                } catch (Throwable $ignored) {}
+
+                Session::setFlash('success', 'Payment successful! Order confirmed.');
+                echo json_encode(['success' => true]);
+                exit;
+            } else {
+                echo json_encode(['success' => false, 'message' => 'Payment signature verification failed.']);
+                exit;
+            }
+        } catch (Throwable $e) {
+            error_log('Payment verify error: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Verification error: ' . $e->getMessage()]);
+            exit;
         }
     }
 
@@ -529,7 +606,29 @@ class OrderController extends Controller {
 
         $orderModel->updateStatus($orderId, ORDER_STATUS_CANCELLED);
 
-        // Notify chef + admin that the customer cancelled
+        // ── REFUND PROCESSING ──────────────────────────────────────────────────
+        // Only attempt refund if the customer paid online and payment was completed
+        $refundMessage = '';
+        if (
+            $order['payment_method'] !== PAYMENT_METHOD_COD &&
+            $order['payment_status'] === PAYMENT_STATUS_COMPLETED &&
+            !empty($order['razorpay_payment_id'])
+        ) {
+            require_once APP_PATH . '/services/RazorpayService.php';
+            $amountPaise = (int) round((float) $order['total_amount'] * 100);
+            $refundResult = RazorpayService::processRefund($order['razorpay_payment_id'], $amountPaise);
+
+            if ($refundResult['success']) {
+                $orderModel->updatePaymentStatus($orderId, PAYMENT_STATUS_REFUNDED);
+                $refundMessage = 'Your refund of ₹' . number_format((float)$order['total_amount'], 2) . ' has been initiated (Ref: ' . $refundResult['refund_id'] . '). It will reflect in 5–7 business days.';
+            } else {
+                error_log('[Kravyo] Refund failed for order #' . $order['order_number'] . ': ' . $refundResult['error']);
+                $refundMessage = 'We could not process your refund automatically. Please contact support with your order number #' . $order['order_number'] . '.';
+            }
+        }
+        // ── END REFUND PROCESSING ──────────────────────────────────────────────
+
+        // Notify chef that the customer cancelled
         try {
             require_once APP_PATH . '/models/Notification.php';
             $notifModel = new Notification();
@@ -538,12 +637,25 @@ class OrderController extends Controller {
                 'Order Cancelled by Customer',
                 'Order #' . $order['order_number'] . ' was cancelled by the customer.'
             );
+
+            // Notify customer with refund status (only for online payments)
+            if (!empty($refundMessage)) {
+                $notifModel->createForUser(
+                    (int) $order['customer_id'],
+                    'customer',
+                    'Order Cancelled — Refund Update',
+                    $refundMessage,
+                    'order_update',
+                    '/orders/history'
+                );
+            }
         } catch (Throwable $e) {
             error_log('[Kravyo] Cancel notification failed for order ' . $orderId . ': ' . $e->getMessage());
         }
 
-        Session::setFlash('success', 'Order #' . $order['order_number'] . ' has been cancelled.');
+        Session::setFlash('success', 'Order #' . $order['order_number'] . ' has been cancelled.' . (!empty($refundMessage) ? ' ' . $refundMessage : ''));
         $this->redirect('/orders/history');
+
     }
 
     /**

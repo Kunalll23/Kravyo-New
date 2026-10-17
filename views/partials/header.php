@@ -233,6 +233,7 @@ switch ($_sessionCtx) {
                                     <li><a class="dropdown-item" href="<?= url('/chef/dashboard') ?>"><i class="bi bi-speedometer2 me-2"></i> Chef Dashboard</a></li>
                                     <li><a class="dropdown-item" href="<?= url('/chef/menu') ?>"><i class="bi bi-egg-fried me-2"></i> Manage Menu</a></li>
                                     <li><a class="dropdown-item" href="<?= url('/chef/orders') ?>"><i class="bi bi-bag-check me-2"></i> View Orders</a></li>
+                                    <li><a class="dropdown-item" href="<?= url('/chef/reviews') ?>"><i class="bi bi-star-fill text-warning me-2"></i> Customer Reviews</a></li>
                                     <li><a class="dropdown-item" href="<?= url('/chef/zero-waste') ?>"><i class="bi bi-recycle me-2"></i> Zero Waste</a></li>
                                     <li><a class="dropdown-item" href="<?= url('/chef/subscriptions') ?>"><i class="bi bi-calendar-week me-2"></i> Tiffins</a></li>
                                 <?php elseif ($_userRole === ROLE_DELIVERY): ?>
@@ -310,9 +311,33 @@ switch ($_sessionCtx) {
                                     No notifications yet.
                                 </div>
                             <?php else: ?>
-                                <?php foreach ($_latestNotifs as $notif): ?>
-                                <a href="<?= $notif['link'] ? url($notif['link']) : url('/notifications') ?>"
-                                   class="d-flex align-items-start gap-2 px-3 py-2 text-decoration-none border-bottom notif-item <?= $notif['is_read'] ? 'bg-white' : 'bg-light' ?>"
+                                <?php foreach ($_latestNotifs as $notif): 
+                                    $link = $notif['link'] ? url($notif['link']) : url('/notifications');
+                                    $targetOrderNo = '';
+                                    $targetCity = '';
+
+                                    // Extract order & city if dispatch-monitor alert
+                                    if (!empty($notif['link']) && strpos($notif['link'], '/admin/dispatch-monitor') === 0) {
+                                        if (preg_match('/[?&]order=([^&]+)/i', $notif['link'], $mOParam)) {
+                                            $targetOrderNo = urldecode($mOParam[1]);
+                                        } elseif (preg_match('/Order #(KRV-[A-Z0-9-]+)/i', $notif['message'] ?? '', $mO)) {
+                                            $targetOrderNo = $mO[1];
+                                        }
+                                        if (preg_match('/[?&]city=([^&]+)/i', $notif['link'], $mCParam)) {
+                                            $targetCity = urldecode($mCParam[1]);
+                                        } elseif (preg_match('/in ([A-Za-z\s]+) \(/i', $notif['message'] ?? '', $mC)) {
+                                            $targetCity = trim($mC[1]);
+                                        }
+                                        if (strpos($link, 'order=') === false && $targetOrderNo) {
+                                            $link .= (strpos($link, '?') === false ? '?' : '&') . 'order=' . urlencode($targetOrderNo) . ($targetCity ? '&city=' . urlencode($targetCity) : '');
+                                        }
+                                    }
+                                ?>
+                                <a href="<?= $link ?>"
+                                   class="d-flex align-items-start gap-2 px-3 py-2 text-decoration-none border-bottom notif-item-clickable <?= $notif['is_read'] ? 'bg-white' : 'bg-light' ?>"
+                                   data-notif-href="<?= htmlspecialchars($link, ENT_QUOTES) ?>"
+                                   data-dispatch-order="<?= htmlspecialchars($targetOrderNo, ENT_QUOTES) ?>"
+                                   data-dispatch-city="<?= htmlspecialchars($targetCity, ENT_QUOTES) ?>"
                                    style="color:inherit;">
                                     <?php
                                     $iconMap = [
@@ -344,6 +369,46 @@ switch ($_sessionCtx) {
                                 </a>
                                 <?php endforeach; ?>
                                 <?php endif; ?></div>
+                            <script>
+                            (function() {
+                                var notifList = document.getElementById('notifDropdownList');
+                                if (!notifList) return;
+
+                                notifList.addEventListener('click', function(e) {
+                                    var item = e.target.closest('a');
+                                    if (!item) return;
+
+                                    var orderNo = item.dataset.dispatchOrder;
+                                    var city    = item.dataset.dispatchCity;
+
+                                    // Special handler for admin dispatch board
+                                    if (window.handleNotificationJump && orderNo) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        window.handleNotificationJump(orderNo, city);
+                                        return;
+                                    }
+
+                                    var targetHref = item.getAttribute('href') || item.dataset.notifHref;
+                                    if (targetHref && targetHref !== '#' && targetHref.indexOf('javascript:') !== 0) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+
+                                        try {
+                                            var currentUrl = new URL(window.location.href);
+                                            var destUrl    = new URL(targetHref, window.location.origin);
+                                            // If already on the exact page, reload to refresh order/tracking state
+                                            if (currentUrl.pathname === destUrl.pathname && currentUrl.search === destUrl.search) {
+                                                window.location.reload();
+                                                return;
+                                            }
+                                        } catch (err) {}
+
+                                        window.location.href = targetHref;
+                                    }
+                                });
+                            })();
+                            </script>
                             <div class="text-center py-2">
                                     <form action="<?= ctx_url('/notifications/mark-all') ?>" method="POST">
                                         <?= csrf_field() ?>

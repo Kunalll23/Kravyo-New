@@ -19,15 +19,17 @@
     <!-- Custom App CSS -->
     <link rel="stylesheet" href="<?= asset('css/style.css') ?>">
 </head>
-<body class="bg-light">
+<body class="p-0 m-0" style="overflow-x: hidden;">
 
-    <!-- Flash Alert Messages -->
-    <div class="container mt-3">
-        <?php View::partial('alerts'); ?>
-    </div>
+    <!-- Flash Alert Messages (Only when active) -->
+    <?php if (Session::has('flash_messages')): ?>
+        <div class="container position-fixed top-0 start-50 translate-middle-x mt-3" style="z-index: 9999;">
+            <?php View::partial('alerts'); ?>
+        </div>
+    <?php endif; ?>
 
     <!-- Main Page Dynamic Content -->
-    <main>
+    <main class="p-0 m-0">
         <?= $content ?>
     </main>
 

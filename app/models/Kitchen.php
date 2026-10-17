@@ -50,6 +50,23 @@ class Kitchen extends Model {
     }
 
     /**
+     * Get all approved kitchens in a city with valid coordinates
+     */
+    public function findApprovedByCity(string $city): array {
+        $sql = "SELECT k.id, k.kitchen_name, k.address, k.city, k.latitude, k.longitude, k.is_open, u.full_name AS chef_name
+                FROM {$this->table} k
+                JOIN chefs u ON k.user_id = u.id
+                WHERE LOWER(k.city) = LOWER(:city)
+                  AND k.approval_status = :status
+                  AND k.latitude IS NOT NULL 
+                  AND k.longitude IS NOT NULL
+                ORDER BY k.is_open DESC, k.kitchen_name ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['city' => $city, 'status' => KITCHEN_STATUS_APPROVED]);
+        return $stmt->fetchAll();
+    }
+
+    /**
      * Get all kitchens with chef info, optionally filtered by approval status
      */
     public function findAllWithChef(?string $status = null): array {
@@ -139,10 +156,10 @@ class Kitchen extends Model {
             $params['city'] = $filters['city'];
         }
 
-        // Pincode filter
+        // Pincode filter (matches full 6-digit or prefix)
         if (!empty($filters['pincode'])) {
-            $sql .= " AND k.pincode = :pincode";
-            $params['pincode'] = $filters['pincode'];
+            $sql .= " AND k.pincode LIKE :pincode";
+            $params['pincode'] = $filters['pincode'] . '%';
         }
 
         // Open-only filter

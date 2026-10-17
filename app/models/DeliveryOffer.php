@@ -91,7 +91,7 @@ class DeliveryOffer extends Model {
     public function markDeclined(int $orderId, int $partnerId): bool {
         $sql = "UPDATE {$this->table}
                 SET status = 'declined', responded_at = NOW()
-                WHERE order_id = :order_id AND delivery_partner_id = :dp_id";
+                WHERE order_id = :order_id AND delivery_partner_id = :dp_id AND status = 'pending'";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute(['order_id' => $orderId, 'dp_id' => $partnerId]);
     }

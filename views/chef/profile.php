@@ -96,7 +96,7 @@
                             </div>
                         </div>
 
-                        <!-- Leaflet Map Container -->
+                        <!-- Google Map Container -->
                         <div id="chefLocationMap" style="height: 260px; border-radius: 8px; border: 1px solid #ced4da; z-index: 1;" class="shadow-sm"></div>
                         <div class="d-flex justify-content-between align-items-center mt-2">
                             <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Click map or drag the marker to pin your kitchen</small>

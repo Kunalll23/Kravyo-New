@@ -6,8 +6,17 @@
             <h2 class="fw-bold mb-0">Delivery Dashboard</h2>
             <p class="text-muted mb-0">Welcome back, <?= sanitize($partner['full_name']) ?></p>
         </div>
-        <div class="col-md-6 text-md-end mt-3 mt-md-0">
-            <form action="<?= url('/delivery/toggle-status') ?>" method="POST" class="d-inline">
+        <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end align-items-center gap-2">
+            <button type="button" class="btn btn-outline-primary rounded-pill px-3 py-2 shadow-sm fw-semibold d-inline-flex align-items-center" data-bs-toggle="modal" data-bs-target="#dummyLocationModal" id="openDummyLocationBtn">
+                <i class="bi bi-geo-alt-fill text-danger me-1"></i> Set Dummy Location
+            </button>
+
+            <div id="dummyActiveBadge" class="d-none align-items-center bg-warning bg-opacity-10 border border-warning text-dark px-3 py-1 rounded-pill small">
+                <span class="me-2"><i class="bi bi-pin-map-fill text-warning me-1"></i><strong id="dummyDistDisplay">Demo GPS Active</strong></span>
+                <button type="button" class="btn-close" style="font-size: 0.65rem;" onclick="resetRealGps()" title="Reset to Real Device GPS"></button>
+            </div>
+
+            <form action="<?= url('/delivery/toggle-status') ?>" method="POST" class="d-inline mb-0">
                 <?= csrf_field() ?>
                 <div class="d-inline-flex align-items-center bg-white border rounded-pill px-4 py-2 shadow-sm" style="transition: all 0.3s ease;">
                     <span class="fw-bold fs-6 me-3 <?= $partner['is_online'] ? 'text-muted opacity-50' : 'text-danger' ?>" style="user-select: none;">Offline</span>
@@ -164,6 +173,101 @@
             <?php endforeach; ?>
         </div>
     <?php endif; ?>
+
+    <!-- Dummy Location Modal for Testing Distance-Based Cascades -->
+    <div class="modal fade" id="dummyLocationModal" tabindex="-1" aria-labelledby="dummyLocationModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+                <div class="modal-header bg-light border-bottom py-3 px-4">
+                    <div>
+                        <h5 class="modal-title fw-bold mb-0 text-dark" id="dummyLocationModalLabel">
+                            <i class="bi bi-geo-alt-fill text-danger me-2"></i>Set Dummy Testing Location
+                        </h5>
+                        <small class="text-muted">
+                            City: <strong><?= sanitize($partner['city'] ?? 'Surat') ?></strong> &bull; Kitchens are pinned on the map
+                        </small>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <!-- Target Kitchen Selector & 1-Click Presets -->
+                    <div class="card bg-light border-0 mb-3 shadow-none">
+                        <div class="card-body p-3">
+                            <div class="row g-2 align-items-center mb-2">
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold text-muted mb-1">Target Kitchen Reference:</label>
+                                    <select id="targetKitchenSelect" class="form-select form-select-sm fw-semibold" onchange="onTargetKitchenChange()">
+                                        <?php if (!empty($cityKitchens)): ?>
+                                            <?php foreach ($cityKitchens as $k): ?>
+                                                <option value="<?= $k['id'] ?>" 
+                                                        data-lat="<?= $k['latitude'] ?>" 
+                                                        data-lng="<?= $k['longitude'] ?>"
+                                                        data-name="<?= sanitize($k['kitchen_name']) ?>">
+                                                    <?= sanitize($k['kitchen_name']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <option value="43" data-lat="21.1702" data-lng="72.8311" data-name="Mehul Chinchangare's Kitchen">
+                                                Mehul Chinchangare's Kitchen (Surat)
+                                            </option>
+                                        <?php endif; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-7 text-md-end">
+                                    <label class="form-label small fw-bold text-muted mb-1 d-block">Quick Distance Presets:</label>
+                                    <div class="btn-group btn-group-sm w-100" role="group">
+                                        <button type="button" class="btn btn-outline-success fw-bold" onclick="applyPresetDistance(1.0)">
+                                            🟢 ~1.0 km (Round 1)
+                                        </button>
+                                        <button type="button" class="btn btn-outline-warning fw-bold text-dark" onclick="applyPresetDistance(2.5)">
+                                            🟡 ~2.5 km (Round 2)
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger fw-bold" onclick="applyPresetDistance(4.5)">
+                                            🔴 ~4.5 km (Round 3)
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-muted small">
+                                <i class="bi bi-info-circle me-1"></i>Click anywhere on the map or drag the blue rider marker to custom-position this driver.
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Google Map Container -->
+                    <div id="dummyMapContainer" style="height: 380px; width: 100%; border-radius: 12px; z-index: 1;" class="border shadow-sm mb-3"></div>
+
+                    <!-- Coordinate & Live Distance Info -->
+                    <div class="row g-2 align-items-center bg-white p-3 rounded-3 border">
+                        <div class="col-sm-7">
+                            <div class="small text-muted mb-0">Rider Coordinates:</div>
+                            <div class="fw-bold font-monospace text-primary" id="riderCoordDisplay">
+                                <?= !empty($partner['current_latitude']) ? number_format((float)$partner['current_latitude'], 6) : '21.170200' ?>, 
+                                <?= !empty($partner['current_longitude']) ? number_format((float)$partner['current_longitude'], 6) : '72.831100' ?>
+                            </div>
+                        </div>
+                        <div class="col-sm-5 text-sm-end">
+                            <div class="small text-muted mb-0">Distance to Kitchen:</div>
+                            <span class="badge bg-primary fs-6 px-3 py-2 rounded-pill shadow-sm" id="liveDistanceBadge">
+                                <i class="bi bi-arrows-expand me-1"></i><span id="liveDistanceText">0.0 km</span>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-top py-3 px-4 d-flex justify-content-between bg-light">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-3" onclick="resetRealGps()">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Reset to Device GPS
+                    </button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn btn-light border rounded-pill px-3" data-bs-dismiss="modal">Close</button>
+                        <button type="button" class="btn btn-success fw-bold rounded-pill px-4 shadow-sm" id="saveDummyBtn" onclick="saveDummyLocation()">
+                            <i class="bi bi-check-circle-fill me-1"></i>Save Location
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <?php if ($partner['is_online']): ?>
@@ -175,6 +279,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         // Function to send location to server
         function updateLocation(position) {
+            // Skip device GPS overwrite if dummy testing location is active
+            if (sessionStorage.getItem('kravyo_dummy_location_active') === '1') {
+                console.log("Kravyo GPS: Dummy testing location active. Skipping automatic device GPS overwrite.");
+                return;
+            }
             const lat = position.coords.latitude;
             const lng = position.coords.longitude;
             const csrfToken = '<?= csrf_token() ?>';
@@ -403,3 +512,277 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <?php endif; ?>
+
+<!-- Google Maps Loader for Dummy Location Testing -->
+<?php include __DIR__ . '/../partials/google_maps_loader.php'; ?>
+
+<script>
+let dummyMap = null;
+let riderMarker = null;
+let distanceLine = null;
+let currentRiderLat = <?= !empty($partner['current_latitude']) ? (float)$partner['current_latitude'] : 21.1702 ?>;
+let currentRiderLng = <?= !empty($partner['current_longitude']) ? (float)$partner['current_longitude'] : 72.8311 ?>;
+let targetKitchenLat = 21.1702;
+let targetKitchenLng = 72.8311;
+let kitchenMarkers = [];
+
+const cityKitchensData = <?= json_encode($cityKitchens ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+
+function getHaversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+              Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+              Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return parseFloat((R * c).toFixed(2));
+}
+
+function updateDistanceDisplay() {
+    const dist = getHaversineKm(currentRiderLat, currentRiderLng, targetKitchenLat, targetKitchenLng);
+    
+    const coordEl = document.getElementById('riderCoordDisplay');
+    if (coordEl) coordEl.textContent = `${currentRiderLat.toFixed(6)}, ${currentRiderLng.toFixed(6)}`;
+
+    const distEl = document.getElementById('liveDistanceText');
+    if (distEl) distEl.textContent = `${dist} km`;
+
+    const badge = document.getElementById('liveDistanceBadge');
+    if (badge) {
+        badge.className = 'badge fs-6 px-3 py-2 rounded-pill shadow-sm ' + 
+            (dist <= 1.5 ? 'bg-success' : (dist <= 3.0 ? 'bg-warning text-dark' : 'bg-danger'));
+    }
+
+    if (dummyMap && typeof KravyoMaps !== 'undefined') {
+        KravyoMaps.init().then(function(libs) {
+            if (distanceLine) {
+                distanceLine.setMap(null);
+            }
+            distanceLine = new libs.Polyline({
+                path: [
+                    { lat: targetKitchenLat, lng: targetKitchenLng },
+                    { lat: currentRiderLat, lng: currentRiderLng }
+                ],
+                geodesic: true,
+                strokeColor: '#0d6efd',
+                strokeOpacity: 0.85,
+                strokeWeight: 3,
+                map: dummyMap
+            });
+        }).catch(console.error);
+    }
+}
+
+function onTargetKitchenChange() {
+    const select = document.getElementById('targetKitchenSelect');
+    if (!select) return;
+    const opt = select.options[select.selectedIndex];
+    if (opt) {
+        targetKitchenLat = parseFloat(opt.dataset.lat || '21.1702');
+        targetKitchenLng = parseFloat(opt.dataset.lng || '72.8311');
+        updateDistanceDisplay();
+    }
+}
+
+function applyPresetDistance(targetKm) {
+    onTargetKitchenChange();
+    
+    // In Surat (lat ~21), 1 km is ~0.0090 degrees latitude
+    const latOffset = (targetKm / 111.0);
+    currentRiderLat = parseFloat((targetKitchenLat + latOffset).toFixed(6));
+    currentRiderLng = parseFloat(targetKitchenLng.toFixed(6));
+
+    if (riderMarker) {
+        riderMarker.position = { lat: currentRiderLat, lng: currentRiderLng };
+    }
+    if (dummyMap) {
+        dummyMap.panTo({ lat: currentRiderLat, lng: currentRiderLng });
+    }
+    updateDistanceDisplay();
+}
+
+function initDummyMap() {
+    if (dummyMap) return;
+
+    const select = document.getElementById('targetKitchenSelect');
+    if (select && select.options.length > 0) {
+        const opt = select.options[0];
+        targetKitchenLat = parseFloat(opt.dataset.lat || '21.1702');
+        targetKitchenLng = parseFloat(opt.dataset.lng || '72.8311');
+    }
+
+    if (typeof KravyoMaps === 'undefined') {
+        console.warn('KravyoMaps is not loaded.');
+        return;
+    }
+
+    KravyoMaps.init().then(function(libs) {
+        dummyMap = KravyoMaps.createMap('dummyMapContainer', targetKitchenLat, targetKitchenLng, 13);
+        if (!dummyMap) return;
+
+        // Add kitchen markers
+        if (cityKitchensData && cityKitchensData.length > 0) {
+            cityKitchensData.forEach(function(k) {
+                const kLat = parseFloat(k.latitude);
+                const kLng = parseFloat(k.longitude);
+                if (!isNaN(kLat) && !isNaN(kLng)) {
+                    const km = KravyoMaps.addStaticMarker(dummyMap, kLat, kLng, k.kitchen_name, 'restaurant');
+                    kitchenMarkers.push(km);
+                }
+            });
+        } else {
+            KravyoMaps.addStaticMarker(dummyMap, targetKitchenLat, targetKitchenLng, "Mehul's Kitchen", 'restaurant');
+        }
+
+        // Initial rider position
+        const savedLat = sessionStorage.getItem('kravyo_dummy_lat');
+        const savedLng = sessionStorage.getItem('kravyo_dummy_lng');
+        if (savedLat && savedLng) {
+            currentRiderLat = parseFloat(savedLat);
+            currentRiderLng = parseFloat(savedLng);
+        } else if (currentRiderLat === 0.0 || (currentRiderLat === 21.1702 && currentRiderLng === 72.8311)) {
+            // Default offset ~1.2 km from kitchen
+            currentRiderLat = targetKitchenLat + 0.0108;
+            currentRiderLng = targetKitchenLng + 0.0020;
+        }
+
+        // Add draggable rider marker using KravyoMaps
+        riderMarker = KravyoMaps.addDraggableMarker(dummyMap, currentRiderLat, currentRiderLng, function(lat, lng) {
+            currentRiderLat = parseFloat(lat.toFixed(6));
+            currentRiderLng = parseFloat(lng.toFixed(6));
+            updateDistanceDisplay();
+        });
+
+        // Allow clicking anywhere on Google Map to place rider marker
+        dummyMap.addListener('click', function(e) {
+            if (!e.latLng) return;
+            currentRiderLat = parseFloat(e.latLng.lat().toFixed(6));
+            currentRiderLng = parseFloat(e.latLng.lng().toFixed(6));
+            if (riderMarker) {
+                riderMarker.position = { lat: currentRiderLat, lng: currentRiderLng };
+            }
+            updateDistanceDisplay();
+        });
+
+        updateDistanceDisplay();
+    }).catch(function(err) {
+        console.error('Google Maps init failed:', err);
+    });
+}
+
+function saveDummyLocation() {
+    const saveBtn = document.getElementById('saveDummyBtn');
+    saveBtn.disabled = true;
+    saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+
+    const csrfToken = '<?= csrf_token() ?>';
+    const distText = document.getElementById('liveDistanceText').textContent;
+
+    fetch('<?= url('/delivery/set-dummy-location') ?>', {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken,
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: '_csrf=' + encodeURIComponent(csrfToken) + 
+              '&latitude=' + encodeURIComponent(currentRiderLat) + 
+              '&longitude=' + encodeURIComponent(currentRiderLng)
+    })
+    .then(res => res.json())
+    .then(data => {
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Save Location';
+        if (data.success) {
+            sessionStorage.setItem('kravyo_dummy_location_active', '1');
+            sessionStorage.setItem('kravyo_dummy_lat', currentRiderLat);
+            sessionStorage.setItem('kravyo_dummy_lng', currentRiderLng);
+            sessionStorage.setItem('kravyo_dummy_dist', `Demo: ${distText} away`);
+            
+            updateBadgeDisplay();
+
+            const modalEl = document.getElementById('dummyLocationModal');
+            const modal = bootstrap.Modal.getInstance(modalEl);
+            if (modal) modal.hide();
+        } else {
+            alert(data.message || 'Error saving location');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        saveBtn.disabled = false;
+        saveBtn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Save Location';
+        alert('Could not save dummy location. Please try again.');
+    });
+}
+
+function resetRealGps() {
+    if (!confirm('Reset location back to your real device GPS?')) return;
+    
+    sessionStorage.removeItem('kravyo_dummy_location_active');
+    sessionStorage.removeItem('kravyo_dummy_lat');
+    sessionStorage.removeItem('kravyo_dummy_lng');
+    sessionStorage.removeItem('kravyo_dummy_dist');
+
+    const csrfToken = '<?= csrf_token() ?>';
+    fetch('<?= url('/delivery/reset-location') ?>', {
+        method: 'POST',
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRF-TOKEN': csrfToken,
+            'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: '_csrf=' + encodeURIComponent(csrfToken)
+    }).then(() => {
+        updateBadgeDisplay();
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition(function(pos) {
+                currentRiderLat = pos.coords.latitude;
+                currentRiderLng = pos.coords.longitude;
+                if (riderMarker) {
+                    riderMarker.position = { lat: currentRiderLat, lng: currentRiderLng };
+                }
+                updateDistanceDisplay();
+            });
+        }
+    });
+
+    const modalEl = document.getElementById('dummyLocationModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) modal.hide();
+}
+
+function updateBadgeDisplay() {
+    const badge = document.getElementById('dummyActiveBadge');
+    if (!badge) return;
+    if (sessionStorage.getItem('kravyo_dummy_location_active') === '1') {
+        const dist = sessionStorage.getItem('kravyo_dummy_dist') || 'Demo Location Active';
+        const distEl = document.getElementById('dummyDistDisplay');
+        if (distEl) distEl.textContent = dist;
+        badge.classList.remove('d-none');
+        badge.classList.add('d-inline-flex');
+    } else {
+        badge.classList.add('d-none');
+        badge.classList.remove('d-inline-flex');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateBadgeDisplay();
+
+    const modalEl = document.getElementById('dummyLocationModal');
+    if (modalEl) {
+        modalEl.addEventListener('shown.bs.modal', function () {
+            if (dummyMap) {
+                if (window.google && google.maps && google.maps.event) {
+                    google.maps.event.trigger(dummyMap, 'resize');
+                }
+                dummyMap.setCenter({ lat: currentRiderLat, lng: currentRiderLng });
+            } else {
+                initDummyMap();
+            }
+        });
+    }
+});
+</script>

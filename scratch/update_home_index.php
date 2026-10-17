@@ -15,10 +15,11 @@ $replace = '<a href="<?= ctx_url(\'/kitchens\') ?>" class="btn btn-kravyo-primar
                         <i class="bi bi-geo-alt-fill text-danger me-2"></i> Nearby Map
                     </a>';
 
-if ($isCrlf) {
+if ($isCrlf) 
+    {
     $search = str_replace("\n", "\r\n", $search);
     $replace = str_replace("\n", "\r\n", $replace);
-}
+        }
 
 $content = str_replace($search, $replace, $content);
 file_put_contents($filePath, $content);

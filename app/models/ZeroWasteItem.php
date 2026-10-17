@@ -190,26 +190,81 @@ class ZeroWasteItem extends Model {
     // ─── Admin methods ──────────────────────────────────────────────────────────
 
     /**
-     * Get ALL zero waste listings platform-wide with full context (Admin view).
-     * Auto-expires stale listings first, then fetches with optional status filter.
+     * Get ALL zero waste listings platform-wide with full context & rich filters (Admin view).
+     * Auto-expires stale listings first, then fetches with optional filters.
      */
-    public function findAllWithAdminDetails(?string $statusFilter = null): array {
+    public function findAllWithAdminDetails(array $filters = []): array {
         $this->markExpired();
 
         $sql = "SELECT
                     z.id, z.status, z.quantity_available AS quantity, z.original_price, z.discounted_price,
-                    z.expiry_time, z.created_at,
-                    m.item_name,
+                    z.expiry_time, z.created_at, z.kitchen_id,
+                    m.id AS menu_item_id, m.item_name, m.image AS dish_image, m.is_veg,
                     k.kitchen_name, k.city,
-                    ROUND(((z.original_price - z.discounted_price) / z.original_price) * 100) AS discount_pct
+                    ROUND(((z.original_price - z.discounted_price) / z.original_price) * 100) AS discount_pct,
+                    TIMESTAMPDIFF(MINUTE, NOW(), z.expiry_time) AS minutes_remaining,
+                    COALESCE(claimed.total_claimed_qty, 0) AS claimed_qty,
+                    COALESCE(claimed.total_claimed_amount, 0) AS claimed_revenue
                 FROM {$this->table} z
                 JOIN menu_items m ON z.menu_item_id = m.id
-                JOIN kitchens k   ON z.kitchen_id   = k.id";
+                JOIN kitchens k   ON z.kitchen_id   = k.id
+                LEFT JOIN (
+                    SELECT zero_waste_id, SUM(quantity) AS total_claimed_qty, SUM(subtotal) AS total_claimed_amount
+                    FROM order_items
+                    WHERE is_zero_waste = 1 AND zero_waste_id IS NOT NULL
+                    GROUP BY zero_waste_id
+                ) claimed ON z.id = claimed.zero_waste_id
+                WHERE 1=1";
 
         $params = [];
-        if ($statusFilter && in_array($statusFilter, ['active', 'sold_out', 'expired'], true)) {
-            $sql .= " WHERE z.status = :status";
-            $params['status'] = $statusFilter;
+
+        // Search (dish name, kitchen name, city, or ID)
+        if (!empty($filters['search'])) {
+            $search = trim($filters['search']);
+            if (is_numeric(ltrim($search, '#'))) {
+                $sql .= " AND (z.id = :search_id OR m.item_name LIKE :search1 OR k.kitchen_name LIKE :search2)";
+                $params['search_id'] = (int)ltrim($search, '#');
+                $params['search1']   = '%' . $search . '%';
+                $params['search2']   = '%' . $search . '%';
+            } else {
+                $sql .= " AND (m.item_name LIKE :search1 OR k.kitchen_name LIKE :search2 OR k.city LIKE :search3)";
+                $params['search1'] = '%' . $search . '%';
+                $params['search2'] = '%' . $search . '%';
+                $params['search3'] = '%' . $search . '%';
+            }
+        }
+
+        // Status filter
+        if (!empty($filters['status']) && in_array($filters['status'], ['active', 'sold_out', 'expired'], true)) {
+            $sql .= " AND z.status = :status";
+            $params['status'] = $filters['status'];
+        }
+
+        // City filter
+        if (!empty($filters['city']) && $filters['city'] !== 'all') {
+            $sql .= " AND k.city = :city";
+            $params['city'] = $filters['city'];
+        }
+
+        // Kitchen filter
+        if (!empty($filters['kitchen_id'])) {
+            $sql .= " AND z.kitchen_id = :kitchen_id";
+            $params['kitchen_id'] = (int)$filters['kitchen_id'];
+        }
+
+        // Time range filter
+        if (!empty($filters['time_range']) && $filters['time_range'] !== 'all') {
+            switch ($filters['time_range']) {
+                case 'today':
+                    $sql .= " AND DATE(z.created_at) = CURDATE()";
+                    break;
+                case '7days':
+                    $sql .= " AND z.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)";
+                    break;
+                case '30days':
+                    $sql .= " AND z.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)";
+                    break;
+            }
         }
 
         $sql .= " ORDER BY z.created_at DESC";
@@ -227,17 +282,40 @@ class ZeroWasteItem extends Model {
                     COUNT(*) AS total_listings,
                     SUM(CASE WHEN status = 'active' AND expiry_time > NOW() THEN 1 ELSE 0 END) AS active_listings,
                     SUM(CASE WHEN status = 'sold_out' THEN 1 ELSE 0 END) AS sold_out_listings,
-                    SUM(CASE WHEN status = 'expired' THEN 1 ELSE 0 END) AS expired_listings,
+                    SUM(CASE WHEN status = 'expired' OR expiry_time <= NOW() THEN 1 ELSE 0 END) AS expired_listings,
                     SUM(CASE WHEN status = 'active' AND expiry_time > NOW() THEN quantity_available ELSE 0 END) AS total_active_qty,
                     SUM(original_price * quantity_available) AS total_original_value,
                     SUM(discounted_price * quantity_available) AS total_discounted_value
                 FROM {$this->table}";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
-        $row = $stmt->fetch();
+        $row = $stmt->fetch() ?: [];
 
         $row['potential_savings'] = ($row['total_original_value'] ?? 0) - ($row['total_discounted_value'] ?? 0);
-        return $row ?: [];
+
+        // Actual orders and meals rescued
+        $stmtClaimed = $this->db->query("
+            SELECT COUNT(DISTINCT order_id) AS total_orders,
+                   COALESCE(SUM(quantity), 0) AS meals_saved_qty,
+                   COALESCE(SUM(subtotal), 0) AS realized_revenue
+            FROM order_items
+            WHERE is_zero_waste = 1
+        ");
+        $claimedRow = $stmtClaimed->fetch() ?: [];
+        $row['meals_saved_qty']   = (int)($claimedRow['meals_saved_qty'] ?? 0);
+        $row['realized_revenue']  = (float)($claimedRow['realized_revenue'] ?? 0);
+        $row['zero_waste_orders'] = (int)($claimedRow['total_orders'] ?? 0);
+
+        return $row;
+    }
+
+    /**
+     * Force-expire an active listing (Admin action)
+     */
+    public function forceExpire(int $id): bool {
+        $sql = "UPDATE {$this->table} SET status = 'expired' WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute(['id' => $id]);
     }
 
     /**
