@@ -282,8 +282,16 @@ class Order extends Model {
                     COUNT(*) AS total_placed_orders,
                     SUM(CASE WHEN order_status = 'delivered' THEN 1 ELSE 0 END) AS delivered_orders,
                     SUM(CASE WHEN order_status = 'delivered' THEN total_amount ELSE 0 END) AS total_earnings,
-                    SUM(CASE WHEN order_status = 'delivered' AND payment_status = 'completed' AND payment_method != 'cod' THEN total_amount ELSE 0 END) AS online_settled,
-                    SUM(CASE WHEN order_status = 'delivered' AND (payment_method = 'cod' OR payment_status = 'pending') THEN total_amount ELSE 0 END) AS cod_pending,
+                    SUM(CASE 
+                        WHEN order_status = 'delivered' AND payment_status = 'completed' AND payment_method = 'split' THEN paid_online_amount
+                        WHEN order_status = 'delivered' AND payment_status = 'completed' AND payment_method != 'cod' AND payment_method != 'split' THEN total_amount 
+                        ELSE 0 
+                    END) AS online_settled,
+                    SUM(CASE 
+                        WHEN order_status = 'delivered' AND payment_status = 'completed' AND payment_method = 'split' THEN paid_cash_amount
+                        WHEN order_status = 'delivered' AND (payment_method = 'cod' OR payment_status = 'pending') THEN total_amount 
+                        ELSE 0 
+                    END) AS cod_pending,
                     SUM(CASE WHEN order_status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_orders
                 FROM {$this->table}
                 WHERE kitchen_id = :kitchen_id
@@ -978,18 +986,30 @@ class Order extends Model {
     }
 
     /**
-     * Add a driver to the order's rejected_by_drivers array to prevent re-pinging
+     * Atomically add a driver to the order's rejected_by_drivers JSON array.
+     * Uses MySQL JSON_ARRAY_APPEND to avoid the PHP read-modify-write race condition
+     * that would allow two concurrent decline events to overwrite each other.
      */
     public function addRejectedDriver(int $orderId, int $partnerId): bool {
-        $rejected = $this->getRejectedDriverIds($orderId);
-        if (!in_array($partnerId, $rejected, true)) {
-            $rejected[] = $partnerId;
-        }
-        $sql = "UPDATE {$this->table} SET rejected_by_drivers = :json WHERE id = :id";
+        // Single atomic SQL using JSON_ARRAY_APPEND for atomic read-modify-write.
+        // Compatible with both MariaDB and MySQL without requiring CAST(... AS JSON).
+        $sql = "UPDATE {$this->table}
+                SET rejected_by_drivers = JSON_ARRAY_APPEND(
+                    COALESCE(NULLIF(rejected_by_drivers, ''), JSON_ARRAY()),
+                    '$',
+                    CAST(:partner_id AS UNSIGNED)
+                )
+                WHERE id = :id
+                  AND (
+                      rejected_by_drivers IS NULL
+                      OR rejected_by_drivers = ''
+                      OR NOT JSON_CONTAINS(rejected_by_drivers, CAST(:partner_id2 AS CHAR))
+                  )";
         $stmt = $this->db->prepare($sql);
         return $stmt->execute([
-            'json' => json_encode($rejected),
-            'id'   => $orderId
+            'partner_id'  => $partnerId,
+            'partner_id2' => $partnerId,
+            'id'          => $orderId,
         ]);
     }
 
@@ -1032,5 +1052,45 @@ class Order extends Model {
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll();
+    }
+
+    /**
+     * Atomically cancel an order only if it is still 'pending' AND belongs to the customer.
+     * Uses SELECT FOR UPDATE inside a transaction to lock the row, eliminating the
+     * Time-Of-Check-To-Time-Of-Use (TOCTOU) race that could trigger a double refund.
+     *
+     * Must be called inside Database::withTransaction().
+     * Returns the locked order row on success, or null if already processed / not pending.
+     */
+    public function cancelIfPending(int $orderId, int $customerId): ?array {
+        $db = Database::getInstance();
+
+        // Lock the row so no concurrent cancel request can sneak through
+        $stmt = $db->prepare(
+            "SELECT * FROM {$this->table}
+             WHERE id = :id AND customer_id = :cid AND order_status = :status
+             LIMIT 1 FOR UPDATE"
+        );
+        $stmt->execute([
+            'id'     => $orderId,
+            'cid'    => $customerId,
+            'status' => ORDER_STATUS_PENDING,
+        ]);
+        $order = $stmt->fetch();
+
+        if (!$order) {
+            return null; // Not pending, not found, or not owned by this customer
+        }
+
+        // Safe to cancel — we hold the row lock
+        $updateStmt = $db->prepare(
+            "UPDATE {$this->table} SET order_status = :cancelled WHERE id = :id"
+        );
+        $updateStmt->execute([
+            'cancelled' => ORDER_STATUS_CANCELLED,
+            'id'        => $orderId,
+        ]);
+
+        return $order; // Return the original order data (payment info needed for refund)
     }
 }

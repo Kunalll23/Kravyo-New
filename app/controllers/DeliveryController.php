@@ -613,47 +613,93 @@ class DeliveryController extends Controller {
         $orderId   = (int) $id;
         $partnerId = (int) Session::get('delivery_partner_id');
 
-        $order = $this->orderModel->find($orderId);
-        if (!$order || (int)($order['delivery_partner_id'] ?? 0) !== $partnerId) {
+        $submittedOtp = trim($_POST['delivery_otp'] ?? '');
+        $alreadyDelivered = false;
+        $order = null;
+
+        // ── Atomic Delivery Completion ──────────────────────────────────────────
+        // Lock the row with SELECT FOR UPDATE inside a transaction to prevent
+        // duplicate completion, double earnings increment, or double notifications
+        // if the delivery rider double-taps "Verify & Complete".
+        $result = Database::withTransaction(function() use (
+            $orderId, $partnerId, $submittedOtp, &$order, &$alreadyDelivered
+        ) {
+            $db = Database::getInstance();
+            $stmt = $db->prepare(
+                "SELECT * FROM orders WHERE id = :id AND delivery_partner_id = :partner_id LIMIT 1 FOR UPDATE"
+            );
+            $stmt->execute(['id' => $orderId, 'partner_id' => $partnerId]);
+            $lockedOrder = $stmt->fetch();
+
+            if (!$lockedOrder) {
+                return 'not_found';
+            }
+
+            // Idempotency: if already completed (e.g. from network retry or rapid tap), skip silently
+            if ($lockedOrder['delivery_status'] === DELIVERY_STATUS_DELIVERED || $lockedOrder['order_status'] === ORDER_STATUS_DELIVERED) {
+                $alreadyDelivered = true;
+                $order = $lockedOrder;
+                return 'already_delivered';
+            }
+
+            if ($lockedOrder['delivery_status'] !== DELIVERY_STATUS_OUT_FOR_DELIVERY) {
+                return 'not_out_for_delivery';
+            }
+
+            // Verify OTP against locked row
+            if (empty($submittedOtp) || (string)$lockedOrder['delivery_otp'] !== (string)$submittedOtp) {
+                return 'invalid_otp';
+            }
+
+            // Mark as delivered
+            $this->orderModel->updateDeliveryStatus($orderId, DELIVERY_STATUS_DELIVERED, ORDER_STATUS_DELIVERED);
+
+            // Update payment status for COD
+            if ($lockedOrder['payment_method'] === PAYMENT_METHOD_COD) {
+                $this->orderModel->updatePaymentStatus($orderId, PAYMENT_STATUS_COMPLETED);
+            }
+
+            // Update delivery partner stats exactly ONCE
+            $this->partnerModel->incrementDeliveryStats($partnerId, (float)$lockedOrder['total_amount']);
+            $this->partnerModel->setIsBusy($partnerId, 0);
+
+            // Complete Tiffin Delivery if applicable
+            if (($lockedOrder['order_type'] ?? 'standard') === 'tiffin' && !empty($lockedOrder['subscription_delivery_id'])) {
+                require_once APP_PATH . '/models/SubscriptionDelivery.php';
+                $sdModel = new SubscriptionDelivery();
+                $sdModel->updateStatus((int)$lockedOrder['subscription_delivery_id'], 'delivered', (int)$lockedOrder['kitchen_id']);
+            }
+
+            $order = $lockedOrder;
+            return 'success';
+        });
+
+        if ($result === 'not_found') {
             Session::setFlash('danger', 'Order not found or not assigned to you.');
             $this->redirect('/delivery/dashboard');
             return;
         }
 
-        if ($order['delivery_status'] !== DELIVERY_STATUS_OUT_FOR_DELIVERY) {
+        if ($result === 'not_out_for_delivery') {
             Session::setFlash('danger', 'Order must be "Out for Delivery" before completing.');
             $this->redirect('/delivery/order/' . $orderId);
             return;
         }
 
-        // Verify OTP
-        $submittedOtp = trim($_POST['delivery_otp'] ?? '');
-        if (empty($submittedOtp) || !$this->orderModel->verifyDeliveryOtp($orderId, $submittedOtp)) {
+        if ($result === 'invalid_otp') {
             Session::setFlash('danger', 'Invalid delivery OTP. Please ask the customer for the correct code.');
             $this->redirect('/delivery/order/' . $orderId);
             return;
         }
 
-        // Mark as delivered
-        $this->orderModel->updateDeliveryStatus($orderId, DELIVERY_STATUS_DELIVERED, ORDER_STATUS_DELIVERED);
-
-        // Update payment status for COD
-        if ($order['payment_method'] === PAYMENT_METHOD_COD) {
-            $this->orderModel->updatePaymentStatus($orderId, PAYMENT_STATUS_COMPLETED);
+        if ($alreadyDelivered) {
+            // Already delivered by concurrent request — don't re-credit earnings or duplicate notifications
+            Session::setFlash('success', '✅ Order #' . $order['order_number'] . ' is already marked delivered!');
+            $this->redirect('/delivery/dashboard');
+            return;
         }
 
-        // Update delivery partner stats
-        $this->partnerModel->incrementDeliveryStats($partnerId, (float)$order['total_amount']);
-        $this->partnerModel->setIsBusy($partnerId, 0);
-
-        // Ultra Processing: Complete Tiffin Delivery 
-        if (($order['order_type'] ?? 'standard') === 'tiffin' && !empty($order['subscription_delivery_id'])) {
-            require_once APP_PATH . '/models/SubscriptionDelivery.php';
-            $sdModel = new SubscriptionDelivery();
-            $sdModel->updateStatus((int)$order['subscription_delivery_id'], 'delivered', (int)$order['kitchen_id']);
-        }
-
-        // Notify customer
+        // Notify customer (outside transaction — external calls must not hold locks)
         try {
             require_once APP_PATH . '/models/Notification.php';
             $notif = new Notification();
@@ -675,6 +721,185 @@ class DeliveryController extends Controller {
 
         Session::setFlash('success', '✅ Order #' . $order['order_number'] . ' delivered successfully!');
         $this->redirect('/delivery/dashboard');
+    }
+
+    /**
+     * Record Doorstep UPI Payment collected by Delivery Partner (Test Mode)
+     * POST /delivery/order/{id}/doorstep-upi
+     */
+    public function recordDoorstepUpiPayment(string $id): void {
+        Middleware::deliveryAuth();
+        Middleware::verifyCsrf();
+
+        $orderId   = (int) $id;
+        $partnerId = (int) Session::get('delivery_partner_id');
+
+        $order = null;
+        $updated = false;
+
+        $result = Database::withTransaction(function() use ($orderId, $partnerId, &$order, &$updated) {
+            $db = Database::getInstance();
+            $stmt = $db->prepare(
+                "SELECT * FROM orders WHERE id = :id AND delivery_partner_id = :partner_id LIMIT 1 FOR UPDATE"
+            );
+            $stmt->execute(['id' => $orderId, 'partner_id' => $partnerId]);
+            $lockedOrder = $stmt->fetch();
+
+            if (!$lockedOrder) {
+                return 'not_found';
+            }
+
+            if ($lockedOrder['delivery_status'] !== DELIVERY_STATUS_OUT_FOR_DELIVERY) {
+                return 'not_out_for_delivery';
+            }
+
+            // If already marked as paid
+            if ($lockedOrder['payment_status'] === PAYMENT_STATUS_COMPLETED && $lockedOrder['payment_method'] === 'upi') {
+                $order = $lockedOrder;
+                return 'already_paid';
+            }
+
+            $utr = 'UPI-DOORSTEP-' . strtoupper(substr(md5((string)time() . (string)$orderId), 0, 8));
+
+            $updateStmt = $db->prepare(
+                "UPDATE orders 
+                 SET payment_method = 'upi', 
+                     payment_status = :status, 
+                     razorpay_payment_id = :utr 
+                 WHERE id = :id"
+            );
+            $updateStmt->execute([
+                'status' => PAYMENT_STATUS_COMPLETED,
+                'utr'    => $utr,
+                'id'     => $orderId,
+            ]);
+
+            $order = $lockedOrder;
+            $updated = true;
+            return 'success';
+        });
+
+        if ($result === 'not_found') {
+            Session::setFlash('danger', 'Order not found or not assigned to you.');
+            $this->redirect('/delivery/dashboard');
+            return;
+        }
+
+        if ($result === 'not_out_for_delivery') {
+            Session::setFlash('danger', 'Order must be "Out for Delivery" to record doorstep payment.');
+            $this->redirect('/delivery/order/' . $orderId);
+            return;
+        }
+
+        if ($result === 'already_paid') {
+            Session::setFlash('info', 'UPI payment for this order was already recorded! Ask the customer for the delivery OTP.');
+            $this->redirect('/delivery/order/' . $orderId);
+            return;
+        }
+
+        Session::setFlash('success', '✅ Doorstep UPI payment of ' . format_currency((float)$order['total_amount']) . ' recorded successfully! Now enter the 4-digit Delivery OTP to complete delivery.');
+        $this->redirect('/delivery/order/' . $orderId);
+    }
+
+    /**
+     * Record Doorstep Split Payment (Partial Cash + Partial UPI QR) in Test Mode
+     * POST /delivery/order/{id}/doorstep-split
+     */
+    public function recordDoorstepSplitPayment(string $id): void {
+        Middleware::deliveryAuth();
+        Middleware::verifyCsrf();
+
+        $orderId      = (int) $id;
+        $partnerId    = (int) Session::get('delivery_partner_id');
+        $cashAmount   = round((float) ($_POST['cash_amount'] ?? 0), 2);
+        $onlineAmount = round((float) ($_POST['online_amount'] ?? 0), 2);
+
+        if ($cashAmount <= 0 || $onlineAmount <= 0) {
+            Session::setFlash('danger', 'Both cash and UPI amounts must be greater than zero for split payment.');
+            $this->redirect('/delivery/order/' . $orderId);
+            return;
+        }
+
+        $order = null;
+
+        $result = Database::withTransaction(function() use ($orderId, $partnerId, $cashAmount, $onlineAmount, &$order) {
+            $db = Database::getInstance();
+            $stmt = $db->prepare(
+                "SELECT * FROM orders WHERE id = :id AND delivery_partner_id = :partner_id LIMIT 1 FOR UPDATE"
+            );
+            $stmt->execute(['id' => $orderId, 'partner_id' => $partnerId]);
+            $lockedOrder = $stmt->fetch();
+
+            if (!$lockedOrder) {
+                return 'not_found';
+            }
+
+            if ($lockedOrder['delivery_status'] !== DELIVERY_STATUS_OUT_FOR_DELIVERY) {
+                return 'not_out_for_delivery';
+            }
+
+            // Verify totals match order amount exactly
+            $totalExpected = round((float) $lockedOrder['total_amount'], 2);
+            if (round($cashAmount + $onlineAmount, 2) !== $totalExpected) {
+                $order = $lockedOrder;
+                return 'mismatched_amount';
+            }
+
+            // If already marked as paid
+            if ($lockedOrder['payment_status'] === PAYMENT_STATUS_COMPLETED) {
+                $order = $lockedOrder;
+                return 'already_paid';
+            }
+
+            $utr = 'UPI-SPLIT-' . strtoupper(substr(md5((string)time() . (string)$orderId), 0, 8));
+
+            $updateStmt = $db->prepare(
+                "UPDATE orders 
+                 SET payment_method = 'split', 
+                     payment_status = :status, 
+                     paid_cash_amount = :cash,
+                     paid_online_amount = :online,
+                     razorpay_payment_id = :utr 
+                 WHERE id = :id"
+            );
+            $updateStmt->execute([
+                'status' => PAYMENT_STATUS_COMPLETED,
+                'cash'   => $cashAmount,
+                'online' => $onlineAmount,
+                'utr'    => $utr,
+                'id'     => $orderId,
+            ]);
+
+            $order = $lockedOrder;
+            return 'success';
+        });
+
+        if ($result === 'not_found') {
+            Session::setFlash('danger', 'Order not found or not assigned to you.');
+            $this->redirect('/delivery/dashboard');
+            return;
+        }
+
+        if ($result === 'not_out_for_delivery') {
+            Session::setFlash('danger', 'Order must be "Out for Delivery" to record doorstep payment.');
+            $this->redirect('/delivery/order/' . $orderId);
+            return;
+        }
+
+        if ($result === 'mismatched_amount') {
+            Session::setFlash('danger', 'The sum of Cash and UPI amounts must equal the order total (' . format_currency((float)$order['total_amount']) . ').');
+            $this->redirect('/delivery/order/' . $orderId);
+            return;
+        }
+
+        if ($result === 'already_paid') {
+            Session::setFlash('info', 'Payment for this order was already recorded! Ask the customer for the delivery OTP.');
+            $this->redirect('/delivery/order/' . $orderId);
+            return;
+        }
+
+        Session::setFlash('success', '✅ Split payment recorded: Cash ' . format_currency($cashAmount) . ' + UPI ' . format_currency($onlineAmount) . ' (Total ' . format_currency((float)$order['total_amount']) . ') settled! Now enter the 4-digit Delivery OTP to complete delivery.');
+        $this->redirect('/delivery/order/' . $orderId);
     }
 
     /**

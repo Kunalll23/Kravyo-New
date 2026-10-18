@@ -295,6 +295,18 @@ $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
                         <span class="text-muted">Payment Method</span>
                         <span class="fw-600"><?= strtoupper($order['payment_method']) ?></span>
                     </div>
+                    <?php if ($order['payment_method'] === 'split'): ?>
+                        <div class="bg-light p-2 rounded-2 small mb-2 border">
+                            <div class="d-flex justify-content-between text-muted mb-1">
+                                <span>💵 Cash Paid:</span>
+                                <strong class="text-dark"><?= format_currency($order['paid_cash_amount']) ?></strong>
+                            </div>
+                            <div class="d-flex justify-content-between text-muted">
+                                <span>⚡ UPI Paid:</span>
+                                <strong class="text-dark"><?= format_currency($order['paid_online_amount']) ?></strong>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                     <div class="d-flex justify-content-between small">
                         <span class="text-muted">Payment Status</span>
                         <span class="badge bg-<?= $order['payment_status'] === 'completed' ? 'success' : 'warning' ?> text-capitalize">
@@ -324,10 +336,10 @@ $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
 
                 <!-- Cancel Button (only if pending) -->
                 <?php if ($order['order_status'] === ORDER_STATUS_PENDING): ?>
-                    <form method="POST" action="<?= url('/order/cancel') ?>" id="cancelOrderForm">
+                    <form method="POST" action="<?= url('/order/cancel') ?>" id="cancelOrderForm" data-once>
                         <?= csrf_field() ?>
                         <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
-                        <button type="submit" class="btn btn-outline-danger w-100"
+                        <button type="submit" class="btn btn-outline-danger w-100" id="cancelOrderBtn"
                                 onclick="return confirm('Are you sure you want to cancel this order?');">
                             <i class="bi bi-x-circle me-2"></i> Cancel Order
                         </button>
@@ -360,6 +372,35 @@ document.querySelectorAll('#starRatingInput input').forEach(radio => {
         document.getElementById('ratingText').textContent =
             ratingLabels[radio.value] + ' (' + radio.value + ' star' + (radio.value > 1 ? 's' : '') + ')';
         document.getElementById('ratingText').className = 'form-text text-warning fw-semibold';
+    });
+});
+</script>
+
+<script>
+/**
+ * Double-submit prevention for all forms marked with [data-once].
+ * After the first valid submission, the submit button is disabled and
+ * labelled so the user knows the action is being processed.
+ */
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form[data-once]').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            if (form.dataset.submitted === '1') {
+                e.preventDefault();
+                return false;
+            }
+            // Only lock after the browser's own confirm dialog (if any) is accepted
+            form.dataset.submitted = '1';
+            var btn = form.querySelector('[type="submit"]');
+            if (btn) {
+                btn.style.pointerEvents = 'none';
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>'
+                              + (btn.dataset.loadingText || 'Processing...');
+                setTimeout(function () {
+                    btn.disabled = true;
+                }, 0);
+            }
+        });
     });
 });
 </script>

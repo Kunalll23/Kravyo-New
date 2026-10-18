@@ -53,6 +53,7 @@ define('PAYMENT_METHOD_COD', 'cod');
 define('PAYMENT_METHOD_UPI', 'upi');
 define('PAYMENT_METHOD_CARD', 'card');
 define('PAYMENT_METHOD_NETBANKING', 'netbanking');
+define('PAYMENT_METHOD_SPLIT', 'split');
 
 // Subscription Plans
 define('SUBSCRIPTION_WEEKLY', 'weekly');

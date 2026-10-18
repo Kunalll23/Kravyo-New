@@ -62,6 +62,10 @@ class OrderController extends Controller {
         // Verify cart
         $cart = Session::get('cart', []);
         if (empty($cart['items'])) {
+            if (!empty($_POST['is_ajax'])) {
+                $this->json(['success' => false, 'message' => 'Your cart is empty.']);
+                return;
+            }
             Session::setFlash('danger', 'Your cart is empty.');
             $this->redirect('/menu');
             return;
@@ -77,7 +81,8 @@ class OrderController extends Controller {
 
         $userId = (int) Session::get('user_id');
         $addressId = (int) ($_POST['address_id'] ?? 0);
-        $paymentMethod = in_array($_POST['payment_method'] ?? '', ['cod', 'online']) ? $_POST['payment_method'] : 'cod';
+        $rawPaymentMethod = $_POST['payment_method'] ?? 'cod';
+        $paymentMethod = in_array($rawPaymentMethod, ['cod', 'online', 'upi', 'upi_qr']) ? ($rawPaymentMethod === 'upi_qr' ? 'upi' : $rawPaymentMethod) : 'cod';
         $specialInstructions = sanitize($_POST['special_instructions'] ?? '');
 
         // Handle new address creation
@@ -99,6 +104,10 @@ class OrderController extends Controller {
             ];
 
             if (empty($newAddressData['street_address']) || empty($newAddressData['city']) || empty($newAddressData['pincode'])) {
+                if (!empty($_POST['is_ajax'])) {
+                    $this->json(['success' => false, 'message' => 'Please provide a complete delivery address.']);
+                    return;
+                }
                 Session::setFlash('danger', 'Please provide a complete delivery address.');
                 $this->redirect('/checkout');
                 return;
@@ -110,6 +119,10 @@ class OrderController extends Controller {
         // Validate address belongs to user
         $address = $addressModel->findByIdAndUserId($addressId, $userId);
         if (!$address) {
+            if (!empty($_POST['is_ajax'])) {
+                $this->json(['success' => false, 'message' => 'Invalid delivery address selected. Please select a valid address.']);
+                return;
+            }
             Session::setFlash('danger', 'Invalid delivery address selected.');
             $this->redirect('/checkout');
             return;
@@ -189,11 +202,43 @@ class OrderController extends Controller {
             'special_instructions'=> $specialInstructions,
         ];
 
-        try {
-            $orderId = (int) $orderModel->create($orderData);
+        // ── Session Concurrency Mutex ──────────────────────────────────────────
+        // Prevent concurrent double-submissions from creating duplicate orders
+        $mutexKey = 'placing_order_' . $userId;
+        if (Session::has($mutexKey) && (microtime(true) - (float)Session::get($mutexKey)) < 4.0) {
+            if (!empty($_POST['is_ajax'])) {
+                $this->json(['success' => false, 'message' => 'Your order is already being processed. Please wait.']);
+                return;
+            }
+            Session::setFlash('warning', 'Your order is already being processed. Please check your order history.');
+            $this->redirect('/orders/history');
+            return;
+        }
+        Session::set($mutexKey, microtime(true));
 
-            // Create order items from cart
-            $orderItemModel->createFromCart($orderId, $cart['items']);
+        try {
+            // ── Core atomic write: order + items + ZeroWaste decrement ──────────
+            // All three writes are inside ONE transaction so an interrupted request
+            // cannot create an order without items, or decrement stock without an order.
+            $orderId = Database::withTransaction(function() use (
+                $orderModel, $orderItemModel, $orderData, $cart
+            ) {
+                $newOrderId = (int) $orderModel->create($orderData);
+
+                // Create order items in the same transaction
+                $orderItemModel->createFromCart($newOrderId, $cart['items']);
+
+                // Decrement ZeroWaste stock inside the transaction to prevent oversell
+                require_once APP_PATH . '/models/ZeroWasteItem.php';
+                $zwModel = new ZeroWasteItem();
+                foreach ($cart['items'] as $item) {
+                    if (!empty($item['is_zero_waste']) && !empty($item['zero_waste_id'])) {
+                        $zwModel->decrementQuantity((int) $item['zero_waste_id'], (int) $item['quantity']);
+                    }
+                }
+
+                return $newOrderId;
+            });
 
             // If Razorpay Online Payment
             if ($paymentMethod === 'online' && !empty($_POST['is_ajax'])) {
@@ -228,18 +273,32 @@ class OrderController extends Controller {
                 }
             }
 
-            // --- Regular COD Checkout Flow ---
+            // If UPI QR Payment (AJAX)
+            if ($paymentMethod === 'upi' && !empty($_POST['is_ajax'])) {
+                $upiVpa = 'kravyo.foods@upi';
+                $upiName = 'Kravyo Foods';
+                $upiString = sprintf(
+                    'upi://pay?pa=%s&pn=%s&am=%.2f&cu=INR&tn=%s',
+                    $upiVpa,
+                    urlencode($upiName),
+                    $totalAmount,
+                    urlencode('Order #' . $orderData['order_number'])
+                );
 
-            // Decrement Zero Waste listing stock for any deal items in this order
-            try {
-                require_once APP_PATH . '/models/ZeroWasteItem.php';
-                $zwModel = new ZeroWasteItem();
-                foreach ($cart['items'] as $item) {
-                    if (!empty($item['is_zero_waste']) && !empty($item['zero_waste_id'])) {
-                        $zwModel->decrementQuantity((int) $item['zero_waste_id'], (int) $item['quantity']);
-                    }
-                }
-            } catch (Exception $ignored) {}
+                $this->json([
+                    'success'          => true,
+                    'payment_method'   => 'upi',
+                    'kravyo_order_id'  => $orderId,
+                    'order_number'     => $orderData['order_number'],
+                    'amount'           => $totalAmount,
+                    'formatted_amount' => format_currency($totalAmount),
+                    'upi_vpa'          => $upiVpa,
+                    'upi_string'       => $upiString,
+                ]);
+                return;
+            }
+
+            // --- Regular COD Checkout Flow ---
 
             // Clear the cart
             Session::remove('cart');
@@ -299,6 +358,8 @@ class OrderController extends Controller {
             }
             Session::setFlash('danger', 'Failed to place order. Please try again.');
             $this->redirect('/checkout');
+        } finally {
+            Session::remove($mutexKey);
         }
     }
 
@@ -350,27 +411,44 @@ class OrderController extends Controller {
             $generatedSignature = hash_hmac('sha256', $orderId . "|" . $paymentId, RAZORPAY_KEY_SECRET);
 
             if (hash_equals($generatedSignature, $signature)) {
-                // Payment Success — update payment status and persist Razorpay payment ID for future refunds
-                $orderModel->updatePaymentStatus($kravyoId, PAYMENT_STATUS_COMPLETED);
-                $orderModel->saveRazorpayPaymentId($kravyoId, $paymentId);
+                // ── Payment Success ─────────────────────────────────────────────
+                // Use SELECT FOR UPDATE inside a transaction to prevent duplicate
+                // processing if the Razorpay webhook and the frontend callback fire
+                // at exactly the same moment (idempotency guard).
+                $alreadyProcessed = false;
+
+                Database::withTransaction(function() use (
+                    $orderModel, $kravyoId, $paymentId, &$alreadyProcessed
+                ) {
+                    $db = Database::getInstance();
+                    $stmt = $db->prepare(
+                        "SELECT payment_status FROM orders WHERE id = :id LIMIT 1 FOR UPDATE"
+                    );
+                    $stmt->execute(['id' => $kravyoId]);
+                    $freshStatus = $stmt->fetchColumn();
+
+                    if ($freshStatus === PAYMENT_STATUS_COMPLETED) {
+                        $alreadyProcessed = true; // Concurrent request already handled this
+                        return;
+                    }
+
+                    // Both writes in the same transaction — atomic and idempotent
+                    $orderModel->updatePaymentStatus($kravyoId, PAYMENT_STATUS_COMPLETED);
+                    $orderModel->saveRazorpayPaymentId($kravyoId, $paymentId);
+                });
+
+                if ($alreadyProcessed) {
+                    // Another concurrent request already succeeded — return success silently
+                    Session::setFlash('success', 'Payment successful! Order confirmed.');
+                    echo json_encode(['success' => true]);
+                    exit;
+                }
                 
                 // Post-checkout cart cleanup
                 $cart = Session::get('cart', ['items' => []]);
-                
-                // Decrement ZW items if applicable
-                try {
-                    require_once APP_PATH . '/models/ZeroWasteItem.php';
-                    $zwModel = new ZeroWasteItem();
-                    foreach (($cart['items'] ?? []) as $item) {
-                        if (!empty($item['is_zero_waste']) && !empty($item['zero_waste_id'])) {
-                            $zwModel->decrementQuantity((int)$item['zero_waste_id'], (int)$item['quantity']);
-                        }
-                    }
-                } catch (Throwable $ignored) {}
-
                 Session::remove('cart');
                 
-                // Fire Notifications
+                // Fire Notifications (outside transaction — non-critical)
                 try {
                     require_once APP_PATH . '/models/Notification.php';
                     $notifModel = new Notification();
@@ -393,6 +471,119 @@ class OrderController extends Controller {
             }
         } catch (Throwable $e) {
             error_log('Payment verify error: ' . $e->getMessage());
+            echo json_encode(['success' => false, 'message' => 'Verification error: ' . $e->getMessage()]);
+            exit;
+        }
+    }
+
+    /**
+     * Verify / Simulate UPI Payment (Test Mode)
+     * POST /order/verify-upi
+     */
+    public function verifyUpiPayment(): void {
+        header('Content-Type: application/json');
+
+        if (!Session::has('user_id')) {
+            echo json_encode(['success' => false, 'message' => 'Please log in to verify payment.']);
+            exit;
+        }
+
+        Middleware::verifyCsrf();
+
+        $kravyoId = (int) ($_POST['kravyo_order_id'] ?? 0);
+        $userId   = (int) Session::get('user_id');
+        $simulatedUtr = trim($_POST['simulated_utr'] ?? '');
+
+        if (!$kravyoId) {
+            echo json_encode(['success' => false, 'message' => 'Invalid order ID.']);
+            exit;
+        }
+
+        if (empty($simulatedUtr)) {
+            $simulatedUtr = 'UPI-TEST-' . strtoupper(substr(md5((string)time() . (string)$kravyoId), 0, 10));
+        }
+
+        require_once APP_PATH . '/models/Order.php';
+        $orderModel = new Order();
+        $order = $orderModel->find($kravyoId);
+
+        if (!$order || (int)$order['customer_id'] !== $userId) {
+            echo json_encode(['success' => false, 'message' => 'Order not found or access denied.']);
+            exit;
+        }
+
+        try {
+            $alreadyProcessed = false;
+
+            Database::withTransaction(function() use (
+                $orderModel, $kravyoId, $simulatedUtr, &$alreadyProcessed
+            ) {
+                $db = Database::getInstance();
+                $stmt = $db->prepare(
+                    "SELECT payment_status FROM orders WHERE id = :id LIMIT 1 FOR UPDATE"
+                );
+                $stmt->execute(['id' => $kravyoId]);
+                $freshStatus = $stmt->fetchColumn();
+
+                if ($freshStatus === PAYMENT_STATUS_COMPLETED) {
+                    $alreadyProcessed = true;
+                    return;
+                }
+
+                $updateStmt = $db->prepare(
+                    "UPDATE orders 
+                     SET payment_status = :status, 
+                         payment_method = 'upi', 
+                         razorpay_payment_id = :utr 
+                     WHERE id = :id"
+                );
+                $updateStmt->execute([
+                    'status' => PAYMENT_STATUS_COMPLETED,
+                    'utr'    => $simulatedUtr,
+                    'id'     => $kravyoId,
+                ]);
+            });
+
+            // Post-checkout cart cleanup
+            Session::remove('cart');
+
+            // Fire Notifications (outside transaction)
+            try {
+                require_once APP_PATH . '/models/Notification.php';
+                $notifModel = new Notification();
+                $notifModel->createForUser(
+                    (int)$order['customer_id'], 
+                    'customer', 
+                    'UPI Payment Successful! ⚡', 
+                    'Your UPI payment for order #' . $order['order_number'] . ' was successful. Ref: ' . $simulatedUtr, 
+                    'order_update', 
+                    '/order/track/' . $kravyoId
+                );
+
+                require_once APP_PATH . '/models/Kitchen.php';
+                $kitchenModel = new Kitchen();
+                $kitchen = $kitchenModel->find((int)$order['kitchen_id']);
+                if ($kitchen) {
+                    $notifModel->createForUser(
+                        (int)$kitchen['user_id'], 
+                        'chef', 
+                        'New Paid UPI Order! 🍲', 
+                        'You have a new PAID UPI order #' . $order['order_number'] . ' worth ' . format_currency((float)$order['total_amount']) . '.', 
+                        'order_update', 
+                        '/chef/orders'
+                    );
+                }
+            } catch (Throwable $ignored) {}
+
+            Session::setFlash('success', '✅ Payment of ' . format_currency((float)$order['total_amount']) . ' verified via UPI (Ref: ' . $simulatedUtr . ')!');
+            echo json_encode([
+                'success'      => true,
+                'redirect_url' => url('/order/track/' . $kravyoId),
+                'utr'          => $simulatedUtr,
+            ]);
+            exit;
+        } catch (Throwable $e) {
+            error_log('UPI verify error: ' . $e->getMessage());
             echo json_encode(['success' => false, 'message' => 'Verification error: ' . $e->getMessage()]);
             exit;
         }
@@ -581,33 +772,36 @@ class OrderController extends Controller {
         $orderModel = new Order();
 
         $orderId = (int) ($_POST['order_id'] ?? 0);
-        $userId = (int) Session::get('user_id');
+        $userId  = (int) Session::get('user_id');
 
-        // Security check
+        // Security check: ensure order belongs to this customer
         if (!$orderModel->belongsToCustomer($orderId, $userId)) {
             Session::setFlash('danger', 'Order not found.');
             $this->redirect('/orders/history');
             return;
         }
 
-        $order = $orderModel->find($orderId);
-        if (!$order) {
-            Session::setFlash('danger', 'Order not found.');
-            $this->redirect('/orders/history');
-            return;
-        }
+        // ── Atomic Cancel with TOCTOU protection ──────────────────────────────
+        // cancelIfPending() uses SELECT FOR UPDATE inside a transaction, so even
+        // if the customer double-taps Cancel, only ONE request will lock and cancel
+        // the row — the second request gets null back and is safely rejected.
+        $order = null;
+        Database::withTransaction(function() use ($orderModel, $orderId, $userId, &$order) {
+            $order = $orderModel->cancelIfPending($orderId, $userId);
+        });
 
-        // Can only cancel if status is 'pending'
-        if ($order['order_status'] !== ORDER_STATUS_PENDING) {
+        if ($order === null) {
+            // Order was not in 'pending' state — already accepted, cancelled, or delivered
             Session::setFlash('warning', 'This order can no longer be cancelled. The kitchen has already started processing it.');
             $this->redirect('/order/track/' . $orderId);
             return;
         }
-
-        $orderModel->updateStatus($orderId, ORDER_STATUS_CANCELLED);
+        // ── End Atomic Cancel ─────────────────────────────────────────────────
 
         // ── REFUND PROCESSING ──────────────────────────────────────────────────
-        // Only attempt refund if the customer paid online and payment was completed
+        // Runs OUTSIDE the transaction intentionally:
+        // - External API calls must never be made inside a DB transaction
+        // - If refund fails, the cancel is still valid; error is logged & shown
         $refundMessage = '';
         if (
             $order['payment_method'] !== PAYMENT_METHOD_COD &&
@@ -655,7 +849,6 @@ class OrderController extends Controller {
 
         Session::setFlash('success', 'Order #' . $order['order_number'] . ' has been cancelled.' . (!empty($refundMessage) ? ' ' . $refundMessage : ''));
         $this->redirect('/orders/history');
-
     }
 
     /**

@@ -303,26 +303,37 @@ class DispatchService {
     }
 
     /**
-     * Atomic claim of an order by a driver
+     * Atomic claim of an order by a driver.
+     * All 6 state-change writes are wrapped in a single transaction so a server
+     * crash or concurrent claim cannot leave the order in a half-assigned limbo state.
      */
     public function claim(int $orderId, int $partnerId): bool {
-        $claimed = $this->orderModel->claimForPartner($orderId, $partnerId);
+        $claimed = false;
 
+        Database::withTransaction(function() use ($orderId, $partnerId, &$claimed) {
+            // Atomic gate: only succeeds when delivery_partner_id IS NULL
+            $claimed = $this->orderModel->claimForPartner($orderId, $partnerId);
+
+            if ($claimed) {
+                $this->offerModel->markAccepted($orderId, $partnerId);
+                $this->offerModel->markLostExcept($orderId, $partnerId);
+                $this->partnerModel->setIsBusy($partnerId, 1);
+
+                // Assign partner details and generate OTP
+                $this->orderModel->assignDeliveryPartner($orderId, $partnerId);
+                $this->orderModel->updateDeliveryStatus($orderId, 'accepted');
+                $this->orderModel->setDispatchStatus($orderId, 'assigned');
+            }
+            // If not claimed, all writes above are skipped; transaction commits cleanly
+        });
+
+        // Notifications are intentionally OUTSIDE the transaction:
+        // - They are non-critical (tolerate failure)
+        // - External calls (Pusher etc.) must never block a DB transaction
         if ($claimed) {
-            $this->offerModel->markAccepted($orderId, $partnerId);
-            $this->offerModel->markLostExcept($orderId, $partnerId);
-            $this->partnerModel->setIsBusy($partnerId, 1);
-
-            // Assign delivery partner details and OTP
-            $this->orderModel->assignDeliveryPartner($orderId, $partnerId);
-            $this->orderModel->updateDeliveryStatus($orderId, 'accepted');
-            $this->orderModel->setDispatchStatus($orderId, 'assigned');
-
-            // Send confirmation notification
             try {
                 $order = $this->orderModel->find($orderId);
                 $dp = $this->partnerModel->findWithUser($partnerId);
-                $riderName = $dp['full_name'] ?? 'A rider';
                 if ($dp && !empty($dp['user_id'])) {
                     (new Notification())->createForUser(
                         (int)$dp['user_id'],
@@ -336,11 +347,9 @@ class DispatchService {
             } catch (Throwable $e) {
                 error_log('[DispatchService] Claim notification error: ' . $e->getMessage());
             }
-
-            return true;
         }
 
-        return false;
+        return $claimed;
     }
 
     /**
@@ -351,61 +360,74 @@ class DispatchService {
     }
 
     /**
-     * Sweep expired offers (checks both cascading single-driver timers and broadcast timeouts)
+     * Sweep expired offers.
+     * Protected by a MySQL advisory lock so only one process (delivery polling,
+     * admin panel, or run_sweep.php) can sweep at a time — prevents double-cascade
+     * of the same expired offer when two requests fire simultaneously.
      */
     public function sweepExpired(): void {
-        $activeOrders = $this->orderModel->getActiveDispatchOrders();
+        // Non-blocking lock: if another process is already sweeping, skip immediately
+        if (!Database::acquireLock('kravyo_dispatch_sweep', 0)) {
+            return;
+        }
 
-        foreach ($activeOrders as $order) {
-            $orderId = (int)$order['id'];
-            $status  = $order['dispatch_status'];
+        try {
+            $activeOrders = $this->orderModel->getActiveDispatchOrders();
 
-            if ($status === 'cascading') {
-                $secondsToExpire = (int)($order['seconds_to_expire'] ?? 0);
-                // If targeted 25s window has expired
-                if ($secondsToExpire <= 0) {
-                    $offeredDriver = !empty($order['offered_driver_id']) ? (int)$order['offered_driver_id'] : null;
-                    $round = (int)$order['dispatch_round'];
+            foreach ($activeOrders as $order) {
+                $orderId = (int)$order['id'];
+                $status  = $order['dispatch_status'];
 
-                    $this->offerModel->markExpired($orderId, $round);
-                    // Cascade to the next best driver without delay
-                    $this->cascadeNext($orderId, $offeredDriver);
-                }
-            } elseif ($status === 'broadcasting') {
-                $elapsed = (int)($order['elapsed_seconds'] ?? 0);
-                // 120 seconds total broadcast limit
-                if ($elapsed >= 120) {
-                    $round = (int)$order['dispatch_round'];
-                    $orderNo = $order['order_number'] ?? ('#' . $orderId);
-                    $this->offerModel->markExpired($orderId, $round);
-                    $this->orderModel->setDispatchStatus($orderId, 'no_rider', 4);
+                if ($status === 'cascading') {
+                    $secondsToExpire = (int)($order['seconds_to_expire'] ?? 0);
+                    // If targeted 25s window has expired
+                    if ($secondsToExpire <= 0) {
+                        $offeredDriver = !empty($order['offered_driver_id']) ? (int)$order['offered_driver_id'] : null;
+                        $round = (int)$order['dispatch_round'];
 
-                    // Escalate to Admin
-                    try {
-                        $notification = new Notification();
-                        $kitchenCity = '';
-                        if (!empty($order['kitchen_id'])) {
-                            $k = $this->kitchenModel->find((int)$order['kitchen_id']);
-                            $kitchenCity = $k['city'] ?? '';
-                        }
-                        $notification->notifyAdmins(
-                            'No Delivery Partner Found',
-                            "Order #{$orderNo} timed out after cascading and broadcast dispatch with no rider accepting.",
-                            'system_alert',
-                            '/admin/dispatch-monitor?order=' . urlencode($orderNo) . ($kitchenCity ? '&city=' . urlencode($kitchenCity) : '')
-                        );
-                        if (!empty($order['kitchen_id'])) {
-                            $notification->notifyKitchenOwner(
-                                (int)$order['kitchen_id'],
-                                'No Rider Found Yet',
-                                "No delivery partner accepted order #{$orderNo}. Admin has been alerted."
+                        $this->offerModel->markExpired($orderId, $round);
+                        // Cascade to the next best driver without delay
+                        $this->cascadeNext($orderId, $offeredDriver);
+                    }
+                } elseif ($status === 'broadcasting') {
+                    $elapsed = (int)($order['elapsed_seconds'] ?? 0);
+                    // 120 seconds total broadcast limit
+                    if ($elapsed >= 120) {
+                        $round = (int)$order['dispatch_round'];
+                        $orderNo = $order['order_number'] ?? ('#' . $orderId);
+                        $this->offerModel->markExpired($orderId, $round);
+                        $this->orderModel->setDispatchStatus($orderId, 'no_rider', 4);
+
+                        // Escalate to Admin
+                        try {
+                            $notification = new Notification();
+                            $kitchenCity = '';
+                            if (!empty($order['kitchen_id'])) {
+                                $k = $this->kitchenModel->find((int)$order['kitchen_id']);
+                                $kitchenCity = $k['city'] ?? '';
+                            }
+                            $notification->notifyAdmins(
+                                'No Delivery Partner Found',
+                                "Order #{$orderNo} timed out after cascading and broadcast dispatch with no rider accepting.",
+                                'system_alert',
+                                '/admin/dispatch-monitor?order=' . urlencode($orderNo) . ($kitchenCity ? '&city=' . urlencode($kitchenCity) : '')
                             );
+                            if (!empty($order['kitchen_id'])) {
+                                $notification->notifyKitchenOwner(
+                                    (int)$order['kitchen_id'],
+                                    'No Rider Found Yet',
+                                    "No delivery partner accepted order #{$orderNo}. Admin has been alerted."
+                                );
+                            }
+                        } catch (Throwable $e) {
+                            error_log('[DispatchService] Admin notification failed: ' . $e->getMessage());
                         }
-                    } catch (Throwable $e) {
-                        error_log('[DispatchService] Admin notification failed: ' . $e->getMessage());
                     }
                 }
             }
+        } finally {
+            // Always release the lock, even if an exception occurred
+            Database::releaseLock('kravyo_dispatch_sweep');
         }
     }
 

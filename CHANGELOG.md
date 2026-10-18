@@ -4,6 +4,125 @@
 >
 > **Format:** Entries are ordered from newest → oldest. Each entry starts with the date/time and a version/phase label.
 
+## 📅 18-10-26 | 01:15 AM IST
+
+### ⚡ Payment Feature: Doorstep Split Payment System (Partial Cash + Partial UPI QR in Test Sandbox Mode)
+
+- **Goal & Summary:** Implemented Option 1 (Doorstep Split Payment) solving the real-world scenario where a customer at the doorstep wishes to pay partial cash (e.g. ₹400) and settle the remaining balance (e.g. ₹600) digitally via an NPCI UPI QR code. Operates safely in Test Sandbox Mode (₹0 deducted from bank accounts).
+- **Key Changes:**
+  - **Database Migration (`orders` Table):**
+    - Added `paid_cash_amount DECIMAL(8,2) DEFAULT 0.00` and `paid_online_amount DECIMAL(8,2) DEFAULT 0.00`.
+    - Modified `payment_method` enum to include `'split'` (`ENUM('cod','upi','card','netbanking','online','split')`).
+    - Added `PAYMENT_METHOD_SPLIT` constant to `config/constants.php`.
+  - **Routes Registered (`config/routes.php`):**
+    - `POST /delivery/order/{id}/doorstep-split` ➔ `DeliveryController@recordDoorstepSplitPayment`
+  - **Delivery Controller (`app/controllers/DeliveryController.php`):**
+    - Added `recordDoorstepSplitPayment(string $id)` wrapped in `Database::withTransaction()` and row locking `SELECT ... FOR UPDATE`.
+    - Enforced strict server-side validation: verifies `cash_amount > 0`, `online_amount > 0`, and `round(cash_amount + online_amount, 2) === round(total_amount, 2)`.
+    - Atomically updates `payment_method = 'split'`, `payment_status = 'completed'`, stores both payment parts, and generates UTR reference `UPI-SPLIT-...`.
+  - **Delivery Order Detail UI (`views/delivery/order_detail.php`):**
+    - Upgraded `#doorstepUpiModal` with navigation tabs: **"100% UPI QR"** and **"Split Pay (Cash + UPI)"**.
+    - In Split Pay mode, the rider inputs the collected cash; JavaScript dynamically recalculates the remaining UPI balance in real-time, regenerates the NPCI QR code image via `api.qrserver.com`, and submits the split verification form.
+    - Updated payment status alerts and badges to display detailed breakdown: `Split Payment Settled (Cash: ₹X.XX + UPI: ₹Y.YY)`.
+  - **Customer Order Tracking View (`views/customer/order_track.php`):**
+    - Added Split Payment breakdown display showing both Cash Paid and UPI Paid amounts with verified payment status.
+- **Files Modified:**
+  - `config/constants.php`
+  - `config/routes.php`
+  - `app/controllers/DeliveryController.php`
+  - `views/delivery/order_detail.php`
+  - `views/customer/order_track.php`
+  - `CHANGELOG.md`
+- **Database Changes:**
+  - `ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_cash_amount DECIMAL(8,2) DEFAULT 0.00 AFTER total_amount;`
+  - `ALTER TABLE orders ADD COLUMN IF NOT EXISTS paid_online_amount DECIMAL(8,2) DEFAULT 0.00 AFTER paid_cash_amount;`
+  - `ALTER TABLE orders MODIFY COLUMN payment_method ENUM('cod','upi','card','netbanking','online','split') DEFAULT 'cod';`
+
+---
+
+## 📅 18-10-26 | 12:25 AM IST
+
+### ⚡ Payment Feature: Interactive UPI QR Code Payment Processing System (Test Sandbox Mode — ₹0 Deducted)
+
+- **Goal & Summary:** Implemented an end-to-end, realistic NPCI UPI QR code payment workflow across two primary Kravyo application touchpoints with a 100% safe sandbox guarantee (₹0 deducted from any bank account, perfectly safe for college project demos, presentations, and viva evaluations):
+  1. **Customer Checkout (`/checkout`):** "Scan & Pay via UPI QR" option with an interactive simulation modal, live dynamic QR code generation, a 5-minute countdown timer, NPCI UPI URI scheme (`upi://pay`), and a "Simulate Payment Success" trigger.
+  2. **Delivery Partner Doorstep Delivery (`/delivery/order/{id}`):** "Show Customer UPI QR (Doorstep Pay)" modal for Cash on Delivery (COD) orders when the driver arrives at the customer's doorstep, allowing instant digital conversion to UPI before entering the 4-digit Delivery OTP.
+- **Key Changes:**
+  - **Routes Registered (`config/routes.php`):**
+    - `POST /order/verify-upi` ➔ `OrderController@verifyUpiPayment`
+    - `POST /delivery/order/{id}/doorstep-upi` ➔ `DeliveryController@recordDoorstepUpiPayment`
+  - **Order Controller (`app/controllers/OrderController.php`):**
+    - Updated `placeOrder()` to accept `upi` / `upi_qr`, correctly resolved `$addressId` from `$_POST['address_id']`, added AJAX JSON validation responses, and returned order details + formatted NPCI UPI string (`upi://pay?pa=kravyo.foods@upi&pn=...&am=...&cu=INR&tn=...`) for AJAX checkout requests.
+    - Added `verifyUpiPayment()` with atomic `SELECT ... FOR UPDATE` row locking, cart cleanup, UTR reference persistence (`UPI-TEST-...`), and customer/chef notifications dispatch.
+  - **Delivery Controller (`app/controllers/DeliveryController.php`):**
+    - Added `recordDoorstepUpiPayment(string $id)` wrapped in `Database::withTransaction()` with `SELECT ... FOR UPDATE` to atomically update COD orders to `payment_method = 'upi'`, `payment_status = 'completed'`, and generate a doorstep UTR (`UPI-DOORSTEP-...`).
+  - **Customer Checkout View (`views/customer/checkout.php`):**
+    - Added "Scan & Pay via UPI QR" selection card with "Test Mode (₹0)" badge and UPI brand icons.
+    - Added `#kravyoUpiModal` modal featuring NPCI sandbox banner, payable amount, dynamic QR code image via `api.qrserver.com`, 5-minute timer, and `[Simulate Payment Success]` button.
+    - Added JavaScript handler intercepting UPI checkout submission, fetching the order payload, displaying the modal, and verifying payment via AJAX.
+  - **Delivery Partner Order Detail View (`views/delivery/order_detail.php`):**
+    - Added Doorstep UPI QR prompt card in the `out_for_delivery` state when payment is pending.
+    - Added `#doorstepUpiModal` containing dynamic doorstep QR code and direct confirmation action.
+    - Updated payment status badge and alerts to reflect doorstep digital completion.
+- **Files Modified:**
+  - `config/routes.php`
+  - `app/controllers/OrderController.php`
+  - `app/controllers/DeliveryController.php`
+  - `views/customer/checkout.php`
+  - `views/delivery/order_detail.php`
+  - `CHANGELOG.md`
+- **Database Changes:** None (re-uses existing `orders.payment_method = 'upi'` enum and `orders.razorpay_payment_id` column for UTR reference).
+
+---
+
+## 📅 17-10-26 | 11:25 PM IST
+
+### 🛡️ Architecture & Reliability: Comprehensive Deadlock Elimination & Concurrency Safety System
+
+- **Goal & Summary:** Solved all race conditions, deadlocks, and duplicate processing risks across high-concurrency order placement, driver dispatch, payment verification, and order cancellation workflows.
+- **Key Changes:**
+  - **Core Database Transaction & Advisory Lock Infrastructure (`core/Database.php`):**
+    - Added `Database::withTransaction(callable $callback, int $maxRetries = 3)` supporting automatic deadlock retries with exponential backoff. Recognizes SQLSTATE `40001` as well as MySQL/MariaDB driver codes `1213` (ER_LOCK_DEADLOCK) and `1205` (ER_LOCK_WAIT_TIMEOUT).
+    - Added `Database::acquireLock(string $name, int $timeoutSeconds = 0)` and `Database::releaseLock(string $name)` utilizing native MySQL/MariaDB named advisory locks (`GET_LOCK` / `RELEASE_LOCK`) for mutex coordination across processes.
+  - **Atomic Driver Dispatch Offer Claim (`app/services/DispatchService.php`):**
+    - Wrapped all 6 state-transition writes (`claimForPartner`, `markAccepted`, `markLostExcept`, `setIsBusy`, `assignDeliveryPartner`, `updateDeliveryStatus`, `setDispatchStatus`) inside a single atomic transaction.
+    - Moved non-critical Pusher/DB notifications outside the transaction so third-party calls never block database locks.
+  - **Advisory Mutex on Dispatch Expiration Sweeper (`app/services/DispatchService.php` & `run_sweep.php`):**
+    - Protected `sweepExpired()` with a non-blocking MySQL advisory lock (`kravyo_dispatch_sweep`).
+    - Added an outer mutex guard (`kravyo_file_sweep`) in `run_sweep.php` to immediately skip overlapping cron executions before instantiating models.
+  - **Atomic Zero Waste Inventory & Order Creation (`app/controllers/OrderController.php`):**
+    - Enclosed order header creation, order items insertion, and ZeroWaste quantity decrements inside a single `Database::withTransaction()` block. Removed redundant standalone decrements to prevent oversell and mismatched states.
+  - **Idempotent Payment Verification (`app/controllers/OrderController.php`):**
+    - Enforced `SELECT ... FOR UPDATE` row lock inside `verifyPayment()` to guarantee idempotency if customer frontend callback and payment gateway webhooks arrive simultaneously.
+  - **TOCTOU Double-Refund Prevention (`app/models/Order.php` & `app/controllers/OrderController.php`):**
+    - Created `Order::cancelIfPending()` with `SELECT ... FOR UPDATE` to atomically check pending status and transition to cancelled. Prevents double refund triggers on rapid cancel clicks.
+    - Kept Razorpay refund gateway call strictly outside the database transaction.
+  - **Atomic Driver Decline Array Appends (`app/models/Order.php`):**
+    - Replaced PHP read-modify-write on `rejected_by_drivers` with atomic MySQL/MariaDB `JSON_ARRAY_APPEND` and duplicate suppression via `JSON_CONTAINS`.
+  - **Delivery Partner Payout & Completion Safety (`app/controllers/DeliveryController.php` & `views/delivery/order_detail.php`):**
+    - Enforced `SELECT ... FOR UPDATE` row locking on `completeDelivery()` inside `Database::withTransaction()`. Guarantees that duplicate OTP submissions or network lag cannot re-increment delivery partner stats/earnings or duplicate completion notifications.
+    - Added `data-once` attribute and asynchronous submit locking on the rider OTP verification form.
+  - **COD Checkout Double-Submit Elimination (`views/customer/checkout.php` & `app/controllers/OrderController.php`):**
+    - Added form locking and spinner state to the Cash on Delivery (COD) submission button in `checkout.php`.
+    - Implemented a server-side session concurrency mutex in `OrderController::placeOrder()` to prevent concurrent duplicate orders from being created even if client-side validation is bypassed.
+  - **Tiffin Subscription Dispatch Atomicity (`app/controllers/ChefController.php`):**
+    - Wrapped `updateDeliveryStatus()` and `subscription_deliveries` order generation in `Database::withTransaction()` with `SELECT ... FOR UPDATE`. Prevents duplicate `TFN-...` orders from being created on rapid dispatch clicks.
+- **Files Modified:**
+  - `core/Database.php`
+  - `app/models/Order.php`
+  - `app/services/DispatchService.php`
+  - `app/controllers/OrderController.php`
+  - `app/controllers/DeliveryController.php`
+  - `app/controllers/ChefController.php`
+  - `views/customer/order_track.php`
+  - `views/customer/checkout.php`
+  - `views/delivery/order_detail.php`
+  - `run_sweep.php`
+  - `CHANGELOG.md`
+- **Database Changes:** None (backward-compatible, uses existing columns and PDO features).
+
+---
+
 ## 📅 17-10-26 | 05:43 PM IST
 
 ### 🛠️ Feature: Upgraded Admin Zero Food Waste Dashboard with Search, Moderation Actions & Reporting

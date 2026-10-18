@@ -1385,18 +1385,44 @@ class ChefController extends Controller {
             return;
         }
 
-        if ($deliveryModel->updateStatus($deliveryId, $newStatus, $kitchenId)) {
-            // Ultra Processing: If dispatched, create a real order and broadcast to riders!
-            if ($newStatus === 'dispatched') {
-                $db = Database::getInstance();
+        $newOrderId = 0;
+        $updated = false;
 
-                // Check if order was already created for this delivery
-                $checkOrderStmt = $db->prepare("SELECT id FROM orders WHERE subscription_delivery_id = ? LIMIT 1");
+        Database::withTransaction(function() use (
+            $deliveryModel, $deliveryId, $newStatus, $kitchenId, $orderModel,
+            &$newOrderId, &$updated
+        ) {
+            $db = Database::getInstance();
+
+            // Row lock the subscription_deliveries row to prevent concurrent duplicate dispatch
+            $stmt = $db->prepare(
+                "SELECT * FROM subscription_deliveries WHERE id = :id AND kitchen_id = :kid LIMIT 1 FOR UPDATE"
+            );
+            $stmt->execute(['id' => $deliveryId, 'kid' => $kitchenId]);
+            $currentDelivery = $stmt->fetch();
+
+            if (!$currentDelivery) {
+                return;
+            }
+
+            // Idempotency: if already in this status, skip to avoid duplicate processing
+            if ($currentDelivery['status'] === $newStatus) {
+                $updated = true;
+                return;
+            }
+
+            $updated = $deliveryModel->updateStatus($deliveryId, $newStatus, $kitchenId);
+
+            // If dispatched, create a real order and broadcast to riders!
+            if ($newStatus === 'dispatched') {
+                // Check if order was already created for this delivery (with FOR UPDATE)
+                $checkOrderStmt = $db->prepare(
+                    "SELECT id FROM orders WHERE subscription_delivery_id = ? LIMIT 1 FOR UPDATE"
+                );
                 $checkOrderStmt->execute([$deliveryId]);
                 $existingOrder = $checkOrderStmt->fetch();
 
                 if (!$existingOrder) {
-                    // Get the delivery details
                     $sql = "SELECT sd.*, cs.customer_id, cs.address_id, cs.special_instructions 
                             FROM subscription_deliveries sd 
                             JOIN customer_subscriptions cs ON sd.customer_subscription_id = cs.id
@@ -1406,7 +1432,6 @@ class ChefController extends Controller {
                     $deliveryInfo = $stmt->fetch();
 
                     if ($deliveryInfo) {
-                        // Create the order
                         $orderNumber = 'TFN-' . date('Ymd') . '-' . strtoupper(substr(md5((string)$deliveryId), 0, 5));
                         
                         $deliveryLat = null;
@@ -1419,18 +1444,6 @@ class ChefController extends Controller {
                                 if (!empty($addrRecord['latitude']) && !empty($addrRecord['longitude'])) {
                                     $deliveryLat = (float) $addrRecord['latitude'];
                                     $deliveryLng = (float) $addrRecord['longitude'];
-                                } else {
-                                    // Attempt geocode
-                                    $fullAddr = trim(($addrRecord['street_address'] ?? '') . ', ' . ($addrRecord['city'] ?? '') . ', ' . ($addrRecord['pincode'] ?? ''));
-                                    if ($fullAddr !== '' && class_exists('GoogleMaps')) {
-                                        $geo = GoogleMaps::geocode($fullAddr);
-                                        if ($geo && !empty($geo['lat']) && !empty($geo['lng'])) {
-                                            $deliveryLat = (float) $geo['lat'];
-                                            $deliveryLng = (float) $geo['lng'];
-                                            $db->prepare("UPDATE addresses SET latitude = ?, longitude = ? WHERE id = ?")
-                                               ->execute([$deliveryLat, $deliveryLng, $deliveryInfo['address_id']]);
-                                        }
-                                    }
                                 }
                             }
                         }
@@ -1454,15 +1467,17 @@ class ChefController extends Controller {
                         ];
 
                         $newOrderId = (int) $orderModel->create($orderData);
-                        
-                        if ($newOrderId > 0) {
-                            // Trigger Broadcast to riders
-                            $dispatchService->broadcast($newOrderId, 1);
-                        }
                     }
                 }
             }
+        });
 
+        // Trigger Broadcast to riders OUTSIDE the transaction
+        if ($newOrderId > 0) {
+            $dispatchService->broadcast($newOrderId, 1);
+        }
+
+        if ($updated) {
             Session::setFlash('success', 'Delivery status updated and dispatched!');
         } else {
             Session::setFlash('danger', 'Failed to update status.');

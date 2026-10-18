@@ -53,14 +53,37 @@
                         <?php elseif ($order['delivery_status'] === 'out_for_delivery'): ?>
                             <p class="text-muted">You are at the customer location. Ask them for the 4-digit Delivery OTP.</p>
                             
-                            <form action="<?= url('/delivery/order/' . $order['id'] . '/complete') ?>" method="POST" class="mx-auto" style="max-width: 300px;">
+                            <?php if ($order['payment_method'] === 'cod' && $order['payment_status'] !== 'completed'): ?>
+                                <div class="card border-warning bg-warning bg-opacity-10 mb-3 mx-auto text-start shadow-sm" style="max-width: 360px;">
+                                    <div class="card-body p-3">
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <span class="badge bg-warning text-dark fw-bold"><i class="bi bi-cash-stack me-1"></i> Cash Pending</span>
+                                            <span class="fw-bold text-dark fs-5"><?= format_currency($order['total_amount']) ?></span>
+                                        </div>
+                                        <p class="small text-muted mb-2">Customer wants to pay full or split via UPI QR?</p>
+                                        <button type="button" class="btn btn-dark btn-sm w-100 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#doorstepUpiModal">
+                                            <i class="bi bi-qr-code-scan me-1 text-warning"></i> Show Customer UPI QR (Full or Split)
+                                        </button>
+                                    </div>
+                                </div>
+                            <?php elseif ($order['payment_method'] === 'split' && $order['payment_status'] === 'completed'): ?>
+                                <div class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill mb-3">
+                                    <i class="bi bi-pie-chart-fill me-1"></i> Split Payment Settled (Cash: <?= format_currency($order['paid_cash_amount']) ?> + UPI: <?= format_currency($order['paid_online_amount']) ?>)
+                                </div>
+                            <?php elseif ($order['payment_method'] === 'upi' || $order['payment_status'] === 'completed'): ?>
+                                <div class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill mb-3">
+                                    <i class="bi bi-check-circle-fill me-1"></i> Payment Completed (<?= strtoupper($order['payment_method']) ?>) — No Cash Needed
+                                </div>
+                            <?php endif; ?>
+
+                            <form action="<?= url('/delivery/order/' . $order['id'] . '/complete') ?>" method="POST" class="mx-auto" style="max-width: 300px;" data-once>
                                 <?= csrf_field() ?>
                                 <div class="mb-3">
                                     <input type="text" class="form-control form-control-lg text-center fw-bold fs-4" 
                                            name="delivery_otp" placeholder="Enter OTP" 
                                            maxlength="4" pattern="[0-9]{4}" required autocomplete="off">
                                 </div>
-                                <button type="submit" class="btn btn-success w-100 btn-lg fw-bold shadow-sm">
+                                <button type="submit" class="btn btn-success w-100 btn-lg fw-bold shadow-sm" data-loading-text="Verifying OTP...">
                                     <i class="bi bi-check2-circle me-2"></i> Verify & Complete
                                 </button>
                             </form>
@@ -378,9 +401,26 @@
                             <?= sanitize($order['payment_method']) ?>
                         </span>
                     </div>
-                    <?php if ($order['payment_method'] === 'cod' && $order['delivery_status'] !== 'delivered'): ?>
+                    <?php if ($order['payment_method'] === 'cod' && $order['payment_status'] !== 'completed' && $order['delivery_status'] !== 'delivered'): ?>
                         <div class="alert alert-danger mt-3 mb-0 text-center fw-bold py-2">
-                            <i class="bi bi-cash-coin me-1"></i> Collect ₹<?= number_format($order['total_amount'], 2) ?> Cash!
+                            <i class="bi bi-cash-coin me-1"></i> Collect <?= format_currency($order['total_amount']) ?> Cash or Doorstep QR!
+                        </div>
+                    <?php elseif ($order['payment_method'] === 'split' && $order['payment_status'] === 'completed'): ?>
+                        <div class="alert alert-success mt-3 mb-0 text-start small py-2">
+                            <div class="fw-bold mb-1"><i class="bi bi-check-circle-fill me-1"></i> Split Payment Settled:</div>
+                            <div class="d-flex justify-content-between">
+                                <span>Cash Collected:</span>
+                                <strong><?= format_currency($order['paid_cash_amount']) ?></strong>
+                            </div>
+                            <div class="d-flex justify-content-between">
+                                <span>UPI Received:</span>
+                                <strong><?= format_currency($order['paid_online_amount']) ?></strong>
+                            </div>
+                            <div class="text-muted text-end mt-1" style="font-size:0.75rem;">Ref: <?= sanitize($order['razorpay_payment_id'] ?? 'Verified') ?></div>
+                        </div>
+                    <?php elseif ($order['payment_status'] === 'completed'): ?>
+                        <div class="alert alert-success mt-3 mb-0 text-center fw-bold py-2">
+                            <i class="bi bi-check-circle-fill me-1"></i> Paid Online / UPI (<?= sanitize($order['razorpay_payment_id'] ?? 'Completed') ?>)
                         </div>
                     <?php endif; ?>
 
@@ -462,3 +502,209 @@
         </form>
     </div>
 </div>
+
+<?php
+$doorstepUpiString = sprintf(
+    'upi://pay?pa=%s&pn=%s&am=%s&cu=INR&tn=%s',
+    'kravyo.foods@upi',
+    urlencode('Kravyo Foods'),
+    round($order['total_amount'], 2),
+    urlencode('Doorstep Order #' . $order['order_number'])
+);
+$doorstepQrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=4&data=' . urlencode($doorstepUpiString);
+?>
+<!-- Doorstep UPI QR Modal (Test Mode - Full or Split Pay) -->
+<div class="modal fade" id="doorstepUpiModal" tabindex="-1" aria-labelledby="doorstepUpiModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-dark text-white border-0 px-4 py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-warning-subtle text-warning border border-warning-subtle rounded-pill px-2.5 py-1" style="font-size:0.75rem;">
+                        <i class="bi bi-phone me-1"></i>Doorstep QR Pay
+                    </span>
+                    <h5 class="modal-title fw-bold mb-0" id="doorstepUpiModalLabel">Collect Payment via UPI QR</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body p-4 text-center">
+                <!-- Sandbox Test Notice -->
+                <div class="alert alert-warning border-0 rounded-3 text-start small mb-3 py-2 px-3 d-flex align-items-center gap-2">
+                    <i class="bi bi-info-circle-fill text-warning fs-5 flex-shrink-0"></i>
+                    <div>
+                        <strong class="d-block">Test Mode Active (₹0 Deducted)</strong>
+                        <span>Customer scans QR with any UPI app (GPay, PhonePe, Paytm, BHIM). Safe sandbox demo mode.</span>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs: Full UPI vs Split Pay -->
+                <ul class="nav nav-pills nav-fill mb-3 p-1 bg-light rounded-3 border" id="doorstepPayTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active fw-bold py-1.5" id="tab-full-upi" data-bs-toggle="pill" data-bs-target="#pane-full-upi" type="button" role="tab">
+                            <i class="bi bi-qr-code-scan me-1"></i> 100% UPI QR
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link fw-bold py-1.5" id="tab-split-pay" data-bs-toggle="pill" data-bs-target="#pane-split-pay" type="button" role="tab">
+                            <i class="bi bi-pie-chart-fill me-1"></i> Split Pay (Cash + UPI)
+                        </button>
+                    </li>
+                </ul>
+
+                <div class="tab-content" id="doorstepPayTabsContent">
+                    <!-- Tab 1: 100% Full UPI -->
+                    <div class="tab-pane fade show active" id="pane-full-upi" role="tabpanel">
+                        <div class="bg-light rounded-3 p-3 mb-3 border">
+                            <div class="text-muted small">Total Payable Amount</div>
+                            <div class="fw-800 fs-3 text-dark"><?= format_currency($order['total_amount']) ?></div>
+                            <div class="small text-muted mt-1">
+                                Order #<span class="fw-bold"><?= sanitize($order['order_number']) ?></span> • <?= sanitize($order['customer_name'] ?? 'Customer') ?>
+                            </div>
+                        </div>
+
+                        <div class="p-3 rounded-4 bg-white border shadow-sm mb-3 d-inline-block">
+                            <img src="<?= $doorstepQrUrl ?>" alt="Full UPI QR Code" width="220" height="220" class="img-fluid rounded-3" style="display:block; min-width:220px; min-height:220px; object-fit:contain;">
+                        </div>
+
+                        <div class="small text-muted mb-3">
+                            UPI ID: <strong class="text-dark">kravyo.foods@upi</strong>
+                        </div>
+
+                        <form action="<?= url('/delivery/order/' . $order['id'] . '/doorstep-upi') ?>" method="POST" data-once>
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm" data-loading-text="Confirming Payment...">
+                                <i class="bi bi-check2-circle me-1"></i> Confirm Full UPI Received (Test Mode)
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Tab 2: Split Pay (Cash + UPI) -->
+                    <div class="tab-pane fade" id="pane-split-pay" role="tabpanel">
+                        <div class="bg-light rounded-3 p-3 mb-3 border text-start">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="text-muted small">Order Total:</span>
+                                <span class="fw-bold fs-6 text-dark"><?= format_currency($order['total_amount']) ?></span>
+                            </div>
+
+                            <label for="splitCashInput" class="form-label small fw-bold text-dark mb-1">
+                                <i class="bi bi-cash-stack text-success me-1"></i> Cash Amount Collected (₹):
+                            </label>
+                            <div class="input-group mb-2">
+                                <span class="input-group-text bg-white fw-bold">₹</span>
+                                <input type="number" class="form-control form-control-lg fw-bold" id="splitCashInput" 
+                                       step="1" min="1" max="<?= ((float)$order['total_amount'] - 1) ?>" 
+                                       value="<?= floor((float)$order['total_amount'] / 2) ?>" placeholder="Cash given by customer">
+                            </div>
+                            <div class="d-flex justify-content-between small pt-1 border-top">
+                                <span>💵 Cash: <strong id="splitCashSummary" class="text-dark">₹0.00</strong></span>
+                                <span>⚡ Remaining UPI: <strong id="splitUpiSummary" class="text-success fw-bold">₹0.00</strong></span>
+                            </div>
+                        </div>
+
+                        <!-- Dynamic Split QR Box -->
+                        <div class="p-3 rounded-4 bg-white border shadow-sm mb-3 d-inline-block">
+                            <img id="splitQrImage" src="" alt="Split UPI QR Code" width="220" height="220" class="img-fluid rounded-3" style="display:block; min-width:220px; min-height:220px; object-fit:contain;">
+                        </div>
+
+                        <div class="small text-muted mb-3">
+                            Scan with UPI app to pay balance: <strong id="splitQrAmountDisplay" class="text-dark">₹0.00</strong>
+                        </div>
+
+                        <form action="<?= url('/delivery/order/' . $order['id'] . '/doorstep-split') ?>" method="POST" id="doorstepSplitForm" data-once>
+                            <?= csrf_field() ?>
+                            <input type="hidden" name="cash_amount" id="formSplitCash" value="">
+                            <input type="hidden" name="online_amount" id="formSplitOnline" value="">
+                            <button type="submit" class="btn btn-success btn-lg w-100 fw-bold shadow-sm" id="btnConfirmSplit" data-loading-text="Recording Split Payment...">
+                                <i class="bi bi-check2-circle me-1"></i> Confirm Split Payment Received (Test Mode)
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <button type="button" class="btn btn-outline-secondary btn-sm w-100 mt-2" data-bs-dismiss="modal">
+                    Cancel & Return
+                </button>
+            </div>
+            <div class="modal-footer bg-light border-0 py-2 justify-content-center">
+                <small class="text-muted"><i class="bi bi-shield-check me-1"></i> Instant Order Update • Safe Test Mode</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * Double-submit prevention for forms marked with [data-once]
+ */
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('form[data-once]').forEach(function (form) {
+        form.addEventListener('submit', function (e) {
+            if (form.dataset.submitted === '1') {
+                e.preventDefault();
+                return false;
+            }
+            form.dataset.submitted = '1';
+            var btn = form.querySelector('[type="submit"]');
+            if (btn) {
+                btn.style.pointerEvents = 'none';
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>'
+                              + (btn.dataset.loadingText || 'Processing...');
+                setTimeout(function () {
+                    btn.disabled = true;
+                }, 0);
+            }
+        });
+    });
+
+    // ── Doorstep Split Pay Logic ─────────────────────────────────────────
+    const totalAmount = <?= json_encode((float)$order['total_amount']) ?>;
+    const orderNumber = <?= json_encode($order['order_number']) ?>;
+    const cashInput   = document.getElementById('splitCashInput');
+    const cashSummary = document.getElementById('splitCashSummary');
+    const upiSummary  = document.getElementById('splitUpiSummary');
+    const qrDisplay   = document.getElementById('splitQrAmountDisplay');
+    const splitQrImg  = document.getElementById('splitQrImage');
+    const formCash    = document.getElementById('formSplitCash');
+    const formOnline  = document.getElementById('formSplitOnline');
+    const btnConfirm  = document.getElementById('btnConfirmSplit');
+
+    function updateSplitCalculations() {
+        if (!cashInput) return;
+        let cash = parseFloat(cashInput.value);
+        if (isNaN(cash) || cash < 1) cash = 1;
+        if (cash >= totalAmount) cash = totalAmount - 1;
+
+        cash = Math.round(cash * 100) / 100;
+        const online = Math.round((totalAmount - cash) * 100) / 100;
+
+        if (cashSummary) cashSummary.textContent = '₹' + cash.toFixed(2);
+        if (upiSummary) upiSummary.textContent = '₹' + online.toFixed(2);
+        if (qrDisplay) qrDisplay.textContent = '₹' + online.toFixed(2);
+
+        if (formCash) formCash.value = cash.toFixed(2);
+        if (formOnline) formOnline.value = online.toFixed(2);
+
+        if (btnConfirm) {
+            btnConfirm.disabled = (cash <= 0 || online <= 0);
+        }
+
+        const splitUpiString = 'upi://pay?pa=kravyo.foods@upi&pn=' + encodeURIComponent('Kravyo Foods') + 
+            '&am=' + online.toFixed(2) + 
+            '&cu=INR&tn=' + encodeURIComponent('Split Order #' + orderNumber + ' (UPI Balance)');
+        const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=4&data=' + encodeURIComponent(splitUpiString);
+
+        if (splitQrImg) splitQrImg.src = qrUrl;
+    }
+
+    if (cashInput) {
+        cashInput.addEventListener('input', updateSplitCalculations);
+        cashInput.addEventListener('change', updateSplitCalculations);
+        updateSplitCalculations();
+    }
+
+    const tabSplit = document.getElementById('tab-split-pay');
+    if (tabSplit) {
+        tabSplit.addEventListener('shown.bs.tab', updateSplitCalculations);
+    }
+});
+</script>

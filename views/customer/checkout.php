@@ -146,6 +146,23 @@
                                 <div class="payment-check"><i class="bi bi-check-circle-fill"></i></div>
                             </label>
 
+                            <label class="payment-method-card" id="upiQrLabel">
+                                <input type="radio" name="payment_method" value="upi" class="payment-radio" id="upiQrRadio">
+                                <div class="payment-card-inner">
+                                    <div class="payment-icon upi-icon">
+                                        <i class="bi bi-qr-code-scan"></i>
+                                    </div>
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <h6 class="fw-bold mb-0">Scan & Pay via UPI QR</h6>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-0" style="font-size:0.68rem;">Test Mode (₹0)</span>
+                                        </div>
+                                        <small class="text-muted">GPay, PhonePe, Paytm, BHIM</small>
+                                    </div>
+                                </div>
+                                <div class="payment-check"><i class="bi bi-check-circle-fill"></i></div>
+                            </label>
+
                             <label class="payment-method-card" id="razorpayLabel">
                                 <input type="radio" name="payment_method" value="online" class="payment-radio" id="razorpayRadio">
                                 <div class="payment-card-inner">
@@ -154,7 +171,7 @@
                                     </div>
                                     <div>
                                         <h6 class="fw-bold mb-0">Pay Online (Razorpay)</h6>
-                                        <small class="text-muted">Cards, UPI, NetBanking</small>
+                                        <small class="text-muted">Cards, NetBanking, Gateway</small>
                                     </div>
                                 </div>
                                 <div class="payment-check"><i class="bi bi-check-circle-fill"></i></div>
@@ -267,6 +284,83 @@
         </form>
     </div>
 </section>
+
+<!-- Kravyo UPI QR Code Payment Modal (Test Sandbox Mode) -->
+<div class="modal fade" id="kravyoUpiModal" tabindex="-1" aria-labelledby="kravyoUpiModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+            <div class="modal-header bg-dark text-white border-0 px-4 py-3">
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2.5 py-1" style="font-size:0.75rem;">
+                        <i class="bi bi-shield-check me-1"></i>NPCI Sandbox
+                    </span>
+                    <h5 class="modal-title fw-bold mb-0" id="kravyoUpiModalLabel">Scan UPI QR to Pay</h5>
+                </div>
+                <button type="button" class="btn-close btn-close-white" id="closeUpiModalBtn" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            
+            <div class="modal-body p-4 text-center">
+                <!-- Sandbox Test Notice -->
+                <div class="alert alert-warning border-0 rounded-3 text-start small mb-3 py-2 px-3 d-flex align-items-center gap-2">
+                    <i class="bi bi-info-circle-fill text-warning fs-5 flex-shrink-0"></i>
+                    <div>
+                        <strong class="d-block">Test Mode Active (₹0 Deducted)</strong>
+                        <span>Scan with any UPI app to inspect the payload, or click simulate to complete the test order safely.</span>
+                    </div>
+                </div>
+
+                <!-- Amount & Order Number -->
+                <div class="bg-light rounded-3 p-3 mb-3 border">
+                    <div class="text-muted small">Payable Amount</div>
+                    <div class="fw-800 fs-3 text-dark" id="modalUpiAmount">₹0.00</div>
+                    <div class="small text-muted mt-1">
+                        Order #<span id="modalUpiOrderNumber" class="fw-bold">-</span> • <span class="badge bg-primary bg-opacity-10 text-primary">Kravyo Foods</span>
+                    </div>
+                </div>
+
+                <!-- QR Code Box -->
+                <div class="position-relative d-inline-block p-3 rounded-4 bg-white border shadow-sm mb-3">
+                    <img id="modalUpiQrImage" src="" alt="UPI QR Code" width="220" height="220" class="img-fluid rounded-3" style="display:block; min-width:220px; min-height:220px; object-fit:contain;">
+                    <div id="modalUpiQrSpinner" class="position-absolute top-50 start-50 translate-middle">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading QR...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- UPI VPA & Timer -->
+                <div class="mb-3">
+                    <div class="small text-muted mb-1">UPI ID: <strong id="modalUpiVpa" class="text-dark">kravyo.foods@upi</strong></div>
+                    <div class="small text-muted">
+                        <i class="bi bi-clock-history me-1 text-danger"></i> QR Expires in: <span id="modalUpiTimer" class="fw-bold text-danger">05:00</span>
+                    </div>
+                </div>
+
+                <!-- Supported Apps Icons / Badges -->
+                <div class="d-flex justify-content-center align-items-center gap-2 mb-3 text-muted small">
+                    <span class="badge bg-light text-dark border">Google Pay</span>
+                    <span class="badge bg-light text-dark border">PhonePe</span>
+                    <span class="badge bg-light text-dark border">Paytm</span>
+                    <span class="badge bg-light text-dark border">BHIM UPI</span>
+                </div>
+
+                <!-- Simulation Action Button -->
+                <div class="d-grid gap-2">
+                    <button type="button" class="btn btn-success btn-lg fw-bold shadow-sm" id="btnSimulateUpiSuccess">
+                        <i class="bi bi-check2-circle me-1"></i> Simulate Payment Success
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">
+                        Cancel & Return
+                    </button>
+                </div>
+            </div>
+            
+            <div class="modal-footer bg-light border-0 py-2 justify-content-center">
+                <small class="text-muted"><i class="bi bi-shield-lock-fill me-1"></i> 100% Safe Demo • No Real Money Debited</small>
+            </div>
+        </div>
+    </div>
+</div>
 
 <!-- Razorpay Integration Script -->
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
@@ -387,6 +481,12 @@ document.addEventListener('DOMContentLoaded', function() {
     
     if (checkoutForm) {
         checkoutForm.addEventListener('submit', function(e) {
+            // Prevent double-submit
+            if (checkoutForm.dataset.submitted === '1') {
+                e.preventDefault();
+                return false;
+            }
+
             // Block submit if order button is disabled (distance check failed)
             const btn = document.getElementById('placeOrderBtn');
             if (btn && btn.disabled) {
@@ -398,7 +498,57 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
             
-            if (paymentMethod === 'online') {
+            if (paymentMethod === 'upi') {
+                e.preventDefault(); // Stop normal form submission
+
+                // Validate address before proceeding
+                const addressId = document.querySelector('input[name="address_id"]:checked');
+                const newStreet = document.querySelector('input[name="new_street_address"]');
+                if (!addressId && (!newStreet || newStreet.value.trim() === '')) {
+                    alert('Please select or add a delivery address first.');
+                    return;
+                }
+
+                checkoutForm.dataset.submitted = '1';
+                const originalBtnHtml = btn.innerHTML;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Generating UPI QR...';
+                btn.disabled = true;
+
+                const formData = new FormData(checkoutForm);
+                formData.append('is_ajax', '1');
+
+                fetch("<?= url('/order/place') ?>", {
+                    method: "POST",
+                    body: formData,
+                    headers: {
+                        "X-Requested-With": "XMLHttpRequest"
+                    }
+                })
+                .then(async res => {
+                    let data;
+                    try {
+                        data = await res.json();
+                    } catch (e) {
+                        data = { success: false, message: 'Server returned an invalid response.' };
+                    }
+                    btn.innerHTML = originalBtnHtml;
+                    btn.disabled = false;
+                    checkoutForm.dataset.submitted = '0';
+
+                    if (data && data.success && data.kravyo_order_id) {
+                        openUpiQrModal(data);
+                    } else {
+                        alert((data && data.message) ? data.message : 'Failed to initiate UPI payment.');
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    alert("Network error: " + (err.message || 'Error connecting to server.'));
+                    btn.innerHTML = originalBtnHtml;
+                    btn.disabled = false;
+                    checkoutForm.dataset.submitted = '0';
+                });
+            } else if (paymentMethod === 'online') {
                 e.preventDefault(); // Stop normal form submission
                 
                 // Validate address before proceeding
@@ -409,6 +559,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     return;
                 }
 
+                checkoutForm.dataset.submitted = '1';
                 // Show loading state on button
                 const originalBtnHtml = btn.innerHTML;
                 btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Initiating Payment...';
@@ -428,6 +579,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(data => {
                     btn.innerHTML = originalBtnHtml;
                     btn.disabled = false;
+                    checkoutForm.dataset.submitted = '0';
 
                     if (data.success && data.razorpay_order_id) {
                         // Open Razorpay Popup
@@ -505,7 +657,127 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert("Error connecting to server.");
                     btn.innerHTML = originalBtnHtml;
                     btn.disabled = false;
+                    checkoutForm.dataset.submitted = '0';
                 });
+            } else {
+                // COD Flow: Lock button and form to prevent duplicate orders
+                checkoutForm.dataset.submitted = '1';
+                btn.style.pointerEvents = 'none';
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Placing Order...';
+                setTimeout(function() {
+                    btn.disabled = true;
+                }, 0);
+            }
+        });
+    }
+
+    // ── UPI QR Modal Logic & Simulation ───────────────────────────────────
+    let upiTimerInterval = null;
+    let currentUpiOrderId = null;
+    let upiModalInstance = null;
+
+    function openUpiQrModal(data) {
+        currentUpiOrderId = data.kravyo_order_id;
+        document.getElementById('modalUpiAmount').textContent = data.formatted_amount || ('₹' + parseFloat(data.amount).toFixed(2));
+        document.getElementById('modalUpiOrderNumber').textContent = data.order_number;
+        document.getElementById('modalUpiVpa').textContent = data.upi_vpa || 'kravyo.foods@upi';
+
+        const qrImg = document.getElementById('modalUpiQrImage');
+        const qrSpinner = document.getElementById('modalUpiQrSpinner');
+        if (qrSpinner) qrSpinner.style.display = 'block';
+
+        const qrUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&margin=4&data=' + encodeURIComponent(data.upi_string);
+        qrImg.onload = function() {
+            if (qrSpinner) qrSpinner.style.display = 'none';
+        };
+        qrImg.src = qrUrl;
+
+        // Reset & start 5 min countdown
+        let timeLeft = 300;
+        const timerEl = document.getElementById('modalUpiTimer');
+        if (upiTimerInterval) clearInterval(upiTimerInterval);
+
+        function updateTimer() {
+            const m = Math.floor(timeLeft / 60);
+            const s = timeLeft % 60;
+            timerEl.textContent = (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+            if (timeLeft <= 0) {
+                clearInterval(upiTimerInterval);
+                timerEl.textContent = 'Expired';
+                const simBtn = document.getElementById('btnSimulateUpiSuccess');
+                if (simBtn) simBtn.disabled = true;
+            }
+            timeLeft--;
+        }
+        updateTimer();
+        upiTimerInterval = setInterval(updateTimer, 1000);
+
+        const simBtn = document.getElementById('btnSimulateUpiSuccess');
+        if (simBtn) {
+            simBtn.disabled = false;
+            simBtn.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Simulate Payment Success';
+        }
+
+        const modalEl = document.getElementById('kravyoUpiModal');
+        upiModalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+        upiModalInstance.show();
+    }
+
+    // Handle Simulate Payment Success Button Click
+    const simSuccessBtn = document.getElementById('btnSimulateUpiSuccess');
+    if (simSuccessBtn) {
+        simSuccessBtn.addEventListener('click', function() {
+            if (!currentUpiOrderId) return;
+            const simBtn = this;
+            const originalText = simBtn.innerHTML;
+            simBtn.disabled = true;
+            simBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Confirming ₹0 Sandbox Payment...';
+
+            const csrfVal = document.querySelector('input[name="_csrf"]')?.value || "<?= csrf_token() ?>";
+            const postData = new FormData();
+            postData.append('kravyo_order_id', currentUpiOrderId);
+            postData.append('_csrf', csrfVal);
+            postData.append('csrf_token', csrfVal);
+
+            fetch("<?= url('/order/verify-upi') ?>", {
+                method: "POST",
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfVal
+                },
+                body: postData
+            })
+            .then(async res => {
+                let vData;
+                try {
+                    vData = await res.json();
+                } catch(e) {
+                    vData = { success: false, message: 'Server returned non-JSON response.' };
+                }
+                if (vData && vData.success) {
+                    window.location.href = vData.redirect || ("<?= url('/order/track') ?>/" + currentUpiOrderId);
+                } else {
+                    alert((vData && vData.message) ? vData.message : 'UPI verification failed.');
+                    simBtn.innerHTML = originalText;
+                    simBtn.disabled = false;
+                }
+            })
+            .catch(err => {
+                console.error('Verify UPI error:', err);
+                alert('Server error during UPI verification.');
+                simBtn.innerHTML = originalText;
+                simBtn.disabled = false;
+            });
+        });
+    }
+
+    // Clear timer when modal is closed
+    const modalEl = document.getElementById('kravyoUpiModal');
+    if (modalEl) {
+        modalEl.addEventListener('hidden.bs.modal', function () {
+            if (upiTimerInterval) {
+                clearInterval(upiTimerInterval);
+                upiTimerInterval = null;
             }
         });
     }
