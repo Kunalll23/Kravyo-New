@@ -48,6 +48,52 @@ class Review extends Model {
         return (int) ($result['total'] ?? 0);
     }
 
+    /**
+     * Get review count and average rating for a kitchen in a single query
+     */
+    public function getRatingSummary(int $kitchenId): array {
+        $sql = "SELECT COUNT(*) as total, AVG(rating) as avg_rating FROM {$this->table} WHERE kitchen_id = :kitchen_id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['kitchen_id' => $kitchenId]);
+        $result = $stmt->fetch();
+        return [
+            'count'      => (int) ($result['total'] ?? 0),
+            'avg_rating' => round((float) ($result['avg_rating'] ?? 0), 1),
+        ];
+    }
+
+    /**
+     * Batch-fetch review summary (count and avg_rating) for multiple kitchens in a single query
+     */
+    public function getRatingSummaryForKitchens(array $kitchenIds): array {
+        if (empty($kitchenIds)) {
+            return [];
+        }
+        $kitchenIds = array_filter(array_map('intval', $kitchenIds), fn($id) => $id > 0);
+        if (empty($kitchenIds)) {
+            return [];
+        }
+        $placeholders = implode(',', $kitchenIds);
+        $sql = "SELECT kitchen_id, COUNT(*) as total, AVG(rating) as avg_rating 
+                FROM {$this->table} 
+                WHERE kitchen_id IN ({$placeholders}) 
+                GROUP BY kitchen_id";
+        $stmt = $this->db->query($sql);
+        $rows = $stmt->fetchAll();
+        $map = [];
+        foreach ($kitchenIds as $kid) {
+            $map[$kid] = ['count' => 0, 'avg_rating' => 0.0];
+        }
+        foreach ($rows as $r) {
+            $map[(int)$r['kitchen_id']] = [
+                'count'      => (int) $r['total'],
+                'avg_rating' => round((float) ($r['avg_rating'] ?? 0), 1),
+            ];
+        }
+        return $map;
+    }
+
+
     // ─── Phase 9 additions ────────────────────────────────────────────────────
 
     /**

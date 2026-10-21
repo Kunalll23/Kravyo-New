@@ -245,6 +245,37 @@ $customerCity = $customerCity ?? 'Surat';
 .badge-heart:hover {
     color: #ff6b6b;
 }
+/* 2-Line Text Clamp & Tooltip Styling (Option 1 + 3) */
+.dish-title-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    line-height: 1.35;
+    min-height: 2.6rem;
+    cursor: default;
+}
+.kitchen-title-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    line-height: 1.35;
+    min-height: 2.6rem;
+    cursor: default;
+}
+.compact-dish-title-clamp {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    line-height: 1.3;
+    min-height: 2.35rem;
+    cursor: default;
+}
 .dish-card {
     border: none;
     border-radius: 12px;
@@ -438,12 +469,17 @@ $customerCity = $customerCity ?? 'Surat';
                         <div class="badge-heart"><i class="bi bi-heart"></i></div>
                     </div>
                     <div class="card-body p-3">
-                        <div class="d-flex justify-content-between align-items-start mb-1">
-                            <h6 class="fw-bold mb-0 text-truncate" style="max-width: 75%;"><?= sanitize($k['kitchen_name']) ?></h6>
+                        <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+                            <h6 class="fw-bold mb-0 kitchen-title-clamp flex-grow-1"
+                                title="<?= sanitize($k['kitchen_name']) ?>"
+                                data-bs-toggle="tooltip"
+                                data-bs-placement="top">
+                                <?= sanitize($k['kitchen_name']) ?>
+                            </h6>
                             <?php if (!empty($k['avg_rating'])): ?>
-                                <span class="badge bg-warning text-dark"><i class="bi bi-star-fill"></i> <?= number_format((float)$k['avg_rating'], 1) ?> (<?= (int)($k['review_count'] ?? 0) ?>)</span>
+                                <span class="badge bg-warning text-dark flex-shrink-0"><i class="bi bi-star-fill"></i> <?= number_format((float)$k['avg_rating'], 1) ?> (<?= (int)($k['review_count'] ?? 0) ?>)</span>
                             <?php else: ?>
-                                <span class="badge bg-light text-muted border"><i class="bi bi-star"></i> New</span>
+                                <span class="badge bg-light text-muted border flex-shrink-0"><i class="bi bi-star"></i> New</span>
                             <?php endif; ?>
                         </div>
                         <p class="text-muted small mb-2"><i class="bi bi-geo-alt-fill text-danger"></i> <?= sanitize($k['city']) ?><?= !empty($k['pincode']) ? ' • ' . sanitize($k['pincode']) : '' ?></p>
@@ -510,15 +546,28 @@ $customerCity = $customerCity ?? 'Surat';
                         </div>
                     </div>
                     <div class="card-body p-3 d-flex flex-column">
-                        <div class="d-flex justify-content-between align-items-start mb-1">
-                            <h6 class="fw-bold mb-0 text-truncate" style="max-width: 80%;"><?= sanitize($d['item_name']) ?></h6>
+                        <div class="d-flex justify-content-between align-items-start mb-1 gap-2">
+                            <h6 class="fw-bold mb-0 dish-title-clamp flex-grow-1"
+                                title="<?= sanitize($d['item_name']) ?>"
+                                data-bs-toggle="tooltip"
+                                data-bs-placement="top">
+                                <?= sanitize($d['item_name']) ?>
+                            </h6>
                             <?php if (isset($d['distance'])): ?>
-                                <a href="<?= url('/nearby-kitchens?route_to=' . $d['kitchen_id']) ?>" class="badge bg-light text-primary border text-decoration-none" style="font-size:0.7rem;" title="View route on map">
+                                <a href="<?= url('/nearby-kitchens?route_to=' . $d['kitchen_id']) ?>"
+                                   class="badge bg-light text-primary border text-decoration-none flex-shrink-0"
+                                   style="font-size:0.7rem;"
+                                   title="View route on map">
                                     <i class="bi bi-geo-alt-fill me-1"></i><?= number_format($d['distance'], 1) ?> km
                                 </a>
                             <?php endif; ?>
                         </div>
-                        <p class="text-muted small mb-2 text-truncate"><i class="bi bi-shop text-danger me-1"></i><?= sanitize($d['kitchen_name']) ?></p>
+                        <p class="text-muted small mb-2 text-truncate"
+                           title="<?= sanitize($d['kitchen_name']) ?>"
+                           data-bs-toggle="tooltip"
+                           data-bs-placement="bottom">
+                            <i class="bi bi-shop text-danger me-1"></i><?= sanitize($d['kitchen_name']) ?>
+                        </p>
                         <div class="mt-auto d-flex justify-content-between align-items-center">
                             <span class="fw-bolder fs-5">₹<?= number_format($d['price'], 2) ?></span>
                             <a href="<?= url('/dish/' . $d['id']) ?>" class="btn btn-order-outline btn-sm px-3">Order Now</a>
@@ -568,8 +617,20 @@ $customerCity = $customerCity ?? 'Surat';
                         </div>
                     </div>
                     <div class="compact-details">
-                        <h6 class="fw-bold mb-0 text-truncate" style="font-size:0.9rem;"><?= sanitize($d['item_name']) ?></h6>
-                        <div class="text-muted mb-1 text-truncate" style="font-size:0.7rem;"><i class="bi bi-shop text-danger me-1"></i><?= sanitize($d['kitchen_name']) ?></div>
+                        <h6 class="fw-bold mb-0 compact-dish-title-clamp"
+                            style="font-size:0.88rem;"
+                            title="<?= sanitize($d['item_name']) ?>"
+                            data-bs-toggle="tooltip"
+                            data-bs-placement="top">
+                            <?= sanitize($d['item_name']) ?>
+                        </h6>
+                        <div class="text-muted mb-1 text-truncate"
+                             style="font-size:0.75rem;"
+                             title="<?= sanitize($d['kitchen_name']) ?>"
+                             data-bs-toggle="tooltip"
+                             data-bs-placement="bottom">
+                            <i class="bi bi-shop text-danger me-1"></i><?= sanitize($d['kitchen_name']) ?>
+                        </div>
                         <div class="d-flex justify-content-between align-items-center mb-1">
                             <div class="fw-bolder fs-6">₹<?= number_format($d['price'], 2) ?></div>
                             <?php if (isset($d['distance'])): ?>

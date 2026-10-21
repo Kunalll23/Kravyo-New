@@ -129,7 +129,9 @@ class OrderController extends Controller {
         }
 
         // ── Delivery Range Check: max 15 km from kitchen ──────────────────
-        define('MAX_DELIVERY_KM', 15);
+        if (!defined('MAX_DELIVERY_KM')) {
+            define('MAX_DELIVERY_KM', 15.0);
+        }
         $deliveryLat = isset($address['latitude'])  ? (float)$address['latitude']  : null;
         $deliveryLng = isset($address['longitude']) ? (float)$address['longitude'] : null;
 
@@ -217,6 +219,36 @@ class OrderController extends Controller {
         Session::set($mutexKey, microtime(true));
 
         try {
+            // If Razorpay Online Payment: initialize gateway order before DB transaction
+            // to prevent dangling database records if the external API call fails.
+            $razorpayOrderId = null;
+            if ($paymentMethod === 'online' && !empty($_POST['is_ajax'])) {
+                require_once CONFIG_PATH . '/razorpay.php';
+                $ch = curl_init('https://api.razorpay.com/v1/orders');
+                curl_setopt($ch, CURLOPT_USERPWD, RAZORPAY_KEY_ID . ':' . RAZORPAY_KEY_SECRET);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_POST, true);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
+                    'amount'   => (int) round($totalAmount * 100), // convert to paise
+                    'currency' => 'INR',
+                    'receipt'  => $orderData['order_number']
+                ]));
+                curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 10);
+                $rzpResponse = curl_exec($ch);
+                $curlErr = curl_error($ch);
+                curl_close($ch);
+
+                $rzpData = json_decode($rzpResponse, true);
+
+                if (empty($rzpData['id'])) {
+                    error_log('[Kravyo] Razorpay order creation failed: ' . ($curlErr ?: ($rzpResponse ?: 'Unknown error')));
+                    $this->json(['success' => false, 'message' => 'Failed to initialize payment gateway. Please try Cash on Delivery or UPI.']);
+                    return;
+                }
+                $razorpayOrderId = $rzpData['id'];
+            }
+
             // ── Core atomic write: order + items + ZeroWaste decrement ──────────
             // All three writes are inside ONE transaction so an interrupted request
             // cannot create an order without items, or decrement stock without an order.
@@ -242,35 +274,14 @@ class OrderController extends Controller {
 
             // If Razorpay Online Payment
             if ($paymentMethod === 'online' && !empty($_POST['is_ajax'])) {
-                require_once CONFIG_PATH . '/razorpay.php';
-                $ch = curl_init('https://api.razorpay.com/v1/orders');
-                curl_setopt($ch, CURLOPT_USERPWD, RAZORPAY_KEY_ID . ':' . RAZORPAY_KEY_SECRET);
-                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_POST, true);
-                curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode([
-                    'amount'   => (int) ($totalAmount * 100), // convert to paise
-                    'currency' => 'INR',
-                    'receipt'  => $orderData['order_number']
-                ]));
-                curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-                $rzpResponse = curl_exec($ch);
-                curl_close($ch);
-
-                $rzpData = json_decode($rzpResponse, true);
-                
-                if (isset($rzpData['id'])) {
-                    $this->json([
-                        'success'           => true,
-                        'kravyo_order_id'   => $orderId,
-                        'order_number'      => $orderData['order_number'],
-                        'razorpay_order_id' => $rzpData['id'],
-                        'razorpay_amount'   => (int) ($totalAmount * 100)
-                    ]);
-                    return;
-                } else {
-                    $this->json(['success' => false, 'message' => 'Failed to create payment on Razorpay.']);
-                    return;
-                }
+                $this->json([
+                    'success'           => true,
+                    'kravyo_order_id'   => $orderId,
+                    'order_number'      => $orderData['order_number'],
+                    'razorpay_order_id' => $razorpayOrderId,
+                    'razorpay_amount'   => (int) round($totalAmount * 100)
+                ]);
+                return;
             }
 
             // If UPI QR Payment (AJAX)
@@ -674,6 +685,7 @@ class OrderController extends Controller {
         $orderModel = new Order();
         $orderId = (int) $id;
         $userId = (int) Session::get('user_id');
+        session_write_close(); // Release session file lock immediately for polling
 
         if (!$orderModel->belongsToCustomer($orderId, $userId)) {
             echo json_encode(['error' => 'Unauthorized']);
@@ -713,6 +725,7 @@ class OrderController extends Controller {
         $orderModel = new Order();
         $orderId = (int) $id;
         $userId = (int) Session::get('user_id');
+        session_write_close(); // Release session file lock immediately for polling
 
         if (!$orderModel->belongsToCustomer($orderId, $userId)) {
             echo json_encode(['error' => 'Unauthorized']);
@@ -747,9 +760,11 @@ class OrderController extends Controller {
         
         $orders = $orderModel->findByCustomerId($userId, null, $dateFilter);
 
-        // Attach item count to each order
+        // Attach item count to each order in 1 batch query to eliminate N+1 queries
+        $orderIds = array_column($orders, 'id');
+        $itemCounts = $orderItemModel->countByOrderIds($orderIds);
         foreach ($orders as &$order) {
-            $order['item_count'] = $orderItemModel->countByOrderId((int) $order['id']);
+            $order['item_count'] = $itemCounts[(int) $order['id']] ?? 0;
         }
         unset($order);
 
@@ -797,6 +812,23 @@ class OrderController extends Controller {
             return;
         }
         // ── End Atomic Cancel ─────────────────────────────────────────────────
+
+        // ── RESTORE ZERO WASTE INVENTORY ───────────────────────────────────────
+        try {
+            require_once APP_PATH . '/models/OrderItem.php';
+            require_once APP_PATH . '/models/ZeroWasteItem.php';
+            $orderItemModel = new OrderItem();
+            $zeroWasteModel = new ZeroWasteItem();
+            $items = $orderItemModel->findByOrderId($orderId);
+            foreach ($items as $item) {
+                if (!empty($item['is_zero_waste']) && !empty($item['zero_waste_id'])) {
+                    $zeroWasteModel->incrementQuantity((int) $item['zero_waste_id'], (int) $item['quantity']);
+                }
+            }
+        } catch (Throwable $e) {
+            error_log('[Kravyo] Failed to restore zero waste stock on cancel: ' . $e->getMessage());
+        }
+        // ── END RESTORE ZERO WASTE INVENTORY ───────────────────────────────────
 
         // ── REFUND PROCESSING ──────────────────────────────────────────────────
         // Runs OUTSIDE the transaction intentionally:

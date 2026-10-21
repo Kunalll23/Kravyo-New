@@ -166,15 +166,36 @@ class Order extends Model {
     }
 
     /**
-     * Count orders for a customer
+     * Get order counts grouped by status in a single query for chef dashboard/orders tabs
      */
-    public function countByCustomerId(int $customerId): int {
-        $sql = "SELECT COUNT(*) as total FROM {$this->table} WHERE customer_id = :customer_id";
+    public function getStatusCountsByKitchenId(int $kitchenId): array {
+        $sql = "SELECT order_status, COUNT(*) as cnt FROM {$this->table} WHERE kitchen_id = :kitchen_id GROUP BY order_status";
         $stmt = $this->db->prepare($sql);
-        $stmt->execute(['customer_id' => $customerId]);
-        $result = $stmt->fetch();
-        return (int) ($result['total'] ?? 0);
+        $stmt->execute(['kitchen_id' => $kitchenId]);
+        $rows = $stmt->fetchAll();
+
+        $counts = [
+            'all'              => 0,
+            'pending'          => 0,
+            'accepted'         => 0,
+            'preparing'        => 0,
+            'out_for_delivery' => 0,
+            'delivered'        => 0,
+            'cancelled'        => 0,
+        ];
+
+        foreach ($rows as $row) {
+            $st = $row['order_status'];
+            $c  = (int) $row['cnt'];
+            $counts['all'] += $c;
+            if (array_key_exists($st, $counts)) {
+                $counts[$st] = $c;
+            }
+        }
+
+        return $counts;
     }
+
 
     /**
      * Calculate total earnings for a kitchen
@@ -228,32 +249,6 @@ class Order extends Model {
         $stmt = $this->db->prepare($sql);
         $stmt->execute(['kitchen_id' => $kitchenId]);
         return $stmt->fetchAll();
-    }
-
-    /**
-     * Get daily earnings for the last 7 days for a kitchen (for mini chart)
-     */
-    public function getEarningsLast7Days(int $kitchenId): array {
-        $sql = "SELECT DATE(created_at) AS day, SUM(total_amount) AS daily_total
-                FROM {$this->table}
-                WHERE kitchen_id = :kitchen_id
-                  AND order_status = 'delivered'
-                  AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
-                GROUP BY DATE(created_at)
-                ORDER BY day ASC";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute(['kitchen_id' => $kitchenId]);
-        $rows = $stmt->fetchAll();
-
-        // Build a full 7-day indexed array (fill missing days with 0)
-        $result = [];
-        for ($i = 6; $i >= 0; $i--) {
-            $result[date('Y-m-d', strtotime("-{$i} days"))] = 0;
-        }
-        foreach ($rows as $row) {
-            $result[$row['day']] = (float) $row['daily_total'];
-        }
-        return $result;
     }
 
     /**
@@ -653,64 +648,6 @@ class Order extends Model {
     // ─── Delivery Partner Module Methods ──────────────────────────────────────
 
     /**
-     * Offer order to a delivery partner for 120 seconds
-     */
-    public function offerToDeliveryPartner(int $orderId, int $deliveryPartnerId): bool {
-        $sql = "UPDATE {$this->table}
-                SET offered_driver_id = :dp_id,
-                    offer_expires_at = DATE_ADD(NOW(), INTERVAL 120 SECOND)
-                WHERE id = :id";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([
-            'dp_id' => $deliveryPartnerId,
-            'id'    => $orderId
-        ]);
-    }
-
-    /**
-     * Get pending offer for a driver
-     */
-    public function getPendingOffer(int $deliveryPartnerId): ?array {
-        $sql = "SELECT o.*, k.kitchen_name, k.address AS kitchen_address 
-                FROM {$this->table} o
-                JOIN kitchens k ON o.kitchen_id = k.id
-                WHERE o.offered_driver_id = :dp_id 
-                  AND o.offer_expires_at > NOW()
-                  AND o.delivery_partner_id IS NULL
-                LIMIT 1";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute(['dp_id' => $deliveryPartnerId]);
-        $res = $stmt->fetch();
-        return $res ?: null;
-    }
-
-    /**
-     * Reject or expire an offer
-     */
-    public function rejectOffer(int $orderId, int $deliveryPartnerId): bool {
-        $order = $this->find($orderId);
-        if (!$order) return false;
-
-        $rejected = json_decode($order['rejected_by_drivers'] ?? '[]', true);
-        if (!is_array($rejected)) $rejected = [];
-        if (!in_array($deliveryPartnerId, $rejected)) {
-            $rejected[] = $deliveryPartnerId;
-        }
-        
-        $sql = "UPDATE {$this->table}
-                SET offered_driver_id = NULL,
-                    offer_expires_at = NULL,
-                    rejected_by_drivers = :rejected
-                WHERE id = :id AND offered_driver_id = :dp_id";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([
-            'rejected' => json_encode($rejected),
-            'id'       => $orderId,
-            'dp_id'    => $deliveryPartnerId
-        ]);
-    }
-
-    /**
      * Assign a delivery partner to an order and generate delivery OTP
      */
     public function assignDeliveryPartner(int $orderId, int $deliveryPartnerId): bool {
@@ -760,31 +697,6 @@ class Order extends Model {
         return $stmt->execute($params);
     }
 
-    /**
-     * Find orders assigned to a delivery partner
-     */
-    public function findByDeliveryPartnerId(int $deliveryPartnerId, ?string $deliveryStatus = null): array {
-        $sql = "SELECT o.*, k.kitchen_name, k.address AS kitchen_address, k.city AS kitchen_city,
-                       k.latitude AS kitchen_lat, k.longitude AS kitchen_lng,
-                       u.full_name AS customer_name, u.phone AS customer_phone,
-                       a.street_address, a.landmark, a.city AS delivery_city, a.pincode AS delivery_pincode
-                FROM {$this->table} o
-                JOIN kitchens k ON o.kitchen_id = k.id
-                JOIN customers u ON o.customer_id = u.id
-                JOIN addresses a ON o.address_id = a.id
-                WHERE o.delivery_partner_id = :dp_id";
-        $params = ['dp_id' => $deliveryPartnerId];
-
-        if ($deliveryStatus !== null) {
-            $sql .= " AND o.delivery_status = :delivery_status";
-            $params['delivery_status'] = $deliveryStatus;
-        }
-
-        $sql .= " ORDER BY o.updated_at DESC";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll();
-    }
 
     /**
      * Find active (non-completed) delivery orders for a partner
@@ -823,28 +735,6 @@ class Order extends Model {
         $stmt = $this->db->prepare($sql);
         $stmt->execute(['dp_id' => $deliveryPartnerId]);
         return $stmt->fetchAll();
-    }
-
-    /**
-     * Get delivery OTP for an order
-     */
-    public function getDeliveryOtp(int $orderId): ?string {
-        $sql = "SELECT delivery_otp FROM {$this->table} WHERE id = :id LIMIT 1";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute(['id' => $orderId]);
-        $result = $stmt->fetch();
-        return $result ? $result['delivery_otp'] : null;
-    }
-
-    /**
-     * Verify delivery OTP
-     */
-    public function verifyDeliveryOtp(int $orderId, string $otp): bool {
-        $sql = "SELECT delivery_otp FROM {$this->table} WHERE id = :id LIMIT 1";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute(['id' => $orderId]);
-        $result = $stmt->fetch();
-        return $result && $result['delivery_otp'] === $otp;
     }
 
     /**
@@ -910,24 +800,6 @@ class Order extends Model {
         return $record ?: null;
     }
 
-    /**
-     * Find orders ready for pickup (for admin assignment)
-     */
-    public function findReadyForAssignment(): array {
-        $sql = "SELECT o.*, k.kitchen_name, k.address AS kitchen_address,
-                       u.full_name AS customer_name,
-                       a.street_address, a.city AS delivery_city
-                FROM {$this->table} o
-                JOIN kitchens k ON o.kitchen_id = k.id
-                JOIN customers u ON o.customer_id = u.id
-                JOIN addresses a ON o.address_id = a.id
-                WHERE o.order_status IN ('ready_for_pickup')
-                  AND o.delivery_status = 'unassigned'
-                ORDER BY o.updated_at ASC";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute();
-        return $stmt->fetchAll();
-    }
 
     // ─── Broadcast Dispatch Methods ───────────────────────────────────────────
 
@@ -1036,19 +908,6 @@ class Order extends Model {
                        TIMESTAMPDIFF(SECOND, dispatch_started_at, NOW()) AS elapsed_seconds
                 FROM {$this->table}
                 WHERE dispatch_status IN ('cascading', 'broadcasting')";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute();
-        return $stmt->fetchAll();
-    }
-
-    /**
-     * Get orders currently in broadcasting state (backward compatibility)
-     */
-    public function getBroadcastingOrders(): array {
-        $sql = "SELECT id, order_number, dispatch_round, dispatch_started_at, kitchen_id,
-                       TIMESTAMPDIFF(SECOND, dispatch_started_at, NOW()) AS elapsed_seconds
-                FROM {$this->table}
-                WHERE dispatch_status = 'broadcasting'";
         $stmt = $this->db->prepare($sql);
         $stmt->execute();
         return $stmt->fetchAll();

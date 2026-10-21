@@ -135,8 +135,9 @@ def recommend():
             "error": "Invalid user_id: must be greater than 0"
         }), 400
 
-    # ── Validate optional limit ─────────────────────────────────────────────
+    # ── Validate optional limit & city ──────────────────────────────────────
     raw_limit = request.args.get("limit", "8").strip()
+    city = request.args.get("city", "").strip()
     try:
         limit = max(1, min(32, int(raw_limit)))  # clamp between 1 and 32
     except ValueError:
@@ -144,7 +145,7 @@ def recommend():
 
     # ── Run ML recommendation ───────────────────────────────────────────────
     try:
-        recommendations = get_recommendations(user_id, limit)
+        recommendations = get_recommendations(user_id, limit, city)
     except Exception as exc:
         # Log internally but NEVER expose details to the caller
         app.logger.error(f"Recommendation error for user {user_id}: {exc}")

@@ -90,6 +90,7 @@ class SubscriptionController extends Controller {
 
         $subscriptionModel = new Subscription();
         $customerSubModel = new CustomerSubscription();
+        $customerSubModel->completeExpiredSubscriptions();
 
         $customerId = (int) Session::get('user_id');
         $planId = (int) ($_POST['plan_id'] ?? 0);
@@ -128,8 +129,8 @@ class SubscriptionController extends Controller {
             $paymentMethod = 'cod';
         }
 
-        // Calculate start and end dates
-        $startDate = date('Y-m-d', strtotime('+1 day')); // starts tomorrow
+        // Calculate start and end dates (starts today so daily deliveries are testable immediately)
+        $startDate = date('Y-m-d');
         if ($plan['plan_type'] === 'weekly') {
             $endDate = date('Y-m-d', strtotime($startDate . ' +7 days'));
         } else {
@@ -209,6 +210,7 @@ class SubscriptionController extends Controller {
         require_once APP_PATH . '/models/SubscriptionDelivery.php';
         
         $customerSubModel = new CustomerSubscription();
+        $customerSubModel->completeExpiredSubscriptions();
         $deliveryModel = new SubscriptionDelivery();
 
         $customerId = (int) Session::get('user_id');
@@ -216,17 +218,27 @@ class SubscriptionController extends Controller {
 
         $activeSubscriptions = [];
         $pastSubscriptions = [];
+
+        // Batch-load today's delivery status for all active subscriptions in 1 query
+        $activeSubIds = [];
+        foreach ($allSubscriptions as $sub) {
+            if ($sub['status'] === SUBSCRIPTION_STATUS_ACTIVE) {
+                $activeSubIds[] = (int) $sub['id'];
+            }
+        }
+        $todaysStatuses = !empty($activeSubIds) ? $deliveryModel->getTodaysStatusForSubscriptions($activeSubIds) : [];
         
         foreach ($allSubscriptions as $sub) {
             if (in_array($sub['status'], [SUBSCRIPTION_STATUS_ACTIVE, SUBSCRIPTION_STATUS_PENDING])) {
                 if ($sub['status'] === SUBSCRIPTION_STATUS_ACTIVE) {
-                    $sub['today_status'] = $deliveryModel->getTodaysStatusForSubscription((int) $sub['id']);
+                    $sub['today_status'] = $todaysStatuses[(int) $sub['id']] ?? null;
                 }
                 $activeSubscriptions[] = $sub;
             } else {
                 $pastSubscriptions[] = $sub;
             }
         }
+
 
         $this->render('customer/my_subscriptions', [
             'title'               => 'My Tiffin Subscriptions',

@@ -9,6 +9,9 @@
     <div class="row justify-content-center">
         <div class="col-md-6 col-lg-5">
 
+            <!-- Flash Alerts -->
+            <?php View::partial('alerts'); ?>
+
             <!-- Card -->
             <div class="card border-0 shadow-lg" style="border-radius: 20px; overflow: hidden;">
 

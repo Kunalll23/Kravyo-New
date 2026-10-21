@@ -113,13 +113,20 @@ class DeliveryController extends Controller {
         $email     = strtolower(trim($_POST['email'] ?? ''));
         $phone     = sanitize(trim($_POST['phone'] ?? ''));
         $password  = $_POST['password'] ?? '';
+        $confirmPassword = $_POST['confirm_password'] ?? '';
         $vehicleType    = sanitize(trim($_POST['vehicle_type'] ?? 'scooter'));
         $vehicleNumber  = sanitize(trim($_POST['vehicle_number'] ?? ''));
         $licenseNumber  = sanitize(trim($_POST['driving_license_number'] ?? ''));
 
         // Validation
-        if (empty($fullName) || empty($email) || empty($phone) || empty($password) || empty($vehicleNumber) || empty($licenseNumber)) {
+        if (empty($fullName) || empty($email) || empty($phone) || empty($password) || empty($confirmPassword) || empty($vehicleNumber) || empty($licenseNumber)) {
             Session::setFlash('danger', 'All fields are required.');
+            $this->redirect('/delivery/register');
+            return;
+        }
+
+        if ($password !== $confirmPassword) {
+            Session::setFlash('danger', 'Passwords do not match. Please re-enter.');
             $this->redirect('/delivery/register');
             return;
         }
@@ -142,14 +149,19 @@ class DeliveryController extends Controller {
             return;
         }
 
-        if ($userModel->findByEmail($email)) {
-            Session::setFlash('danger', 'This email address is already registered.');
+        require_once APP_PATH . '/models/Customer.php';
+        require_once APP_PATH . '/models/Chef.php';
+        $customerModel = new Customer();
+        $chefModel     = new Chef();
+
+        if ($userModel->findByEmail($email) || $customerModel->findByEmail($email) || $chefModel->findByEmail($email)) {
+            Session::setFlash('danger', 'This email address is already registered on Kravyo.');
             $this->redirect('/delivery/register');
             return;
         }
 
-        if ($userModel->findByPhone($phone)) {
-            Session::setFlash('danger', 'This phone number is already registered.');
+        if ($userModel->findByPhone($phone) || $customerModel->findByPhone($phone) || $chefModel->findByPhone($phone)) {
+            Session::setFlash('danger', 'This phone number is already registered on Kravyo.');
             $this->redirect('/delivery/register');
             return;
         }

@@ -22,6 +22,37 @@ class OrderItem extends Model {
     }
 
     /**
+     * Batch-fetch all items for multiple orders in a single database query.
+     * Returns an associative array mapping order_id => array of items.
+     */
+    public function findByOrderIds(array $orderIds): array {
+        if (empty($orderIds)) {
+            return [];
+        }
+        $orderIds = array_filter(array_map('intval', $orderIds), fn($id) => $id > 0);
+        if (empty($orderIds)) {
+            return [];
+        }
+        $placeholders = implode(',', $orderIds);
+        $sql = "SELECT oi.*, mi.item_name, mi.image, mi.is_veg, mi.is_jain_available, mi.is_diabetic_friendly
+                FROM {$this->table} oi
+                JOIN menu_items mi ON oi.menu_item_id = mi.id
+                WHERE oi.order_id IN ({$placeholders})
+                ORDER BY oi.id ASC";
+        $stmt = $this->db->query($sql);
+        $rows = $stmt->fetchAll();
+        $grouped = [];
+        foreach ($orderIds as $oid) {
+            $grouped[$oid] = [];
+        }
+        foreach ($rows as $row) {
+            $grouped[(int)$row['order_id']][] = $row;
+        }
+        return $grouped;
+    }
+
+
+    /**
      * Create all order items from cart data in a batch
      */
     public function createFromCart(int $orderId, array $cartItems): bool {
@@ -59,5 +90,31 @@ class OrderItem extends Model {
         $stmt->execute(['order_id' => $orderId]);
         $result = $stmt->fetch();
         return (int) ($result['total'] ?? 0);
+    }
+
+    /**
+     * Batch-count items for multiple orders in a single database query.
+     * Returns an associative array mapping order_id => count.
+     */
+    public function countByOrderIds(array $orderIds): array {
+        if (empty($orderIds)) {
+            return [];
+        }
+        $orderIds = array_filter(array_map('intval', $orderIds), fn($id) => $id > 0);
+        if (empty($orderIds)) {
+            return [];
+        }
+        $placeholders = implode(',', $orderIds);
+        $sql = "SELECT order_id, COUNT(*) as total FROM {$this->table} WHERE order_id IN ({$placeholders}) GROUP BY order_id";
+        $stmt = $this->db->query($sql);
+        $rows = $stmt->fetchAll();
+        $counts = [];
+        foreach ($orderIds as $oid) {
+            $counts[$oid] = 0;
+        }
+        foreach ($rows as $r) {
+            $counts[(int)$r['order_id']] = (int)$r['total'];
+        }
+        return $counts;
     }
 }

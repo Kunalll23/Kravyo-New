@@ -50,7 +50,7 @@ class AdminAuthController extends Controller {
         // ── Successful admin login ────────────────────────────────────────────
         Session::set('admin_id',   (int) $admin['id']);
         Session::set('admin_name', $admin['full_name']);
-        Session::set('admin_role', $admin['role']);
+        Session::set('admin_role', $admin['role'] ?? 'admin');
 
         // Record the login timestamp
         $this->adminModel->touchLastLogin((int) $admin['id']);

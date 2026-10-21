@@ -40,8 +40,9 @@ class ChefController extends Controller {
         // Lifetime stats
         $totalOrders     = $kitchen ? $orderModel->countByKitchenId($kitchenId) : 0;
         $totalEarnings   = $kitchen ? $orderModel->totalEarnings($kitchenId) : 0.0;
-        $avgRating       = $kitchen ? $reviewModel->getAverageRating($kitchenId) : 0.0;
-        $reviewCount     = $kitchen ? $reviewModel->countByKitchenId($kitchenId) : 0;
+        $ratingSummary   = $kitchen ? $reviewModel->getRatingSummary($kitchenId) : ['count' => 0, 'avg_rating' => 0.0];
+        $avgRating       = $ratingSummary['avg_rating'];
+        $reviewCount     = $ratingSummary['count'];
         $recentReviews   = $kitchen ? $reviewModel->findRecentByKitchenId($kitchenId, 3) : [];
         $monthlyEarnings = $kitchen ? $orderModel->getMonthlyEarningsComparison($kitchenId) : ['this_month' => 0, 'last_month' => 0];
 
@@ -506,20 +507,36 @@ class ChefController extends Controller {
      * Handle image file upload with validation
      */
     private function handleImageUpload(array $file, string $uploadDir, string $prefix = ''): array {
-        $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+        $mimeToExt = [
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp',
+            'image/gif'  => 'gif',
+        ];
         $maxSize = 5 * 1024 * 1024; // 5 MB
 
-        if (!in_array($file['type'], $allowedTypes)) {
-            return ['success' => false, 'error' => 'Only JPG, PNG, WebP, and GIF images are allowed.'];
+        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            return ['success' => false, 'error' => 'No valid file was uploaded.'];
         }
 
         if ($file['size'] > $maxSize) {
             return ['success' => false, 'error' => 'Image file size must be under 5 MB.'];
         }
 
-        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $filename = $prefix . uniqid() . '_' . time() . '.' . strtolower($extension);
-        $destination = $uploadDir . $filename;
+        // Server-side real MIME detection using fileinfo
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $detectedMime = $finfo ? finfo_file($finfo, $file['tmp_name']) : mime_content_type($file['tmp_name']);
+        if ($finfo) {
+            finfo_close($finfo);
+        }
+
+        if (!isset($mimeToExt[$detectedMime])) {
+            return ['success' => false, 'error' => 'Only JPG, PNG, WebP, and GIF images are allowed.'];
+        }
+
+        $safeExt = $mimeToExt[$detectedMime];
+        $filename = $prefix . bin2hex(random_bytes(16)) . '_' . time() . '.' . $safeExt;
+        $destination = rtrim($uploadDir, '/\\') . '/' . $filename;
 
         if (move_uploaded_file($file['tmp_name'], $destination)) {
             return ['success' => true, 'filename' => $filename];
@@ -780,25 +797,23 @@ class ChefController extends Controller {
         $filterStatus = ($statusFilter === 'all') ? null : $statusFilter;
         $orders = $orderModel->findByKitchenId($kitchenId, $filterStatus, $search);
 
+        // Batch-load all order items in 1 query to eliminate N+1 queries
+        $orderIds = array_column($orders, 'id');
+        $itemsByOrder = $orderItemModel->findByOrderIds($orderIds);
+
         // Attach order items and timeline to each order
         foreach ($orders as &$order) {
-            $order['items'] = $orderItemModel->findByOrderId((int) $order['id']);
+            $oid = (int) $order['id'];
+            $order['items'] = $itemsByOrder[$oid] ?? [];
             if (($order['dispatch_status'] ?? '') === 'broadcasting') {
-                $order['timeline'] = $deliveryOfferModel->getTimelineForOrder((int) $order['id']);
+                $order['timeline'] = $deliveryOfferModel->getTimelineForOrder($oid);
             }
         }
         unset($order);
 
-        // Count orders by status for tab badges
-        $statusCounts = [
-            'all'              => $orderModel->countByKitchenId($kitchenId),
-            'pending'          => $orderModel->countByKitchenId($kitchenId, ORDER_STATUS_PENDING),
-            'accepted'         => $orderModel->countByKitchenId($kitchenId, ORDER_STATUS_ACCEPTED),
-            'preparing'        => $orderModel->countByKitchenId($kitchenId, ORDER_STATUS_PREPARING),
-            'out_for_delivery' => $orderModel->countByKitchenId($kitchenId, ORDER_STATUS_OUT_FOR_DELIVERY),
-            'delivered'        => $orderModel->countByKitchenId($kitchenId, ORDER_STATUS_DELIVERED),
-            'cancelled'        => $orderModel->countByKitchenId($kitchenId, ORDER_STATUS_CANCELLED),
-        ];
+        // Count orders by status for tab badges in a single aggregated query
+        $statusCounts = $orderModel->getStatusCountsByKitchenId($kitchenId);
+
 
         $this->render('chef/orders', [
             'title'        => 'Manage Orders',
@@ -920,6 +935,25 @@ class ChefController extends Controller {
             $orderModel->updatePaymentStatus($orderId, PAYMENT_STATUS_COMPLETED);
         }
 
+        // ── RESTORE ZERO WASTE INVENTORY ON CHEF REJECTION ───────────────────
+        if ($newStatus === ORDER_STATUS_CANCELLED) {
+            try {
+                require_once APP_PATH . '/models/OrderItem.php';
+                require_once APP_PATH . '/models/ZeroWasteItem.php';
+                $orderItemModel = new OrderItem();
+                $zeroWasteModel = new ZeroWasteItem();
+                $items = $orderItemModel->findByOrderId($orderId);
+                foreach ($items as $item) {
+                    if (!empty($item['is_zero_waste']) && !empty($item['zero_waste_id'])) {
+                        $zeroWasteModel->incrementQuantity((int) $item['zero_waste_id'], (int) $item['quantity']);
+                    }
+                }
+            } catch (Throwable $e) {
+                error_log('[Kravyo] Failed to restore zero waste stock on chef rejection: ' . $e->getMessage());
+            }
+        }
+        // ── END RESTORE ZERO WASTE INVENTORY ───────────────────────────────────
+
         // ── REFUND PROCESSING ON CHEF REJECTION ───────────────────────────────
         // When chef rejects a pending order that was already paid online, initiate a refund
         $chefRejectRefundMessage = '';
@@ -1039,6 +1073,7 @@ class ChefController extends Controller {
 
         $subscriptionModel = new Subscription();
         $customerSubModel = new CustomerSubscription();
+        $customerSubModel->completeExpiredSubscriptions();
         $deliveryModel = new SubscriptionDelivery();
 
         $userId = Session::get('user_id');
@@ -1481,6 +1516,160 @@ class ChefController extends Controller {
             Session::setFlash('success', 'Delivery status updated and dispatched!');
         } else {
             Session::setFlash('danger', 'Failed to update status.');
+        }
+
+        $this->redirect('/chef/subscriptions');
+    }
+
+    /**
+     * Batch dispatch multiple today's tiffin deliveries at once
+     * POST /chef/subscription/delivery/batch-dispatch
+     */
+    public function batchDispatchDeliveries(): void {
+        Middleware::verifyCsrf();
+        require_once APP_PATH . '/models/SubscriptionDelivery.php';
+        require_once APP_PATH . '/models/Order.php';
+        require_once APP_PATH . '/models/CustomerSubscription.php';
+        require_once APP_PATH . '/services/DispatchService.php';
+
+        $deliveryModel   = new SubscriptionDelivery();
+        $orderModel      = new Order();
+        $subModel        = new CustomerSubscription();
+        $dispatchService = new DispatchService();
+
+        $userId  = Session::get('user_id');
+        $kitchen = $this->kitchenModel->findByUserId($userId);
+
+        if (!$kitchen) {
+            Session::setFlash('danger', 'Kitchen not found.');
+            $this->redirect('/chef/subscriptions');
+            return;
+        }
+
+        $kitchenId = (int) $kitchen['id'];
+        
+        // Either explicit delivery IDs array OR meal_type
+        $rawDeliveryIds = $_POST['delivery_ids'] ?? [];
+        $mealType       = trim($_POST['meal_type'] ?? '');
+
+        $targetDeliveryIds = [];
+        if (!empty($rawDeliveryIds) && is_array($rawDeliveryIds)) {
+            $targetDeliveryIds = array_map('intval', array_filter($rawDeliveryIds, 'is_numeric'));
+        } elseif (!empty($mealType)) {
+            // Find all pending deliveries for this kitchen today for this meal_type
+            $today = date('Y-m-d');
+            $db = Database::getInstance();
+            if ($mealType === 'all') {
+                $stmt = $db->prepare("SELECT id FROM subscription_deliveries WHERE kitchen_id = ? AND delivery_date = ? AND status = 'pending'");
+                $stmt->execute([$kitchenId, $today]);
+            } else {
+                $stmt = $db->prepare("SELECT id FROM subscription_deliveries WHERE kitchen_id = ? AND delivery_date = ? AND meal_type = ? AND status = 'pending'");
+                $stmt->execute([$kitchenId, $today, $mealType]);
+            }
+            $targetDeliveryIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        }
+
+        if (empty($targetDeliveryIds)) {
+            Session::setFlash('warning', 'No pending deliveries selected for dispatch.');
+            $this->redirect('/chef/subscriptions');
+            return;
+        }
+
+        $dispatchedCount = 0;
+        $createdOrderIds = [];
+
+        Database::withTransaction(function() use (
+            $deliveryModel, $targetDeliveryIds, $kitchenId, $orderModel,
+            &$dispatchedCount, &$createdOrderIds
+        ) {
+            $db = Database::getInstance();
+
+            foreach ($targetDeliveryIds as $deliveryId) {
+                // Lock row
+                $stmt = $db->prepare(
+                    "SELECT * FROM subscription_deliveries WHERE id = :id AND kitchen_id = :kid LIMIT 1 FOR UPDATE"
+                );
+                $stmt->execute(['id' => $deliveryId, 'kid' => $kitchenId]);
+                $currentDelivery = $stmt->fetch();
+
+                if (!$currentDelivery || $currentDelivery['status'] !== 'pending') {
+                    continue; // Skip if already dispatched or not belonging to kitchen
+                }
+
+                $updated = $deliveryModel->updateStatus($deliveryId, 'dispatched', $kitchenId);
+                if (!$updated) {
+                    continue;
+                }
+
+                $dispatchedCount++;
+
+                // Check existing order
+                $checkOrderStmt = $db->prepare(
+                    "SELECT id FROM orders WHERE subscription_delivery_id = ? LIMIT 1 FOR UPDATE"
+                );
+                $checkOrderStmt->execute([$deliveryId]);
+                $existingOrder = $checkOrderStmt->fetch();
+
+                if (!$existingOrder) {
+                    $sql = "SELECT sd.*, cs.customer_id, cs.address_id, cs.special_instructions 
+                            FROM subscription_deliveries sd 
+                            JOIN customer_subscriptions cs ON sd.customer_subscription_id = cs.id
+                            WHERE sd.id = ?";
+                    $stmtInfo = $db->prepare($sql);
+                    $stmtInfo->execute([$deliveryId]);
+                    $deliveryInfo = $stmtInfo->fetch();
+
+                    if ($deliveryInfo) {
+                        $orderNumber = 'TFN-' . date('Ymd') . '-' . strtoupper(substr(md5((string)$deliveryId), 0, 5));
+                        
+                        $deliveryLat = null;
+                        $deliveryLng = null;
+                        if (!empty($deliveryInfo['address_id'])) {
+                            $addrStmt = $db->prepare("SELECT * FROM addresses WHERE id = ?");
+                            $addrStmt->execute([$deliveryInfo['address_id']]);
+                            $addrRecord = $addrStmt->fetch();
+                            if ($addrRecord && !empty($addrRecord['latitude']) && !empty($addrRecord['longitude'])) {
+                                $deliveryLat = (float) $addrRecord['latitude'];
+                                $deliveryLng = (float) $addrRecord['longitude'];
+                            }
+                        }
+
+                        $timeWindow = !empty($deliveryInfo['delivery_time']) ? ' (' . $deliveryInfo['delivery_time'] . ')' : '';
+
+                        $orderData = [
+                            'order_number'             => $orderNumber,
+                            'customer_id'              => $deliveryInfo['customer_id'],
+                            'kitchen_id'               => $kitchenId,
+                            'address_id'               => $deliveryInfo['address_id'],
+                            'delivery_latitude'        => $deliveryLat,
+                            'delivery_longitude'       => $deliveryLng,
+                            'total_amount'             => 0.00,
+                            'payment_method'           => 'cod',
+                            'payment_status'           => 'completed',
+                            'order_status'             => 'preparing',
+                            'special_instructions'     => 'TIFFIN ' . strtoupper($deliveryInfo['meal_type']) . $timeWindow . ' - ' . ($deliveryInfo['special_instructions'] ?? ''),
+                            'order_type'               => 'tiffin',
+                            'subscription_delivery_id' => $deliveryId
+                        ];
+
+                        $newOrderId = (int) $orderModel->create($orderData);
+                        if ($newOrderId > 0) {
+                            $createdOrderIds[] = $newOrderId;
+                        }
+                    }
+                }
+            }
+        });
+
+        // Broadcast to riders OUTSIDE the transaction
+        foreach ($createdOrderIds as $orderId) {
+            $dispatchService->broadcast($orderId, 1);
+        }
+
+        if ($dispatchedCount > 0) {
+            Session::setFlash('success', "🚀 Successfully prepared and dispatched {$dispatchedCount} tiffin deliver" . ($dispatchedCount === 1 ? 'y' : 'ies') . ' to riders!');
+        } else {
+            Session::setFlash('info', 'No pending deliveries were eligible for dispatch.');
         }
 
         $this->redirect('/chef/subscriptions');

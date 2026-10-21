@@ -5,8 +5,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     console.log('Kravyo Application Initialized successfully.');
 
-    // Auto-dismiss Bootstrap alert messages after 10 seconds
-    const alerts = document.querySelectorAll('.alert-dismissible');
+    // Auto-dismiss temporary alert messages only if marked .auto-dismiss
+    const alerts = document.querySelectorAll('.alert-dismissible.auto-dismiss');
     alerts.forEach(alert => {
         setTimeout(() => {
             const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
@@ -134,7 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const formData = new URLSearchParams();
             formData.append('_csrf', csrfInput.value);
             
-            fetch('/chef/dish/toggle-availability/' + dishId, {
+            const baseUrl = window.location.origin + window.location.pathname.split('/chef')[0];
+            fetch(baseUrl + '/chef/dish/toggle-availability/' + dishId, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',

@@ -82,14 +82,14 @@
                                             <td class="text-end pe-4">
                                                 <?php if ($sub['status'] === SUBSCRIPTION_STATUS_PENDING): ?>
                                                     <div class="btn-group btn-group-sm" role="group">
-                                                        <form method="POST" action="/admin/subscription/approve/<?= $sub['id'] ?>" class="d-inline">
-                                                            <input type="hidden" name="csrf_token" value="<?= Session::get('csrf_token') ?>">
+                                                        <form method="POST" action="<?= url('/admin/subscription/approve/' . $sub['id']) ?>" class="d-inline">
+                                                            <?= csrf_field() ?>
                                                             <button type="submit" class="btn btn-success" title="Approve">
                                                                 <i class="bi bi-check-lg"></i> Approve
                                                             </button>
                                                         </form>
-                                                        <form method="POST" action="/admin/subscription/reject/<?= $sub['id'] ?>" class="d-inline ms-1">
-                                                            <input type="hidden" name="csrf_token" value="<?= Session::get('csrf_token') ?>">
+                                                        <form method="POST" action="<?= url('/admin/subscription/reject/' . $sub['id']) ?>" class="d-inline ms-1">
+                                                            <?= csrf_field() ?>
                                                             <button type="submit" class="btn btn-danger" title="Reject" onclick="return confirm('Are you sure you want to reject this subscription?');">
                                                                 <i class="bi bi-x-lg"></i> Reject
                                                             </button>

@@ -105,20 +105,6 @@ class DeliveryPartner extends Model {
     }
 
     /**
-     * Reset all delivery partners to offline (e.g. system cleanup or admin reset)
-     */
-    public function resetAllOffline(?string $city = null): bool {
-        $sql = "UPDATE {$this->table} SET is_online = 0, is_busy = 0";
-        $params = [];
-        if ($city !== null && $city !== '' && $city !== 'all') {
-            $sql .= " WHERE LOWER(city) = LOWER(:city)";
-            $params['city'] = $city;
-        }
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute($params);
-    }
-
-    /**
      * Automatically reset stale riders whose last heartbeat is older than threshold (default 5 mins)
      * or who have never sent a heartbeat
      */
@@ -226,96 +212,6 @@ class DeliveryPartner extends Model {
         $result = $stmt->fetch();
         return (int) ($result['total'] ?? 0);
     }
-    /**
-     * Finds the nearest active delivery partner using Road Distance/ETA (Phase 11)
-     * 
-     * @param float $lat Kitchen latitude
-     * @param float $lng Kitchen longitude
-     * @param float $maxDistanceKm Maximum allowed distance in kilometers
-     * @param array $excludePartnerIds Array of delivery_partner_id to skip
-     * @return array|null Returns the partner ID and calculated distance
-     */
-    public function findNearestActivePartner(float $lat, float $lng, float $maxDistanceKm = 15.0, array $excludePartnerIds = []): ?array {
-        // 1. Get Top 5 nearest active partners using Haversine (straight-line) to avoid pinging API for everyone
-        $excludeSql = '';
-        if (!empty($excludePartnerIds)) {
-            $placeholders = implode(',', array_fill(0, count($excludePartnerIds), '?'));
-            $excludeSql = " AND dp.id NOT IN ($placeholders)";
-        }
-
-        $sql = "SELECT dp.user_id, dp.id AS delivery_partner_id, dp.current_latitude, dp.current_longitude,
-                       (6371 * acos(cos(radians(?)) * cos(radians(dp.current_latitude)) *
-                       cos(radians(dp.current_longitude) - radians(?)) +
-                       sin(radians(?)) * sin(radians(dp.current_latitude)))) AS distance
-                FROM {$this->table} dp
-                JOIN delivery_users u ON dp.user_id = u.id
-                WHERE dp.is_online = 1
-                  AND dp.is_busy = 0
-                  AND dp.verification_status = 'approved'
-                  AND u.status = 'active'
-                  {$excludeSql}
-                HAVING distance <= ?
-                ORDER BY distance ASC
-                LIMIT 5";
-        
-        $stmt = $this->db->prepare($sql);
-        
-        $params = [$lat, $lng, $lat];
-        if (!empty($excludePartnerIds)) {
-            $params = array_merge($params, $excludePartnerIds);
-        }
-        $params[] = $maxDistanceKm;
-        
-        $stmt->execute($params);
-        
-        $candidates = $stmt->fetchAll();
-        
-        if (empty($candidates)) {
-            return null;
-        }
-        
-        // 2. Use OSRM API to find actual Driving ETA
-        $bestPartner = null;
-        $lowestEta = 9999999;
-        
-        foreach ($candidates as $candidate) {
-            $driverLng = $candidate['current_longitude'];
-            $driverLat = $candidate['current_latitude'];
-            
-            // OSRM requires format: longitude,latitude
-            $osrmUrl = "http://router.project-osrm.org/route/v1/driving/{$driverLng},{$driverLat};{$lng},{$lat}?overview=false";
-            
-            try {
-                // Set a timeout of 1.5 seconds so we don't hang the app if OSRM is down
-                $ctx = stream_context_create(['http' => ['timeout' => 1.5]]);
-                $response = @file_get_contents($osrmUrl, false, $ctx);
-                if ($response) {
-                    $data = json_decode($response, true);
-                    if (isset($data['routes'][0]['duration'])) {
-                        $etaSeconds = (float)$data['routes'][0]['duration'];
-                        $roadDistanceKm = ((float)$data['routes'][0]['distance']) / 1000;
-                        
-                        // Update the candidate's distance to the real road distance
-                        $candidate['distance'] = $roadDistanceKm;
-                        
-                        if ($etaSeconds < $lowestEta) {
-                            $lowestEta = $etaSeconds;
-                            $bestPartner = $candidate;
-                        }
-                    }
-                }
-            } catch (Exception $e) {
-                // Ignore API failures for this loop
-            }
-        }
-        
-        // If OSRM failed completely for all candidates (or timed out), fallback to the absolute closest straight-line match
-        if (!$bestPartner) {
-            return $candidates[0];
-        }
-        
-        return $bestPartner;
-    }
 
     /**
      * Set delivery partner busy status
@@ -329,16 +225,31 @@ class DeliveryPartner extends Model {
     // ─── Broadcast Dispatch Methods ───────────────────────────────────────────
 
     /**
-     * Find eligible riders for a broadcast in a specific city
+     * Calculate Haversine distance between two coordinates in kilometers
      */
-    public function findEligibleInCity(string $city, array $excludePartnerIds = []): array {
+    public static function calculateDistanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float {
+        if ($lat1 == 0.0 || $lng1 == 0.0 || $lat2 == 0.0 || $lng2 == 0.0) {
+            return 999.0;
+        }
+        $theta = $lng2 - $lng1;
+        $dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) +
+                cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
+        $dist = acos(max(-1.0, min(1.0, $dist)));
+        return round(rad2deg($dist) * 60 * 1.1515 * 1.609344, 2);
+    }
+
+    /**
+     * Find eligible riders for a broadcast in a specific city within max dispatch radius (strict 15 km cap)
+     */
+    public function findEligibleInCity(string $city, float $kitchenLat = 0.0, float $kitchenLng = 0.0, array $excludePartnerIds = [], ?float $maxRadiusKm = null): array {
+        $maxRadius = $maxRadiusKm ?? (defined('MAX_DISPATCH_RADIUS_KM') ? (float)MAX_DISPATCH_RADIUS_KM : 15.0);
         $excludeSql = '';
         if (!empty($excludePartnerIds)) {
             $placeholders = implode(',', array_map('intval', $excludePartnerIds));
             $excludeSql = " AND dp.id NOT IN ($placeholders)";
         }
 
-        $sql = "SELECT dp.id
+        $sql = "SELECT dp.id, dp.current_latitude, dp.current_longitude
                 FROM {$this->table} dp
                 JOIN delivery_users u ON dp.user_id = u.id
                 WHERE dp.city = :city
@@ -354,7 +265,25 @@ class DeliveryPartner extends Model {
                   {$excludeSql}";
         $stmt = $this->db->prepare($sql);
         $stmt->execute(['city' => $city]);
-        return $stmt->fetchAll(PDO::FETCH_COLUMN);
+        $rows = $stmt->fetchAll();
+
+        if (empty($rows)) {
+            return [];
+        }
+
+        $eligibleIds = [];
+        foreach ($rows as $r) {
+            // If kitchen coordinates are available, enforce strict maximum distance
+            if ($kitchenLat != 0.0 && $kitchenLng != 0.0 && !empty($r['current_latitude']) && !empty($r['current_longitude'])) {
+                $distKm = self::calculateDistanceKm($kitchenLat, $kitchenLng, (float)$r['current_latitude'], (float)$r['current_longitude']);
+                if ($distKm > $maxRadius) {
+                    continue; // Exclude rider outside strict 15 km limit
+                }
+            }
+            $eligibleIds[] = (int)$r['id'];
+        }
+
+        return $eligibleIds;
     }
 
     /**
@@ -368,9 +297,10 @@ class DeliveryPartner extends Model {
 
     /**
      * Find and rank candidate riders for Smart Cascade targeted ping
-     * Considers distance, completed deliveries, rating, and recency
+     * Considers distance, completed deliveries, rating, and recency with strict 15 km limit
      */
-    public function findRankedCandidatesForKitchen(float $kitchenLat, float $kitchenLng, string $city, array $excludePartnerIds = [], float $maxRadiusKm = 25.0): array {
+    public function findRankedCandidatesForKitchen(float $kitchenLat, float $kitchenLng, string $city, array $excludePartnerIds = [], ?float $maxRadiusKm = null): array {
+        $maxRadius = $maxRadiusKm ?? (defined('MAX_DISPATCH_RADIUS_KM') ? (float)MAX_DISPATCH_RADIUS_KM : 15.0);
         $excludeSql = '';
         if (!empty($excludePartnerIds)) {
             $placeholders = implode(',', array_map('intval', $excludePartnerIds));
@@ -407,17 +337,11 @@ class DeliveryPartner extends Model {
         foreach ($rows as $r) {
             $distanceKm = 3.0; // default estimated distance
             if (!empty($r['current_latitude']) && !empty($r['current_longitude']) && $kitchenLat != 0.0 && $kitchenLng != 0.0) {
-                // Haversine formula
-                $theta = $kitchenLng - (float)$r['current_longitude'];
-                $dist = sin(deg2rad($kitchenLat)) * sin(deg2rad((float)$r['current_latitude'])) +
-                        cos(deg2rad($kitchenLat)) * cos(deg2rad((float)$r['current_latitude'])) * cos(deg2rad($theta));
-                $dist = acos(max(-1.0, min(1.0, $dist)));
-                $dist = rad2deg($dist);
-                $distanceKm = round($dist * 60 * 1.1515 * 1.609344, 2);
+                $distanceKm = self::calculateDistanceKm($kitchenLat, $kitchenLng, (float)$r['current_latitude'], (float)$r['current_longitude']);
             }
 
-            if ($distanceKm > $maxRadiusKm) {
-                continue;
+            if ($distanceKm > $maxRadius) {
+                continue; // Exclude rider outside strict 15 km limit
             }
 
             // Weighted match score: 60% distance + 25% experience + 15% recency
@@ -458,6 +382,7 @@ class DeliveryPartner extends Model {
                 JOIN addresses a ON o.address_id = a.id
                 WHERE o.kitchen_id = :kitchen_id
                   AND o.delivery_status IN ('assigned', 'accepted', 'picked_up')
+                  AND (o.order_type IS NULL OR o.order_type != 'tiffin')
                   AND dp.is_online = 1
                   AND dp.verification_status = 'approved'
                   AND u.status = 'active'

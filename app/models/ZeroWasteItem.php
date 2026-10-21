@@ -65,38 +65,6 @@ class ZeroWasteItem extends Model {
         return $stmt->fetchAll();
     }
 
-    /**
-     * Get a limited set of active listings for the homepage teaser (max 3).
-     */
-    public function findHomepageTeaser(int $limit = 3, string $city = ''): array {
-        $this->markExpired();
-
-        $sql = "SELECT
-                    z.*,
-                    m.item_name, m.image AS dish_image, m.is_veg,
-                    k.kitchen_name, k.city,
-                    ROUND(((z.original_price - z.discounted_price) / z.original_price) * 100) AS discount_pct,
-                    TIMESTAMPDIFF(MINUTE, NOW(), z.expiry_time) AS minutes_remaining
-                FROM {$this->table} z
-                JOIN menu_items m ON z.menu_item_id = m.id
-                JOIN kitchens k   ON z.kitchen_id   = k.id
-                WHERE z.status = 'active'
-                  AND z.expiry_time > NOW()
-                  AND k.approval_status = 'approved'
-                  AND k.is_open = 1";
-                  
-        $params = [];
-        if (!empty($city)) {
-            $sql .= " AND k.city = :city";
-            $params['city'] = $city;
-        }
-
-        $sql .= " ORDER BY z.expiry_time ASC LIMIT " . (int)$limit;
-
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute($params);
-        return $stmt->fetchAll();
-    }
 
     /**
      * Get all listings created by a specific kitchen (for chef's management panel).
@@ -356,6 +324,22 @@ class ZeroWasteItem extends Model {
                 WHERE id = :id";
         $stmt = $this->db->prepare($sql);
         $stmt->execute(['qty' => $qty, 'qty2' => $qty, 'id' => $id]);
+    }
+
+    /**
+     * Atomically increment available quantity after an order cancellation.
+     * Restores status to 'active' if previously 'sold_out' and not yet expired.
+     */
+    public function incrementQuantity(int $id, int $qty): void {
+        $sql = "UPDATE {$this->table}
+                SET quantity_available = quantity_available + :qty,
+                    status = CASE
+                        WHEN status = 'sold_out' AND expiry_time > NOW() THEN 'active'
+                        ELSE status
+                    END
+                WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['qty' => $qty, 'id' => $id]);
     }
 
     /**

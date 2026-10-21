@@ -22,8 +22,8 @@
 <body class="p-0 m-0" style="overflow-x: hidden;">
 
     <!-- Flash Alert Messages (Only when active) -->
-    <?php if (Session::has('flash_messages')): ?>
-        <div class="container position-fixed top-0 start-50 translate-middle-x mt-3" style="z-index: 9999;">
+    <?php if (Session::hasFlash()): ?>
+        <div class="container position-fixed top-0 start-50 translate-middle-x mt-3 px-3" style="z-index: 9999; max-width: 520px;">
             <?php View::partial('alerts'); ?>
         </div>
     <?php endif; ?>

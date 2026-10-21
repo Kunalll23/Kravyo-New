@@ -361,6 +361,14 @@ class Session {
         return $flashes;
     }
 
+    /**
+     * Check if any flash messages are set
+     */
+    public static function hasFlash(): bool {
+        self::init();
+        return !empty($_SESSION['_flash']);
+    }
+
     // --- CSRF -----------------------------------------------------------------
 
     /**

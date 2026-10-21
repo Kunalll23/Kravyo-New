@@ -18,6 +18,10 @@ define('KITCHEN_STATUS_SUSPENDED', 'suspended');
 define('HYGIENE_BADGE_NONE', 'none');
 define('HYGIENE_BADGE_VERIFIED', 'verified');
 
+// Distance & Dispatch Limits (in kilometers)
+define('MAX_DELIVERY_KM', 15.0);          // Kitchen to customer maximum delivery range
+define('MAX_DISPATCH_RADIUS_KM', 15.0);   // Kitchen to delivery partner maximum search radius
+
 // Order Statuses
 define('ORDER_STATUS_PENDING', 'pending');
 define('ORDER_STATUS_ACCEPTED', 'accepted');

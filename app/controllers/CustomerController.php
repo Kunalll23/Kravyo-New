@@ -39,9 +39,12 @@ class CustomerController extends Controller {
         $searchQuery = trim($_GET['q'] ?? '');
 
         $featuredKitchens = $kitchenModel->getFeaturedKitchens(4, $customerCity, $searchQuery, $customerLat, $customerLng);
+        $featuredKitchenIds = array_column($featuredKitchens, 'id');
+        $ratingMap = $reviewModel->getRatingSummaryForKitchens($featuredKitchenIds);
         foreach ($featuredKitchens as &$kitchen) {
-            $kitchen['avg_rating'] = $reviewModel->getAverageRating((int) $kitchen['id']);
-            $kitchen['review_count'] = $reviewModel->countByKitchenId((int) $kitchen['id']);
+            $kid = (int) $kitchen['id'];
+            $kitchen['avg_rating']   = $ratingMap[$kid]['avg_rating'] ?? 0.0;
+            $kitchen['review_count'] = $ratingMap[$kid]['count'] ?? 0;
         }
         unset($kitchen);
 
@@ -85,15 +88,34 @@ class CustomerController extends Controller {
 
         $kitchens = $kitchenModel->findApprovedWithFilters($filters);
 
-        // Attach average rating to each kitchen
+        // Attach average rating to each kitchen in a single batch query
+        $kitchenIds = array_column($kitchens, 'id');
+        $ratingMap = $reviewModel->getRatingSummaryForKitchens($kitchenIds);
         foreach ($kitchens as &$kitchen) {
-            $kitchen['avg_rating'] = $reviewModel->getAverageRating((int) $kitchen['id']);
-            $kitchen['review_count'] = $reviewModel->countByKitchenId((int) $kitchen['id']);
+            $kid = (int) $kitchen['id'];
+            $kitchen['avg_rating']   = $ratingMap[$kid]['avg_rating'] ?? 0.0;
+            $kitchen['review_count'] = $ratingMap[$kid]['count'] ?? 0;
         }
         unset($kitchen);
 
         // Get distinct cities for filter dropdown
         $cities = $kitchenModel->getDistinctCities();
+
+        // Handle live AJAX filter request
+        if (!empty($_GET['ajax']) || (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest')) {
+            header('Content-Type: application/json; charset=UTF-8');
+            ob_start();
+            include APP_PATH . '/../views/customer/_kitchen_cards.php';
+            $html = ob_get_clean();
+            $count = count($kitchens);
+            echo json_encode([
+                'success'     => true,
+                'count'       => $count,
+                'count_label' => $count . ' Kitchen' . ($count !== 1 ? 's' : '') . ' Found',
+                'html'        => $html,
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            exit;
+        }
 
         $this->render('customer/kitchens', [
             'title'    => 'Explore Home Kitchens',
@@ -359,6 +381,56 @@ $city = trim($_GET['city'] ?? '');
     }
 
     /**
+     * Live search kitchen and chef suggestions API (JSON)
+     * Scoped strictly by selected city if provided
+     * GET /api/kitchens/suggest?q=...&city=...
+     */
+    public function apiKitchenSuggestions(): void {
+        header('Content-Type: application/json; charset=UTF-8');
+
+        $query = trim($_GET['q'] ?? '');
+        $city  = trim($_GET['city'] ?? '');
+
+        if (strlen($query) < 1) {
+            echo json_encode(['success' => true, 'suggestions' => [], 'city' => $city]);
+            exit;
+        }
+
+        require_once APP_PATH . '/models/Kitchen.php';
+        $kitchenModel = new Kitchen();
+        $items = $kitchenModel->getKitchenAndChefSuggestions($query, $city, 8);
+
+        $results = [];
+        foreach ($items as $item) {
+            $bannerUrl = !empty($item['banner_image']) 
+                ? UPLOAD_URL . '/kitchens/' . $item['banner_image'] 
+                : '';
+
+            $results[] = [
+                'id'           => (int)$item['id'],
+                'kitchen_name' => $item['kitchen_name'],
+                'chef_name'    => $item['chef_name'],
+                'city'         => $item['city'],
+                'pincode'      => $item['pincode'],
+                'is_open'      => (int)$item['is_open'] === 1,
+                'dish_count'   => (int)($item['dish_count'] ?? 0),
+                'match_type'   => $item['match_type'], // 'kitchen' | 'chef' | 'both'
+                'url'          => ctx_url('/kitchen/' . $item['id']),
+                'banner_url'   => $bannerUrl,
+            ];
+        }
+
+        echo json_encode([
+            'success'     => true,
+            'query'       => $query,
+            'city'        => $city,
+            'count'       => count($results),
+            'suggestions' => $results,
+        ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    /**
      * View a single home chef's kitchen profile with menu & reviews
      * GET /kitchen/{id}
      */
@@ -496,14 +568,15 @@ $city = trim($_GET['city'] ?? '');
 
         $customerId  = (int) Session::get('user_id', 0);
         $isLoggedIn  = $customerId > 0 && Session::get('user_role') === ROLE_CUSTOMER;
+        $customerCity = Session::get('selected_city') ?: '';
 
         if ($isLoggedIn) {
-            $dishes    = $recModel->getForCustomer($customerId, 16);
+            $dishes    = $recModel->getForCustomer($customerId, 16, $customerCity);
             $pageTitle = 'Recommended For You';
             $subtitle  = 'Personalised dishes based on your taste & order history';
             $isPersonalised = true;
         } else {
-            $dishes    = $recModel->getPopularDishes(16);
+            $dishes    = $recModel->getPopularDishes(16, $customerCity);
             $pageTitle = 'Popular Picks';
             $subtitle  = 'Most-loved dishes ordered by our customers';
             $isPersonalised = false;

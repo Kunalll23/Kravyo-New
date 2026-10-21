@@ -51,10 +51,12 @@
                                         </div>
                                     </td>
                                     <td>
-                                        <?php if ($user['role'] === 'admin'): ?>
+                                        <?php if (($user['role'] ?? '') === 'admin'): ?>
                                             <span class="badge bg-danger">Admin</span>
-                                        <?php elseif ($user['role'] === 'chef'): ?>
+                                        <?php elseif (($user['role'] ?? '') === 'chef'): ?>
                                             <span class="badge bg-warning text-dark">Chef</span>
+                                        <?php elseif (($user['role'] ?? '') === 'delivery'): ?>
+                                            <span class="badge bg-info text-dark">Delivery</span>
                                         <?php else: ?>
                                             <span class="badge bg-secondary">Customer</span>
                                         <?php endif; ?>
@@ -72,10 +74,11 @@
                                         <small class="text-muted"><?= date('d M Y', strtotime($user['created_at'])) ?></small>
                                     </td>
                                     <td class="text-end pe-4">
-                                        <?php if ($user['id'] !== Session::get('user_id')): ?>
+                                        <?php if (!($user['role'] === 'admin' && $user['id'] === Session::get('admin_id'))): ?>
                                             <form action="<?= url('/admin/user/toggle') ?>" method="POST" class="d-inline">
                                                 <?= csrf_field() ?>
                                                 <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                                <input type="hidden" name="role" value="<?= htmlspecialchars($user['role'] ?? 'customer') ?>">
                                                 
                                                 <?php if ($user['status'] === 'active'): ?>
                                                     <input type="hidden" name="status" value="suspended">

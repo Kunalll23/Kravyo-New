@@ -35,19 +35,6 @@ class Kitchen extends Model {
         return $stmt->fetchAll();
     }
 
-    /**
-     * Get all approved kitchens (for public browsing)
-     */
-    public function findAllApproved(): array {
-        $sql = "SELECT k.*, u.full_name AS chef_name
-                FROM {$this->table} k
-                JOIN chefs u ON k.user_id = u.id
-                WHERE k.approval_status = :status
-                ORDER BY k.created_at DESC";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute(['status' => KITCHEN_STATUS_APPROVED]);
-        return $stmt->fetchAll();
-    }
 
     /**
      * Get all approved kitchens in a city with valid coordinates
@@ -351,18 +338,6 @@ class Kitchen extends Model {
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
-    /**
-     * Update kitchen latitude and longitude coordinates
-     */
-    public function updateCoordinates(int $id, ?float $lat, ?float $lng): bool {
-        $sql = "UPDATE {$this->table} SET latitude = :lat, longitude = :lng WHERE id = :id";
-        $stmt = $this->db->prepare($sql);
-        return $stmt->execute([
-            'lat' => $lat,
-            'lng' => $lng,
-            'id'  => $id
-        ]);
-    }
 
     /**
      * Get featured kitchens for a specific city
@@ -397,4 +372,54 @@ class Kitchen extends Model {
         $stmt->execute($params);
         return $stmt->fetchAll();
     }
+
+    /**
+     * Get live autocomplete suggestions for kitchen names and chef names
+     * Scoped strictly by city if city is provided
+     */
+    public function getKitchenAndChefSuggestions(string $query, string $city = '', int $limit = 8): array {
+        $sql = "SELECT k.id, k.kitchen_name, k.city, k.pincode, k.banner_image, k.is_open,
+                       u.full_name AS chef_name,
+                       (SELECT COUNT(*) FROM menu_items mi WHERE mi.kitchen_id = k.id AND mi.is_available = 1) AS dish_count
+                FROM {$this->table} k
+                JOIN chefs u ON k.user_id = u.id
+                WHERE k.approval_status = 'approved'";
+
+        $params = [];
+        if (!empty($city)) {
+            $sql .= " AND k.city = :city";
+            $params['city'] = $city;
+        }
+
+        if (!empty($query)) {
+            $sql .= " AND (k.kitchen_name LIKE :kw1 OR u.full_name LIKE :kw2)";
+            $params['kw1'] = '%' . $query . '%';
+            $params['kw2'] = '%' . $query . '%';
+        }
+
+        $sql .= " ORDER BY k.is_open DESC, k.kitchen_name ASC LIMIT " . (int)$limit;
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Decorate match type for each row
+        $lowerQuery = strtolower($query);
+        foreach ($rows as &$row) {
+            $kitchenLower = strtolower($row['kitchen_name'] ?? '');
+            $chefLower    = strtolower($row['chef_name'] ?? '');
+
+            if (str_contains($kitchenLower, $lowerQuery) && str_contains($chefLower, $lowerQuery)) {
+                $row['match_type'] = 'both';
+            } elseif (str_contains($chefLower, $lowerQuery)) {
+                $row['match_type'] = 'chef';
+            } else {
+                $row['match_type'] = 'kitchen';
+            }
+        }
+        unset($row);
+
+        return $rows;
+    }
 }
+

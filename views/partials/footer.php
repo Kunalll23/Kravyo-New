@@ -45,7 +45,7 @@ $_footerCtx = Session::currentContext();
                     <?php if ($_footerCtx === Session::ADMIN_SESSION): ?>
                         <li class="mb-2"><a href="<?= url('/admin/dashboard') ?>" class="text-white-50"><i class="bi bi-shield-lock"></i> Admin Dashboard</a></li>
                     <?php else: ?>
-                        <li class="mb-2"><a href="<?= url('/admin/login') ?>" target="_blank" class="text-white-50"><i class="bi bi-shield-lock"></i> Admin Portal</a></li>
+                        <li class="mb-2"><a href="<?= url('/nearby-kitchens') ?>" class="text-white-50"><i class="bi bi-map me-1 text-danger"></i> Nearby Kitchens Map</a></li>
                     <?php endif; ?>
                 </ul>
             </div>
@@ -126,35 +126,35 @@ $_footerCtx = Session::currentContext();
                 <?php endif; ?>
             </div>
 
-            <!-- Column 5: Queries & Contact -->
+            <!-- Column 5: Trust & Policies (Option 3 - Non-repetitive) -->
             <div class="col-6 col-lg-3">
                 <h6 class="text-white fw-bold mb-3">
-                    <i class="bi bi-headset text-warning me-2"></i>Queries &amp; Contact
+                    <i class="bi bi-shield-check text-warning me-2"></i>Trust &amp; Policies
                 </h6>
-                <ul class="list-unstyled small text-white-50 mb-0">
-                    <li class="mb-2 d-flex align-items-start">
-                        <i class="bi bi-telephone-fill text-success me-2 mt-1"></i>
-                        <div>
-                            <span class="d-block text-white-50" style="font-size:0.75rem;">Support Helpline</span>
-                            <a href="tel:+919876543210" class="text-white fw-semibold text-decoration-none">+91 98765 43210</a>
-                        </div>
+                <ul class="list-unstyled small">
+                    <li class="mb-2">
+                        <a href="<?= url('/contact') ?>" class="text-white-50 text-decoration-none">
+                            <i class="bi bi-headset me-1 text-warning"></i> Contact &amp; Support
+                        </a>
                     </li>
-                    <li class="mb-2 d-flex align-items-start">
-                        <i class="bi bi-envelope-fill text-warning me-2 mt-1"></i>
-                        <div>
-                            <span class="d-block text-white-50" style="font-size:0.75rem;">Email Us</span>
-                            <a href="mailto:support@kravyo.com" class="text-white fw-semibold text-decoration-none">support@kravyo.com</a>
-                        </div>
+                    <li class="mb-2">
+                        <a href="<?= url('/about') ?>" class="text-white-50 text-decoration-none">
+                            <i class="bi bi-patch-check me-1 text-success"></i> Food Safety &amp; Hygiene
+                        </a>
                     </li>
-                    <li class="mb-2 d-flex align-items-start">
-                        <i class="bi bi-geo-alt-fill text-danger me-2 mt-1"></i>
-                        <div>
-                            <span class="text-white-50">Surat, Gujarat, India</span>
-                        </div>
+                    <li class="mb-2">
+                        <a href="<?= url('/about') ?>" class="text-white-50 text-decoration-none">
+                            <i class="bi bi-file-text me-1 text-info"></i> Terms of Service
+                        </a>
                     </li>
-                    <li class="mt-3">
-                        <a href="<?= url('/contact') ?>" class="btn btn-sm btn-outline-warning text-white px-3 py-1 rounded-pill fw-semibold" style="font-size:0.75rem; border-color: rgba(255,107,53,0.5);">
-                            <i class="bi bi-chat-dots-fill text-warning me-1"></i> Have a Query? Contact Us
+                    <li class="mb-2">
+                        <a href="<?= url('/about') ?>" class="text-white-50 text-decoration-none">
+                            <i class="bi bi-lock me-1 text-primary"></i> Privacy Policy
+                        </a>
+                    </li>
+                    <li class="mb-2">
+                        <a href="<?= url('/about') ?>" class="text-white-50 text-decoration-none">
+                            <i class="bi bi-arrow-return-left me-1 text-danger"></i> Refund &amp; Cancellation
                         </a>
                     </li>
                 </ul>

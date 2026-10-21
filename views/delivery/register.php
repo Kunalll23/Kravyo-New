@@ -39,12 +39,21 @@
                             </div>
                         </div>
 
-                        <div class="mb-4">
+                        <div class="mb-3">
                             <label for="password" class="form-label fw-semibold">Password</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light border-end-0"><i class="bi bi-lock text-muted"></i></span>
                                 <input type="password" class="form-control form-control-lg border-start-0" id="password" name="password" placeholder="Create a 6-digit password" minlength="6" maxlength="6" pattern="[0-9]{6}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);" required>
                             </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="confirm_password" class="form-label fw-semibold">Confirm Password</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light border-end-0"><i class="bi bi-shield-lock text-muted"></i></span>
+                                <input type="password" class="form-control form-control-lg border-start-0" id="confirm_password" name="confirm_password" placeholder="Re-enter your 6-digit password" minlength="6" maxlength="6" pattern="[0-9]{6}" oninput="this.value = this.value.replace(/[^0-9]/g, '').slice(0, 6);" required>
+                            </div>
+                            <div id="passwordMatchMsg" class="form-text mt-1"></div>
                         </div>
 
                         <h5 class="fw-bold mb-3 mt-4 border-bottom pb-2">Vehicle Details</h5>
@@ -78,7 +87,7 @@
                         </div>
                         
                         <div class="d-grid gap-2 mt-4">
-                            <button type="submit" class="btn btn-kravyo-primary btn-lg">Submit Application</button>
+                            <button type="submit" id="deliverySubmitBtn" class="btn btn-kravyo-primary btn-lg">Submit Application</button>
                         </div>
                     </form>
 
@@ -90,3 +99,62 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form       = document.getElementById('registerForm');
+    const btn        = document.getElementById('deliverySubmitBtn');
+    const pwd        = document.getElementById('password');
+    const confirmPwd = document.getElementById('confirm_password');
+    const matchMsg   = document.getElementById('passwordMatchMsg');
+
+    function checkPasswordMatch() {
+        if (!confirmPwd || !pwd || !matchMsg) return;
+        const p1 = pwd.value;
+        const p2 = confirmPwd.value;
+
+        if (p2.length === 0) {
+            matchMsg.innerHTML = '';
+            confirmPwd.classList.remove('is-valid', 'is-invalid');
+            return;
+        }
+
+        if (p1 === p2 && p1.length === 6) {
+            matchMsg.innerHTML = '<span class="text-success small fw-semibold"><i class="bi bi-check-circle-fill me-1"></i>Passwords match!</span>';
+            confirmPwd.classList.add('is-valid');
+            confirmPwd.classList.remove('is-invalid');
+        } else if (p2.length === 6 && p1 !== p2) {
+            matchMsg.innerHTML = '<span class="text-danger small fw-semibold"><i class="bi bi-x-circle-fill me-1"></i>Passwords do not match.</span>';
+            confirmPwd.classList.add('is-invalid');
+            confirmPwd.classList.remove('is-valid');
+        } else {
+            matchMsg.innerHTML = '';
+            confirmPwd.classList.remove('is-valid', 'is-invalid');
+        }
+    }
+
+    if (pwd && confirmPwd) {
+        pwd.addEventListener('input', checkPasswordMatch);
+        confirmPwd.addEventListener('input', checkPasswordMatch);
+    }
+
+    if (form && btn) {
+        form.addEventListener('submit', function (e) {
+            if (!form.checkValidity()) {
+                return;
+            }
+
+            if (pwd && confirmPwd && pwd.value !== confirmPwd.value) {
+                e.preventDefault();
+                matchMsg.innerHTML = '<span class="text-danger small fw-semibold"><i class="bi bi-exclamation-triangle-fill me-1"></i>Passwords do not match. Please re-enter.</span>';
+                confirmPwd.classList.add('is-invalid');
+                confirmPwd.focus();
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Submitting Application...';
+        });
+    }
+});
+</script>

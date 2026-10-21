@@ -73,6 +73,12 @@ class DispatchService {
             return false;
         }
 
+        // Single Tiffin Delivery Policy: Tiffin subscriptions are assigned 1-to-1
+        // to a dedicated single delivery partner (bypasses multi-order batching)
+        if (($order['order_type'] ?? 'standard') === 'tiffin') {
+            return false;
+        }
+
         $kitchenId = (int)$order['kitchen_id'];
 
         // Get drop-off coordinates
@@ -248,16 +254,19 @@ class DispatchService {
 
         $kitchen = $this->kitchenModel->find((int)$order['kitchen_id']);
         $city = $kitchen['city'] ?? 'Surat';
+        $kitchenLat = !empty($kitchen['latitude']) ? (float)$kitchen['latitude'] : 0.0;
+        $kitchenLng = !empty($kitchen['longitude']) ? (float)$kitchen['longitude'] : 0.0;
+        $maxRadius = defined('MAX_DISPATCH_RADIUS_KM') ? (float)MAX_DISPATCH_RADIUS_KM : 15.0;
 
         $excludedRiders = $this->orderModel->getRejectedDriverIds($orderId);
         
-        // 1. First look for fresh riders in the city who haven't received a targeted ping yet
-        $eligiblePartners = $this->partnerModel->findEligibleInCity($city, $excludedRiders);
+        // 1. First look for fresh riders within 15 km who haven't received a targeted ping yet
+        $eligiblePartners = $this->partnerModel->findEligibleInCity($city, $kitchenLat, $kitchenLng, $excludedRiders, $maxRadius);
 
-        // 2. If all online riders in the city were already pinged 1-by-1 (e.g. Bardoli with 3 riders),
-        // open Round 4 broadcast to ALL active/online riders in the city as a shared priority pool!
+        // 2. If all online riders within 15 km were already pinged 1-by-1 (e.g. Bardoli with 3 riders),
+        // open Round 4 broadcast to ALL active/online riders within 15 km as a shared priority pool!
         if (empty($eligiblePartners)) {
-            $eligiblePartners = $this->partnerModel->findEligibleInCity($city);
+            $eligiblePartners = $this->partnerModel->findEligibleInCity($city, $kitchenLat, $kitchenLng, [], $maxRadius);
         }
 
         if (empty($eligiblePartners)) {
@@ -443,8 +452,11 @@ class DispatchService {
      * Instantly ping a rider who just came online if there are active broadcasts in their city
      */
     public function pingNewRiderForActiveBroadcasts(int $partnerId, string $city): void {
+        $dp = $this->partnerModel->find($partnerId);
+        if (!$dp) return;
+
         $db = Database::getInstance();
-        $sql = "SELECT o.id, o.dispatch_round 
+        $sql = "SELECT o.id, o.dispatch_round, k.latitude, k.longitude 
                 FROM orders o 
                 JOIN kitchens k ON o.kitchen_id = k.id 
                 WHERE k.city = :city AND o.dispatch_status IN ('cascading', 'broadcasting')";
@@ -452,9 +464,24 @@ class DispatchService {
         $stmt->execute(['city' => $city]);
         $orders = $stmt->fetchAll();
 
+        $maxRadius = defined('MAX_DISPATCH_RADIUS_KM') ? (float)MAX_DISPATCH_RADIUS_KM : 15.0;
+
         foreach ($orders as $order) {
             $orderId = (int)$order['id'];
             $round   = (int)$order['dispatch_round'];
+
+            // Strict 15 km cap: do not ping if newly online rider is further than 15 km from kitchen
+            if (!empty($order['latitude']) && !empty($order['longitude']) && !empty($dp['current_latitude']) && !empty($dp['current_longitude'])) {
+                $distKm = DeliveryPartner::calculateDistanceKm(
+                    (float)$order['latitude'],
+                    (float)$order['longitude'],
+                    (float)$dp['current_latitude'],
+                    (float)$dp['current_longitude']
+                );
+                if ($distKm > $maxRadius) {
+                    continue; // Exclude rider outside 15 km limit
+                }
+            }
 
             $excludedRiders = $this->orderModel->getRejectedDriverIds($orderId);
             if (in_array($partnerId, $excludedRiders, true)) {
@@ -468,8 +495,7 @@ class DispatchService {
             if (!$checkStmt->fetch()) {
                 $this->offerModel->createBulk($orderId, [$partnerId], $round, 'broadcast');
                 try {
-                    $dp = $this->partnerModel->find($partnerId);
-                    if ($dp && !empty($dp['user_id'])) {
+                    if (!empty($dp['user_id'])) {
                         (new Notification())->createForUser(
                             (int)$dp['user_id'],
                             'delivery',

@@ -85,6 +85,8 @@ class NotificationController extends Controller {
 
     public function count(): void {
         [$userId, $userType] = $this->identity();
+        session_write_close(); // Release session file lock immediately for polling
+
         header('Content-Type: application/json');
         echo json_encode([
             'unread' => $this->notifModel->countUnread($userId, $userType),
@@ -96,6 +98,8 @@ class NotificationController extends Controller {
 
     public function latest(): void {
         [$userId, $userType] = $this->identity();
+        session_write_close(); // Release session file lock immediately for polling
+
         $items  = $this->notifModel->getLatest($userId, $userType, 6);
         header('Content-Type: application/json');
         echo json_encode(['notifications' => $items]);
@@ -106,16 +110,15 @@ class NotificationController extends Controller {
 
     public function apiUnread(): void {
         [$userId, $userType] = $this->identity();
+        session_write_close(); // Release session file lock immediately for polling
+
         $lastId = (int) ($_GET['last_id'] ?? 0);
         
         if ($userId <= 0) {
-            file_put_contents(APP_PATH . '/../scratch/notif_debug.log', date('H:i:s') . " - No user ID found for ctx: " . Session::currentContext() . "\n", FILE_APPEND);
             header('Content-Type: application/json');
             echo json_encode(['new' => []]);
             exit;
         }
-
-        file_put_contents(APP_PATH . '/../scratch/notif_debug.log', date('H:i:s') . " - Poll from user $userId ($userType) last_id=$lastId\n", FILE_APPEND);
 
         // Get unread notifications with ID > lastId
         $sql = "SELECT * FROM notifications 

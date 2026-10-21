@@ -28,8 +28,8 @@ class Recommendation extends Model {
     /** Base URL of the Python Flask AI server */
     private const PYTHON_API_URL = 'http://127.0.0.1:5000/recommend';
 
-    /** cURL timeout in seconds — keep short so fallback is fast */
-    private const REQUEST_TIMEOUT = 3;
+    /** cURL timeout in seconds — keep short (1s) so fallback to PHP/DB is instant */
+    private const REQUEST_TIMEOUT = 1;
 
     // ─── Public API ───────────────────────────────────────────────────────────
 
@@ -52,7 +52,7 @@ class Recommendation extends Model {
      */
     public function getForCustomer(int $customerId, int $limit = 8, string $city = ''): array {
         // 1. Call Python AI API
-        $aiResult = $this->callPythonApi($customerId, $limit);
+        $aiResult = $this->callPythonApi($customerId, $limit, $city);
 
         if ($aiResult === null || empty($aiResult['recommendations'])) {
             // Python unavailable or cold-start returned nothing → PHP fallback
@@ -156,7 +156,7 @@ class Recommendation extends Model {
      * Returns the decoded JSON array on success, or null on any failure.
      * NEVER throws — all errors are caught and null is returned.
      */
-    private function callPythonApi(int $customerId, int $limit): ?array {
+    private function callPythonApi(int $customerId, int $limit, string $city = ''): ?array {
         if (!function_exists('curl_init')) {
             return null;
         }
@@ -165,13 +165,17 @@ class Recommendation extends Model {
              . '?user_id=' . $customerId
              . '&limit='   . $limit;
 
+        if (!empty($city)) {
+            $url .= '&city=' . urlencode($city);
+        }
+
         $ch = curl_init($url);
         curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT        => self::REQUEST_TIMEOUT,
-            CURLOPT_CONNECTTIMEOUT => self::REQUEST_TIMEOUT,
-            CURLOPT_HTTPGET        => true,
-            CURLOPT_FAILONERROR    => false,
+            CURLOPT_RETURNTRANSFER    => true,
+            CURLOPT_TIMEOUT_MS        => 800,
+            CURLOPT_CONNECTTIMEOUT_MS => 400,
+            CURLOPT_HTTPGET           => true,
+            CURLOPT_FAILONERROR       => false,
         ]);
 
         $raw      = curl_exec($ch);
@@ -301,8 +305,8 @@ class Recommendation extends Model {
      * Run a real recommendation for a given user_id and return enriched dish rows.
      * Used by the Admin Test Recommendations feature.
      */
-    public function testRecommendations(int $userId, int $limit = 8): array {
-        $aiResult = $this->callPythonApi($userId, $limit);
+    public function testRecommendations(int $userId, int $limit = 8, string $city = ''): array {
+        $aiResult = $this->callPythonApi($userId, $limit, $city);
         if ($aiResult === null) {
             return ['error' => 'Python AI server is offline. Cannot generate test recommendations.', 'items' => []];
         }

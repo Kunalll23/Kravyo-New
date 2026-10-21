@@ -42,7 +42,7 @@
                                 class="form-control form-control-lg"
                                 id="adminEmail"
                                 name="email"
-                                placeholder="admin@kravyo.com"
+                                placeholder="Enter your admin email"
                                 autocomplete="email"
                                 required
                                 style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#fff; border-radius:12px;"

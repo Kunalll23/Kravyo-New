@@ -398,13 +398,20 @@
         $bCount = count(array_filter($todaysDeliveries, fn($d) => strtolower($d['meal_type']) === 'breakfast'));
         $lCount = count(array_filter($todaysDeliveries, fn($d) => strtolower($d['meal_type']) === 'lunch'));
         $dCount = count(array_filter($todaysDeliveries, fn($d) => strtolower($d['meal_type']) === 'dinner'));
+
+        $pendingCount  = count(array_filter($todaysDeliveries, fn($d) => $d['status'] === 'pending'));
+        $pendingBCount = count(array_filter($todaysDeliveries, fn($d) => strtolower($d['meal_type']) === 'breakfast' && $d['status'] === 'pending'));
+        $pendingLCount = count(array_filter($todaysDeliveries, fn($d) => strtolower($d['meal_type']) === 'lunch' && $d['status'] === 'pending'));
+        $pendingDCount = count(array_filter($todaysDeliveries, fn($d) => strtolower($d['meal_type']) === 'dinner' && $d['status'] === 'pending'));
     ?>
     <div class="card kravyo-card border-0 mb-4">
         <div class="card-header bg-transparent border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
-            <h5 class="fw-bold mb-0">
-                <i class="bi bi-bicycle text-primary me-2"></i>Today's Tiffin Deliveries
-                <span class="badge bg-primary ms-2" id="deliveriesCountBadge"><?= count($todaysDeliveries) ?></span>
-            </h5>
+            <div class="d-flex align-items-center flex-wrap gap-2">
+                <h5 class="fw-bold mb-0">
+                    <i class="bi bi-bicycle text-primary me-2"></i>Today's Tiffin Deliveries
+                    <span class="badge bg-primary ms-2" id="deliveriesCountBadge"><?= count($todaysDeliveries) ?></span>
+                </h5>
+            </div>
 
             <!-- Meal Type Filter Option Buttons -->
             <div class="btn-group btn-group-sm" role="group" aria-label="Filter deliveries by meal">
@@ -444,7 +451,7 @@
                         </thead>
                         <tbody>
                             <?php foreach ($todaysDeliveries as $delivery): ?>
-                                <tr class="delivery-row" data-meal-type="<?= strtolower($delivery['meal_type']) ?>">
+                                <tr class="delivery-row" data-meal-type="<?= strtolower($delivery['meal_type']) ?>" data-delivery-id="<?= $delivery['id'] ?>" data-status="<?= $delivery['status'] ?>">
                                     <td>
                                         <div class="fw-semibold"><?= sanitize($delivery['customer_name']) ?></div>
                                         <small class="text-muted"><?= sanitize($delivery['customer_phone']) ?></small>
@@ -483,11 +490,13 @@
                                     </td>
                                     <td>
                                         <?php if ($delivery['status'] === 'pending'): ?>
-                                            <form action="<?= url('/chef/subscription/delivery/status') ?>" method="POST">
+                                            <form action="<?= url('/chef/subscription/delivery/status') ?>" method="POST" class="d-inline">
                                                 <?= csrf_field() ?>
                                                 <input type="hidden" name="delivery_id" value="<?= $delivery['id'] ?>">
                                                 <input type="hidden" name="status" value="dispatched">
-                                                <button type="submit" class="btn btn-sm btn-info text-white"><i class="bi bi-bicycle me-1"></i>Prepare & Dispatch Rider</button>
+                                                <button type="submit" class="btn btn-sm btn-info text-white shadow-sm" title="Prepare & Dispatch single order">
+                                                    <i class="bi bi-bicycle me-1"></i>Prepare &amp; Dispatch Rider
+                                                </button>
                                             </form>
                                         <?php elseif ($delivery['status'] === 'dispatched'): ?>
                                             <span class="text-info small fw-bold"><i class="bi bi-broadcast me-1"></i> Dispatched to Rider</span>
@@ -585,6 +594,8 @@
 </div>
 
 <script>
+let currentActiveMealFilter = 'all';
+
 function toggleMealTimings(prefix, mealsCount) {
     const count = parseInt(mealsCount, 10);
     const bGroup = document.getElementById(prefix + '_breakfast_group');
@@ -603,6 +614,8 @@ function toggleMealTimings(prefix, mealsCount) {
 }
 
 function filterDeliveries(mealType, btnElement) {
+    currentActiveMealFilter = (mealType || 'all').toLowerCase();
+
     document.querySelectorAll('[data-meal-filter]').forEach(b => {
         b.classList.remove('active');
     });
@@ -613,7 +626,8 @@ function filterDeliveries(mealType, btnElement) {
 
     rows.forEach(row => {
         const rowMeal = (row.getAttribute('data-meal-type') || '').toLowerCase();
-        if (mealType === 'all' || rowMeal === mealType.toLowerCase()) {
+        
+        if (currentActiveMealFilter === 'all' || rowMeal === currentActiveMealFilter) {
             row.style.display = '';
             visibleCount++;
         } else {

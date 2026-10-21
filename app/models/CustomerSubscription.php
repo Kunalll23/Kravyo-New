@@ -67,11 +67,22 @@ class CustomerSubscription extends Model {
                 WHERE cs.customer_id = :customer_id
                   AND cs.kitchen_id = :kitchen_id
                   AND cs.status = 'active'
+                  AND CURDATE() <= cs.end_date
                 LIMIT 1";
         $stmt = $this->db->prepare($sql);
         $stmt->execute(['customer_id' => $customerId, 'kitchen_id' => $kitchenId]);
         $record = $stmt->fetch();
         return $record ?: null;
+    }
+
+    /**
+     * Mark expired active subscriptions as completed
+     */
+    public function completeExpiredSubscriptions(): int {
+        $sql = "UPDATE {$this->table} SET status = 'completed' WHERE status = 'active' AND end_date < CURDATE()";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute();
+        return $stmt->rowCount();
     }
 
     /**

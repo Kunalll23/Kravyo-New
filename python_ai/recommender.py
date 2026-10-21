@@ -23,6 +23,7 @@ Libraries used:
 
 import json
 import os
+import time
 import mysql.connector
 import numpy as np
 import pandas as pd
@@ -36,9 +37,9 @@ _CONFIG_PATH = os.path.join(os.path.dirname(__file__), "ai_config.json")
 
 # Immutable defaults — used when config file is missing or corrupt
 _DEFAULTS = {
-    "similarity_weight": 0.80,
-    "popularity_weight": 0.20,
-    "default_limit":     8,
+    "similarity_weight": 0.70,
+    "popularity_weight": 0.30,
+    "default_limit":     6,
 }
 
 
@@ -84,10 +85,11 @@ def _get_connection():
 
 # ─── Data Loading (Pandas) ─────────────────────────────────────────────────
 
-def load_menu_items() -> pd.DataFrame:
+def load_menu_items(conn=None, city: str = "") -> pd.DataFrame:
     """
     Load all currently-available menu items with their category and kitchen info.
     Only items from approved, open kitchens are included.
+    Optionally filters by kitchen city.
     """
     sql = """
         SELECT
@@ -115,15 +117,24 @@ def load_menu_items() -> pd.DataFrame:
           AND k.approval_status = 'approved'
           AND k.is_open         = 1
     """
-    conn = _get_connection()
+    params = None
+    if city:
+        sql += " AND k.city = %s"
+        params = (city,)
+
+    should_close = False
+    if conn is None:
+        conn = _get_connection()
+        should_close = True
     try:
-        df = pd.read_sql(sql, conn)
+        df = pd.read_sql(sql, conn, params=params)
     finally:
-        conn.close()
+        if should_close:
+            conn.close()
     return df
 
 
-def load_popularity_scores() -> pd.DataFrame:
+def load_popularity_scores(conn=None) -> pd.DataFrame:
     """
     Compute a platform-wide order frequency per menu_item_id from delivered orders.
     Returns DataFrame with columns [menu_item_id, order_count].
@@ -135,15 +146,19 @@ def load_popularity_scores() -> pd.DataFrame:
         WHERE o.order_status = 'delivered'
         GROUP BY oi.menu_item_id
     """
-    conn = _get_connection()
+    should_close = False
+    if conn is None:
+        conn = _get_connection()
+        should_close = True
     try:
         df = pd.read_sql(sql, conn)
     finally:
-        conn.close()
+        if should_close:
+            conn.close()
     return df
 
 
-def load_customer_history(customer_id: int) -> pd.DataFrame:
+def load_customer_history(conn=None, customer_id: int = 0) -> pd.DataFrame:
     """
     Load the menu_item_ids the customer has previously ordered (any status).
     Returns DataFrame with column [menu_item_id, order_count] representing
@@ -156,11 +171,15 @@ def load_customer_history(customer_id: int) -> pd.DataFrame:
         WHERE o.customer_id = %s
         GROUP BY oi.menu_item_id
     """
-    conn = _get_connection()
+    should_close = False
+    if conn is None:
+        conn = _get_connection()
+        should_close = True
     try:
         df = pd.read_sql(sql, conn, params=(customer_id,))
     finally:
-        conn.close()
+        if should_close:
+            conn.close()
     return df
 
 
@@ -200,6 +219,59 @@ def build_feature_strings(menu_df: pd.DataFrame) -> pd.Series:
     return menu_df.apply(_row_to_text, axis=1)
 
 
+# ─── In-Memory TF-IDF Catalog Caching (High Performance) ───────────────────
+_CATALOG_CACHE = {}
+_CACHE_TTL_SECONDS = 60.0  # 60 seconds cache for dish catalog & TF-IDF matrix
+
+
+def invalidate_catalog_cache(city: str = "") -> None:
+    """Clear cached TF-IDF matrix when dishes or kitchens are updated."""
+    global _CATALOG_CACHE
+    if city and city in _CATALOG_CACHE:
+        del _CATALOG_CACHE[city]
+    else:
+        _CATALOG_CACHE.clear()
+
+
+def _get_cached_catalog(conn, city: str = ""):
+    """
+    Retrieve or compute the dish catalog DataFrame, TF-IDF matrix, and normalized popularity scores.
+    Uses in-memory caching to avoid re-vectorizing all dishes on every incoming request.
+    """
+    now = time.time()
+    cache_entry = _CATALOG_CACHE.get(city)
+    if cache_entry and (now - cache_entry['time'] < _CACHE_TTL_SECONDS):
+        return cache_entry['menu_df'], cache_entry['tfidf_matrix'], cache_entry['pop_norm']
+
+    menu_df = load_menu_items(conn=conn, city=city)
+    if menu_df.empty:
+        return menu_df, None, None
+
+    popularity_df = load_popularity_scores(conn=conn)
+    menu_df = menu_df.merge(popularity_df, on="menu_item_id", how="left")
+    menu_df["order_count"] = menu_df["order_count"].fillna(0).astype(int)
+
+    feature_strings = build_feature_strings(menu_df)
+    vectorizer = TfidfVectorizer(
+        ngram_range=(1, 2),   # unigrams + bigrams
+        min_df=1,
+        max_features=500,
+        stop_words="english",
+    )
+    tfidf_matrix = vectorizer.fit_transform(feature_strings)  # shape: (N_dishes, vocab)
+
+    pop_raw = menu_df["order_count"].to_numpy(dtype=float)
+    pop_norm = _normalise_scores(pop_raw)  # 0-1
+
+    _CATALOG_CACHE[city] = {
+        'time': now,
+        'menu_df': menu_df,
+        'tfidf_matrix': tfidf_matrix,
+        'pop_norm': pop_norm
+    }
+    return menu_df, tfidf_matrix, pop_norm
+
+
 # ─── Core Recommendation Logic ─────────────────────────────────────────────
 
 def _normalise_scores(scores: np.ndarray) -> np.ndarray:
@@ -210,7 +282,7 @@ def _normalise_scores(scores: np.ndarray) -> np.ndarray:
     return (scores - s_min) / (s_max - s_min)
 
 
-def get_recommendations(customer_id: int, limit: int = 8) -> list[dict]:
+def get_recommendations(customer_id: int, limit: int = 8, city: str = "") -> list[dict]:
     """
     Main entry point called by Flask.
 
@@ -219,36 +291,20 @@ def get_recommendations(customer_id: int, limit: int = 8) -> list[dict]:
           "popularity_score": float, "final_score": float}, ...]
 
     Algorithm:
-        final_score = 0.80 × cosine_similarity + 0.20 × popularity_score
+        final_score = similarity_weight × cosine_similarity + popularity_weight × popularity_score
                                                         (both normalised 0-1)
 
     Cold-start: if customer has 0 orders, returns items ranked by popularity only.
     """
-    # 1. Load data
-    menu_df = load_menu_items()
-    if menu_df.empty:
-        return []
-
-    popularity_df = load_popularity_scores()
-    history_df    = load_customer_history(customer_id)
-
-    # 2. Merge popularity into menu
-    menu_df = menu_df.merge(popularity_df, on="menu_item_id", how="left")
-    menu_df["order_count"] = menu_df["order_count"].fillna(0).astype(int)
-
-    # 3. Build TF-IDF feature matrix for all available dishes (Scikit-learn)
-    feature_strings = build_feature_strings(menu_df)
-    vectorizer = TfidfVectorizer(
-        ngram_range=(1, 2),   # unigrams + bigrams
-        min_df=1,
-        max_features=500,
-        stop_words="english",
-    )
-    tfidf_matrix = vectorizer.fit_transform(feature_strings)  # shape: (N_dishes, vocab)
-
-    # 4. Popularity score (NumPy normalisation)
-    pop_raw = menu_df["order_count"].to_numpy(dtype=float)
-    pop_norm = _normalise_scores(pop_raw)  # 0-1
+    # 1. Load data with single connection reuse and catalog caching
+    conn = _get_connection()
+    try:
+        menu_df, tfidf_matrix, pop_norm = _get_cached_catalog(conn, city)
+        if menu_df.empty or tfidf_matrix is None:
+            return []
+        history_df = load_customer_history(conn=conn, customer_id=customer_id)
+    finally:
+        conn.close()
 
     # ── COLD-START PATH ─────────────────────────────────────────────────────
     if history_df.empty:

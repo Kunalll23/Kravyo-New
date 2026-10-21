@@ -195,43 +195,51 @@ class AuthController extends Controller {
         $fullName = sanitize($rawFullName);
         $email    = strtolower(trim($_POST['email']    ?? ''));
         $phone    = sanitize(trim($_POST['phone']      ?? ''));
-        $city     = sanitize(trim($_POST['city']       ?? ''));
-        $password = $_POST['password']  ?? '';
-        $role     = sanitize($_POST['role'] ?? ROLE_CUSTOMER);
+        $city            = sanitize(trim($_POST['city']       ?? ''));
+        $password        = $_POST['password']  ?? '';
+        $confirmPassword = $_POST['confirm_password'] ?? '';
+        $role            = sanitize($_POST['role'] ?? ROLE_CUSTOMER);
+        $redirectUrl     = $role === ROLE_CHEF ? '/register?role=chef' : '/register';
 
         // ── Validation ────────────────────────────────────────────────────────
-        if (empty($fullName) || empty($email) || empty($phone) || empty($city) || empty($password)) {
+        if (empty($fullName) || empty($email) || empty($phone) || empty($city) || empty($password) || empty($confirmPassword)) {
             Session::setFlash('danger', 'All fields are required.');
-            $this->redirect('/register');
+            $this->redirect($redirectUrl);
+            return;
+        }
+
+        if ($password !== $confirmPassword) {
+            Session::setFlash('danger', 'Passwords do not match. Please re-enter.');
+            $this->redirect($redirectUrl);
             return;
         }
 
         if (!preg_match('/^[A-Za-z][A-Za-z\' \-]{1,49}$/', $rawFullName)) {
             Session::setFlash('danger', 'Please enter a valid name using letters, spaces, hyphens, or apostrophes only.');
-            $this->redirect('/register');
+            $this->redirect($redirectUrl);
             return;
         }
 
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             Session::setFlash('danger', 'Please enter a valid email address.');
-            $this->redirect('/register');
+            $this->redirect($redirectUrl);
             return;
         }
 
         if (strlen($password) < 6) {
             Session::setFlash('danger', 'Password must be at least 6 characters long.');
-            $this->redirect('/register');
+            $this->redirect($redirectUrl);
             return;
         }
 
         if (!preg_match('/^[6-9][0-9]{9}$/', $phone)) {
             Session::setFlash('danger', 'Please enter a valid 10-digit Indian mobile number (must start with 6, 7, 8, or 9).');
-            $this->redirect('/register');
+            $this->redirect($redirectUrl);
             return;
         }
 
-        // Check if already fully registered
-        $existingUser = $this->deliveryUserModel->findByEmail($email);
+        // Check if already fully registered across any portal
+        $existingUser = $this->findUserAcrossAllRoles($email);
         if ($existingUser) {
             $userRole = $existingUser['role'];
             $roleName = ucfirst($userRole);
@@ -245,8 +253,8 @@ class AuthController extends Controller {
             $this->redirect($loginUrl);
             return;
         }
-        if ($this->deliveryUserModel->findByPhone($phone)) {
-            Session::setFlash('danger', 'This phone number is already registered.');
+        if ($this->findPhoneAcrossAllRoles($phone)) {
+            Session::setFlash('danger', 'This phone number is already registered with another account.');
             $this->redirect('/register');
             return;
         }
@@ -289,13 +297,11 @@ class AuthController extends Controller {
 
             if ($emailSent) {
                 Session::setFlash('success',
-                    '✅ A 6-digit verification code has been sent to ' .
-                    '<strong>' . sanitize($email) . '</strong>. Please check your inbox.'
+                    'OTP is sent to your email (' . sanitize($this->maskEmail($email)) . '). Please check your inbox.'
                 );
             } else {
                 Session::setFlash('warning',
-                    'Could not send the verification email right now. ' .
-                    'However, since you are testing locally, your OTP is: <strong>' . $plainOtp . '</strong>'
+                    'Could not send verification email. Your test OTP is: <strong>' . $plainOtp . '</strong>'
                 );
             }
 
@@ -495,8 +501,7 @@ class AuthController extends Controller {
 
         if ($emailSent) {
             Session::setFlash('success',
-                'A new verification code has been sent to ' .
-                '<strong>' . sanitize($this->maskEmail($pendingEmail)) . '</strong>.'
+                'OTP is sent to your email (' . sanitize($this->maskEmail($pendingEmail)) . '). Please check your inbox.'
             );
         } else {
             Session::setFlash('warning', 
@@ -564,7 +569,7 @@ class AuthController extends Controller {
             return;
         }
 
-        $user = $this->deliveryUserModel->findByEmail($email);
+        $user = $this->findUserAcrossAllRoles($email);
 
         // Always show the same success message regardless of whether
         // the email exists — prevents email enumeration attacks.
@@ -587,9 +592,9 @@ class AuthController extends Controller {
             return;
         }
 
-        // Generate and send reset OTP
+        // Set target table and generate reset OTP
         $plainOtp = $this->passwordResetModel->generateOtp();
-        $this->passwordResetModel->storeResetOtp((int) $user['id'], $plainOtp);
+        $this->passwordResetModel->setTargetTable($user['table'])->storeResetOtp((int) $user['id'], $plainOtp);
 
         $emailSent = $this->passwordResetModel->sendResetEmail(
             $user['email'],
@@ -597,8 +602,9 @@ class AuthController extends Controller {
             $plainOtp
         );
 
-        // Store user ID in session for the reset page
+        // Store user ID and table in session for the reset page
         Session::set('_reset_user_id', (int) $user['id']);
+        Session::set('_reset_user_table', $user['table']);
 
         if ($emailSent) {
             Session::setFlash('success',
@@ -621,7 +627,8 @@ class AuthController extends Controller {
      */
     public function showResetPasswordForm(): void {
 
-        $resetUserId = (int) Session::get('_reset_user_id', 0);
+        $resetUserId    = (int) Session::get('_reset_user_id', 0);
+        $resetUserTable = (string) Session::get('_reset_user_table', 'customers');
 
         if ($resetUserId === 0) {
             Session::setFlash('warning', 'No password reset session found. Please start again.');
@@ -629,10 +636,12 @@ class AuthController extends Controller {
             return;
         }
 
-        $user = $this->deliveryUserModel->findById($resetUserId);
+        $this->passwordResetModel->setTargetTable($resetUserTable);
+        $user = $this->findUserByIdAndTable($resetUserId, $resetUserTable);
 
         if (!$user) {
             Session::remove('_reset_user_id');
+            Session::remove('_reset_user_table');
             Session::setFlash('danger', 'Account not found. Please start again.');
             $this->redirect('/forgot-password');
             return;
@@ -657,7 +666,8 @@ class AuthController extends Controller {
     public function resetPassword(): void {
         Middleware::verifyCsrf();
 
-        $resetUserId = (int) Session::get('_reset_user_id', 0);
+        $resetUserId    = (int) Session::get('_reset_user_id', 0);
+        $resetUserTable = (string) Session::get('_reset_user_table', 'customers');
 
         if ($resetUserId === 0) {
             Session::setFlash('danger', 'Session expired. Please start again.');
@@ -689,16 +699,23 @@ class AuthController extends Controller {
             return;
         }
 
+        $this->passwordResetModel->setTargetTable($resetUserTable);
         $result = $this->passwordResetModel->verifyResetOtp($resetUserId, $submittedOtp);
 
         switch ($result) {
             case 'valid':
                 $this->passwordResetModel->resetPassword($resetUserId, $newPassword);
                 Session::remove('_reset_user_id');
+                Session::remove('_reset_user_table');
                 Session::setFlash('success',
                     '🎉 Password reset successfully! You can now log in with your new password.'
                 );
-                $this->redirect('/login');
+                $loginUrl = match ($resetUserTable) {
+                    'chefs'          => '/chef/login',
+                    'delivery_users' => '/delivery/login',
+                    default          => '/login',
+                };
+                $this->redirect($loginUrl);
                 break;
 
             case 'expired':
@@ -731,7 +748,8 @@ class AuthController extends Controller {
     public function resendResetOtp(): void {
         Middleware::verifyCsrf();
 
-        $resetUserId = (int) Session::get('_reset_user_id', 0);
+        $resetUserId    = (int) Session::get('_reset_user_id', 0);
+        $resetUserTable = (string) Session::get('_reset_user_table', 'customers');
 
         if ($resetUserId === 0) {
             Session::setFlash('danger', 'Session expired. Please start again.');
@@ -739,10 +757,12 @@ class AuthController extends Controller {
             return;
         }
 
-        $user = $this->deliveryUserModel->findById($resetUserId);
+        $this->passwordResetModel->setTargetTable($resetUserTable);
+        $user = $this->findUserByIdAndTable($resetUserId, $resetUserTable);
 
         if (!$user) {
             Session::remove('_reset_user_id');
+            Session::remove('_reset_user_table');
             Session::setFlash('danger', 'Account not found. Please start again.');
             $this->redirect('/forgot-password');
             return;
@@ -792,5 +812,48 @@ class AuthController extends Controller {
         $visible = min(2, strlen($local));
         $masked  = substr($local, 0, $visible) . str_repeat('*', max(0, strlen($local) - $visible));
         return $masked . '@' . $domain;
+    }
+
+    /**
+     * Locate user record across all 3 user tables (customers, chefs, delivery_users)
+     */
+    private function findUserAcrossAllRoles(string $email): ?array {
+        if ($u = $this->customerModel->findByEmail($email)) {
+            return array_merge($u, ['role' => ROLE_CUSTOMER, 'table' => 'customers']);
+        }
+        if ($u = $this->chefModel->findByEmail($email)) {
+            return array_merge($u, ['role' => ROLE_CHEF, 'table' => 'chefs']);
+        }
+        if ($u = $this->deliveryUserModel->findByEmail($email)) {
+            return array_merge($u, ['role' => ROLE_DELIVERY, 'table' => 'delivery_users']);
+        }
+        return null;
+    }
+
+    /**
+     * Locate phone across all 3 user tables
+     */
+    private function findPhoneAcrossAllRoles(string $phone): ?array {
+        if ($u = $this->customerModel->findByPhone($phone)) {
+            return array_merge($u, ['role' => ROLE_CUSTOMER, 'table' => 'customers']);
+        }
+        if ($u = $this->chefModel->findByPhone($phone)) {
+            return array_merge($u, ['role' => ROLE_CHEF, 'table' => 'chefs']);
+        }
+        if ($u = $this->deliveryUserModel->findByPhone($phone)) {
+            return array_merge($u, ['role' => ROLE_DELIVERY, 'table' => 'delivery_users']);
+        }
+        return null;
+    }
+
+    /**
+     * Locate user by primary key and table
+     */
+    private function findUserByIdAndTable(int $id, string $table): ?array {
+        return match($table) {
+            'chefs'          => $this->chefModel->find($id),
+            'delivery_users' => $this->deliveryUserModel->find($id),
+            default          => $this->customerModel->find($id),
+        };
     }
 }

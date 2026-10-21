@@ -51,16 +51,18 @@
     .brand-logo {
         display: flex;
         align-items: center;
-        gap: 0.5rem;
-        font-size: 1.65rem;
-        font-weight: 800;
-        color: #ffffff;
         text-decoration: none;
-        letter-spacing: -0.5px;
     }
-    .brand-logo i {
-        color: #f59e0b;
-        filter: drop-shadow(0 2px 8px rgba(245, 158, 11, 0.5));
+    .brand-logo img {
+        height: 38px;
+        max-height: 38px;
+        object-fit: contain;
+        transform: scale(1.35);
+        transform-origin: left center;
+        transition: transform 0.2s ease;
+    }
+    .brand-logo:hover img {
+        transform: scale(1.4);
     }
 
     .nav-links-cluster {
@@ -424,8 +426,8 @@
     <div class="container-xl">
         <!-- Top Navbar Header -->
         <nav class="hero-navbar-wrap">
-            <a href="<?= url('/') ?>" class="brand-logo">
-                <i class="bi bi-fire"></i> Kravyo
+            <a href="<?= url('/') ?>" class="brand-logo" aria-label="Kravyo Home">
+                <img src="<?= url('/assets/images/kravyo-logo.png') ?>" alt="Kravyo" height="38" style="object-fit: contain; max-height: 38px; transform: scale(1.35); transform-origin: left center;">
             </a>
 
             <ul class="nav-links-cluster d-none d-lg-flex">

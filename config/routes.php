@@ -41,6 +41,7 @@ return [
     'GET /api/kitchens/nearby'  => 'CustomerController@apiNearbyKitchens',
     'POST /api/set-city'        => 'CustomerController@setCity',
     'GET /api/dishes/suggest'   => 'CustomerController@apiDishSuggestions',
+    'GET /api/kitchens/suggest' => 'CustomerController@apiKitchenSuggestions',
     'GET /menu'                 => 'CustomerController@browseMenu',
     'GET /dish/{id}'            => 'CustomerController@viewDish',
     'GET /zero-waste'           => 'CustomerController@zeroWasteDeals',
@@ -125,19 +126,12 @@ return [
     'GET /chef/notifications/latest'         => 'NotificationController@latest',
     'GET /chef/api/notifications/unread'     => 'NotificationController@apiUnread',
     'POST /chef/subscription/delivery/status' => 'ChefController@updateDeliveryStatus',
+    'POST /chef/subscription/delivery/batch-dispatch' => 'ChefController@batchDispatchDeliveries',
     'GET /chef/zero-waste'               => 'ChefController@zeroWaste',
     'POST /chef/zero-waste/add'          => 'ChefController@addZeroWasteItem',
     'POST /chef/zero-waste/delete/{id}'  => 'ChefController@deleteZeroWasteItem',
     'POST /chef/zero-waste/toggle/{id}'  => 'ChefController@toggleZeroWasteStatus',
     'POST /chef/toggle-availability' => 'ChefController@toggleAvailability',
-
-    // --- Chef Notification Routes ---
-    'GET /chef/notifications'                => 'NotificationController@index',
-    'POST /chef/notifications/mark-read'     => 'NotificationController@markRead',
-    'POST /chef/notifications/mark-all'      => 'NotificationController@markAllRead',
-    'GET /chef/notifications/count'          => 'NotificationController@count',
-    'GET /chef/notifications/latest'         => 'NotificationController@latest',
-    'GET /chef/api/notifications/unread'     => 'NotificationController@apiUnread',
 
     // --- Tiffin Subscription Routes (Customer) ---
     'GET /subscriptions'            => 'SubscriptionController@browsePlans',
@@ -145,14 +139,6 @@ return [
     'POST /subscription/subscribe'  => 'SubscriptionController@subscribe',
     'GET /my-subscriptions'         => 'SubscriptionController@mySubscriptions',
     'POST /subscription/cancel'     => 'SubscriptionController@cancelSubscription',
-
-    // --- Notification Routes (Modules 1.13 & 2.8) ---
-    'GET /notifications'                => 'NotificationController@index',
-    'POST /notifications/mark-read'     => 'NotificationController@markRead',
-    'POST /notifications/mark-all'      => 'NotificationController@markAllRead',
-    'GET /notifications/count'          => 'NotificationController@count',
-    'GET /notifications/latest'         => 'NotificationController@latest',
-    'GET /api/notifications/unread'     => 'NotificationController@apiUnread',
 
     // --- Admin Authentication Routes ---
     'GET /admin/login'          => 'AdminAuthController@showLoginForm',
@@ -208,9 +194,6 @@ return [
     'POST /admin/ai-config/update'    => 'AdminController@updateAiConfig',
     'POST /admin/ai-test'             => 'AdminController@testAiRecommendation',
     'POST /admin/broadcast'           => 'AdminController@broadcast',  // Module 3.11
-
-    // --- Delivery Routes ---
-    'POST /delivery/toggle-status'             => 'DeliveryController@toggleStatus',
 
     // --- Admin Delivery Routes ---
     'GET /admin/delivery-partners'             => 'AdminController@deliveryPartners',

@@ -139,4 +139,35 @@ class SubscriptionDelivery extends Model {
         $result = $stmt->fetch();
         return $result ? $result['status'] : null;
     }
+
+    /**
+     * Batch-fetch today's delivery status for multiple customer subscriptions
+     * Returns an associative array mapping subscription_id => status
+     */
+    public function getTodaysStatusForSubscriptions(array $subscriptionIds): array {
+        if (empty($subscriptionIds)) {
+            return [];
+        }
+        $subscriptionIds = array_filter(array_map('intval', $subscriptionIds), fn($id) => $id > 0);
+        if (empty($subscriptionIds)) {
+            return [];
+        }
+        $today = date('Y-m-d');
+        $placeholders = implode(',', $subscriptionIds);
+        $sql = "SELECT customer_subscription_id, status 
+                FROM {$this->table} 
+                WHERE customer_subscription_id IN ({$placeholders}) 
+                  AND delivery_date = :today";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute(['today' => $today]);
+        $rows = $stmt->fetchAll();
+        $map = [];
+        foreach ($rows as $r) {
+            $subId = (int) $r['customer_subscription_id'];
+            if (!isset($map[$subId]) || $r['status'] === 'delivered') {
+                $map[$subId] = $r['status'];
+            }
+        }
+        return $map;
+    }
 }

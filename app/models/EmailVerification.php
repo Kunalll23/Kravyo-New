@@ -232,6 +232,13 @@ class EmailVerification extends Model {
         $expiry   = OTP_EXPIRY_MINUTES;
         $safeName = htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 
+        // Use public HTTPS URL so Gmail displays the logo without treating it as an email file attachment
+        $logoUrl = (!empty(APP_URL) && !str_contains(APP_URL, 'localhost'))
+            ? (ASSET_URL . '/images/kravyo-logo.png')
+            : 'https://raw.githubusercontent.com/Kunalll23/Kravyo-New/main/public/assets/images/kravyo-logo.png';
+
+        $logoHtml = '<img src="' . $logoUrl . '" alt="Kravyo" width="160" style="display:block;margin:0 auto;max-width:160px;height:auto;border:0;outline:none;text-decoration:none;font-family:\'Segoe UI\',Arial,sans-serif;font-size:24px;font-weight:900;color:#ff6b00;" />';
+
         return <<<HTML
 <!DOCTYPE html>
 <html lang="en">
@@ -248,7 +255,7 @@ class EmailVerification extends Model {
                style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.08);max-width:600px;width:100%;">
           <tr>
              <td style="background:#1a1f2e;padding:28px 40px;text-align:center;">
-              <img src="http://localhost/Kravyo/public/assets/images/kravyo-logo.png" alt="Kravyo" width="160" style="display:block;margin:0 auto;max-width:160px;height:auto;" />
+              {$logoHtml}
               <p style="margin:10px 0 0;color:rgba(255,255,255,0.65);font-size:13px;">Home-Cooked Food, Verified &amp; Delivered</p>
             </td>
           </tr>

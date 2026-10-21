@@ -6,6 +6,8 @@
 require_once APP_PATH . '/models/Kitchen.php';
 require_once APP_PATH . '/models/Admin.php';
 require_once APP_PATH . '/models/DeliveryUser.php';
+require_once APP_PATH . '/models/Customer.php';
+require_once APP_PATH . '/models/Chef.php';
 require_once APP_PATH . '/models/Category.php';
 require_once APP_PATH . '/models/DeliveryPartner.php';
 
@@ -13,6 +15,8 @@ class AdminController extends Controller {
 
     private Kitchen $kitchenModel;
     private Admin $adminModel;
+    private Customer $customerModel;
+    private Chef $chefModel;
     private DeliveryUser $deliveryUserModel;
     private Category $categoryModel;
 
@@ -20,6 +24,8 @@ class AdminController extends Controller {
         Middleware::adminAuth();
         $this->kitchenModel  = new Kitchen();
         $this->adminModel    = new Admin();
+        $this->customerModel = new Customer();
+        $this->chefModel     = new Chef();
         $this->deliveryUserModel     = new DeliveryUser();
         $this->categoryModel = new Category();
     }
@@ -34,13 +40,30 @@ class AdminController extends Controller {
         $revenue = $orderModel->getPlatformRevenue();
         $orderStats = $orderModel->getPlatformOrderStats();
 
+        $db = Database::getInstance();
+        $countsRow = $db->query("
+            SELECT 
+                (SELECT COUNT(*) FROM customers) AS total_customers,
+                (SELECT COUNT(*) FROM chefs) AS total_chefs,
+                (SELECT COUNT(*) FROM delivery_users) AS total_delivery_users,
+                COALESCE(SUM(CASE WHEN approval_status = 'pending' THEN 1 ELSE 0 END), 0) AS pending_kitchens,
+                COALESCE(SUM(CASE WHEN approval_status = 'approved' THEN 1 ELSE 0 END), 0) AS approved_kitchens,
+                COUNT(*) AS total_kitchens
+            FROM kitchens
+        ")->fetch();
+
+        $totalCustomers = (int) ($countsRow['total_customers'] ?? 0);
+        $totalChefs     = (int) ($countsRow['total_chefs'] ?? 0);
+        $totalDelivery  = (int) ($countsRow['total_delivery_users'] ?? 0);
+        $totalUsers     = $totalCustomers + $totalChefs + $totalDelivery;
+
         $stats = [
-            'total_users'       => $this->countUsers(),
-            'total_customers'   => $this->countUsers('customer'),
-            'total_chefs'       => $this->countUsers('chef'),
-            'pending_kitchens'  => $this->kitchenModel->countByStatus(KITCHEN_STATUS_PENDING),
-            'approved_kitchens' => $this->kitchenModel->countByStatus(KITCHEN_STATUS_APPROVED),
-            'total_kitchens'    => $this->kitchenModel->countAll(),
+            'total_users'       => $totalUsers,
+            'total_customers'   => $totalCustomers,
+            'total_chefs'       => $totalChefs,
+            'pending_kitchens'  => (int) ($countsRow['pending_kitchens'] ?? 0),
+            'approved_kitchens' => (int) ($countsRow['approved_kitchens'] ?? 0),
+            'total_kitchens'    => (int) ($countsRow['total_kitchens'] ?? 0),
             'total_orders'      => array_sum($orderStats),
             'delivered_orders'  => $orderStats['delivered'] ?? 0,
             'platform_revenue'  => $revenue['total'],
@@ -49,9 +72,8 @@ class AdminController extends Controller {
 
         $pendingKitchens = $this->kitchenModel->findPendingKitchens();
 
-        // Fetch cities for targeted broadcast console
-        $db = Database::getInstance();
-        $cities = $db->query("SELECT DISTINCT city FROM kitchens WHERE city IS NOT NULL AND city != '' UNION SELECT DISTINCT city FROM addresses WHERE city IS NOT NULL AND city != '' ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
+        // Fetch cities for targeted broadcast console (using indexed kitchens table)
+        $cities = $db->query("SELECT DISTINCT city FROM kitchens WHERE city IS NOT NULL AND city != '' ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
         if (empty($cities)) {
             $cities = ['Surat', 'Bardoli', 'Ahmedabad', 'Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Jaipur', 'Hyderabad'];
         }
@@ -138,7 +160,28 @@ class AdminController extends Controller {
      * User Management — List all platform users
      */
     public function users(): void {
-        $users = $this->deliveryUserModel->findAll([], 'created_at DESC');
+        $customers = $this->customerModel->findAll([], 'created_at DESC');
+        foreach ($customers as &$c) {
+            $c['role'] = $c['role'] ?? 'customer';
+        }
+        unset($c);
+
+        $chefs = $this->chefModel->findAll([], 'created_at DESC');
+        foreach ($chefs as &$ch) {
+            $ch['role'] = $ch['role'] ?? 'chef';
+        }
+        unset($ch);
+
+        $deliveryUsers = $this->deliveryUserModel->findAll([], 'created_at DESC');
+        foreach ($deliveryUsers as &$d) {
+            $d['role'] = $d['role'] ?? 'delivery';
+        }
+        unset($d);
+
+        $users = array_merge($customers, $chefs, $deliveryUsers);
+        usort($users, function(array $a, array $b): int {
+            return strtotime($b['created_at'] ?? 'now') <=> strtotime($a['created_at'] ?? 'now');
+        });
 
         $this->render('admin/users', [
             'title' => 'User Management',
@@ -153,6 +196,7 @@ class AdminController extends Controller {
         Middleware::verifyCsrf();
 
         $userId = (int) ($_POST['user_id'] ?? 0);
+        $role = sanitize($_POST['role'] ?? 'customer');
         $newStatus = sanitize($_POST['status'] ?? '');
 
         if ($userId <= 0 || !in_array($newStatus, ['active', 'inactive', 'suspended'])) {
@@ -160,7 +204,14 @@ class AdminController extends Controller {
             $this->redirect('/admin/users');
         }
 
-        $this->deliveryUserModel->update($userId, ['status' => $newStatus]);
+        if ($role === 'chef') {
+            $this->chefModel->update($userId, ['status' => $newStatus]);
+        } elseif ($role === 'delivery') {
+            $this->deliveryUserModel->update($userId, ['status' => $newStatus]);
+        } else {
+            $this->customerModel->update($userId, ['status' => $newStatus]);
+        }
+
         Session::setFlash('success', 'User status updated to ' . $newStatus . '.');
         $this->redirect('/admin/users');
     }
@@ -346,6 +397,7 @@ class AdminController extends Controller {
     public function subscriptions(): void {
         require_once APP_PATH . '/models/CustomerSubscription.php';
         $customerSubModel = new CustomerSubscription();
+        $customerSubModel->completeExpiredSubscriptions();
 
         $statusFilter = $_GET['status'] ?? null;
         $subscriptions = $customerSubModel->findAllWithDetails($statusFilter);
@@ -574,23 +626,42 @@ class AdminController extends Controller {
      * Handle image file upload with validation
      */
     private function handleImageUpload(array $file, string $uploadDir, string $prefix = ''): array {
-        $allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-        $maxSize = 5 * 1024 * 1024;
+        $mimeToExt = [
+            'image/jpeg' => 'jpg',
+            'image/png'  => 'png',
+            'image/webp' => 'webp',
+            'image/gif'  => 'gif',
+        ];
+        $maxSize = 5 * 1024 * 1024; // 5 MB
 
-        if (!in_array($file['type'], $allowedTypes)) {
+        if (empty($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) {
+            return ['success' => false, 'error' => 'No valid file was uploaded.'];
+        }
+
+        if ($file['size'] > $maxSize) {
+            return ['success' => false, 'error' => 'Image file size must be under 5 MB.'];
+        }
+
+        // Server-side real MIME detection using fileinfo
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $detectedMime = $finfo ? finfo_file($finfo, $file['tmp_name']) : mime_content_type($file['tmp_name']);
+        if ($finfo) {
+            finfo_close($finfo);
+        }
+
+        if (!isset($mimeToExt[$detectedMime])) {
             return ['success' => false, 'error' => 'Only JPG, PNG, WebP, and GIF images are allowed.'];
         }
-        if ($file['size'] > $maxSize) {
-            return ['success' => false, 'error' => 'Image must be under 5 MB.'];
-        }
 
-        $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
-        $filename = $prefix . uniqid() . '_' . time() . '.' . $ext;
+        $safeExt = $mimeToExt[$detectedMime];
+        $filename = $prefix . bin2hex(random_bytes(16)) . '_' . time() . '.' . $safeExt;
+        $destination = rtrim($uploadDir, '/\\') . '/' . $filename;
 
-        if (move_uploaded_file($file['tmp_name'], $uploadDir . $filename)) {
+        if (move_uploaded_file($file['tmp_name'], $destination)) {
             return ['success' => true, 'filename' => $filename];
         }
-        return ['success' => false, 'error' => 'Failed to upload image.'];
+
+        return ['success' => false, 'error' => 'Failed to upload image. Please try again.'];
     }
 
     /**
@@ -1257,68 +1328,6 @@ class AdminController extends Controller {
         $this->redirect('/admin/delivery-partners');
     }
 
-    /**
-     * Assign a delivery partner to an order
-     */
-    public function assignDeliveryPartner(): void {
-        Middleware::verifyCsrf();
-        require_once APP_PATH . '/models/Order.php';
-        require_once APP_PATH . '/models/DeliveryPartner.php';
-        
-        $orderModel = new Order();
-        $dpModel    = new DeliveryPartner();
-
-        $orderId   = (int)($_POST['order_id'] ?? 0);
-        $partnerId = (int)($_POST['delivery_partner_id'] ?? 0);
-
-        if ($orderId <= 0 || $partnerId <= 0) {
-            Session::setFlash('danger', 'Invalid order or delivery partner selection.');
-            $this->redirect('/admin/orders');
-            return;
-        }
-
-        $order = $orderModel->findByIdWithDetails($orderId);
-        if (!$order) {
-            Session::setFlash('danger', 'Order not found.');
-            $this->redirect('/admin/orders');
-            return;
-        }
-
-        if (!in_array($order['order_status'], [ORDER_STATUS_PREPARING, ORDER_STATUS_READY_FOR_PICKUP, ORDER_STATUS_ACCEPTED])) {
-            Session::setFlash('warning', 'Order must be accepted or preparing to assign a delivery partner.');
-            $this->redirect('/admin/orders');
-            return;
-        }
-
-        $partner = $dpModel->findWithUser($partnerId);
-        if (!$partner || $partner['verification_status'] !== DELIVERY_VERIFICATION_APPROVED) {
-            Session::setFlash('danger', 'Delivery partner is not approved or not found.');
-            $this->redirect('/admin/orders');
-            return;
-        }
-
-        if ($orderModel->assignDeliveryPartner($orderId, $partnerId)) {
-            // Notify delivery partner
-            try {
-                require_once APP_PATH . '/models/Notification.php';
-                $notif = new Notification();
-                $notif->create([
-                    'user_id' => (int)$partner['user_id'], 'user_type' => 'delivery',
-                    'title'   => 'New Delivery Assigned!',
-                    'message' => 'You have been assigned to deliver order #' . sanitize($order['order_number']) . '. Please check your dashboard.',
-                    'type'    => 'order_update',
-                    'link'    => '/delivery/order/' . $orderId,
-                    'is_read' => 0,
-                ]);
-            } catch (Exception $e) {}
-
-            Session::setFlash('success', 'Delivery partner assigned successfully to order #' . sanitize($order['order_number']) . '.');
-        } else {
-            Session::setFlash('danger', 'Failed to assign delivery partner.');
-        }
-
-        $this->redirect('/admin/orders');
-    }
 
     /**
      * View all customer reports (Resolution Center)
