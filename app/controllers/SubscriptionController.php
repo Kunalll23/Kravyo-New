@@ -296,4 +296,29 @@ class SubscriptionController extends Controller {
         Session::setFlash('success', 'Your subscription has been cancelled successfully.');
         $this->redirect('/my-subscriptions');
     }
+
+    /**
+     * Customer queue-aware live tracking for tiffin delivery
+     * GET /subscription/track/{id}
+     */
+    public function trackTiffin(string $id): void {
+        Middleware::auth();
+
+        require_once APP_PATH . '/models/DeliveryRun.php';
+        $runModel = new DeliveryRun();
+        $deliveryId = (int)$id;
+
+        $trackingInfo = $runModel->getCustomerTrackingInfo($deliveryId);
+
+        if (!$trackingInfo) {
+            Session::setFlash('warning', 'Tiffin delivery run has not been dispatched yet. Check back closer to lunch time!');
+            $this->redirect('/my-subscriptions');
+            return;
+        }
+
+        $this->render('customer/tiffin_track', [
+            'title'    => 'Track Today\'s Tiffin Delivery',
+            'tracking' => $trackingInfo
+        ]);
+    }
 }

@@ -37,8 +37,9 @@ class DispatchService {
             return false;
         }
 
-        // Clean up any stale offers for a fresh dispatch
+        // Clean up any stale offers and reset rejected drivers for a fresh dispatch
         $this->offerModel->deleteForOrder($orderId);
+        $this->orderModel->clearRejectedDrivers($orderId);
 
         // Stage 1: Batch Opportunity Check
         if ($this->checkBatchOpportunity($orderId)) {
@@ -456,10 +457,16 @@ class DispatchService {
         if (!$dp) return;
 
         $db = Database::getInstance();
-        $sql = "SELECT o.id, o.dispatch_round, k.latitude, k.longitude 
+        $sql = "SELECT o.id, o.dispatch_round, o.dispatch_status, o.order_status, k.latitude, k.longitude 
                 FROM orders o 
                 JOIN kitchens k ON o.kitchen_id = k.id 
-                WHERE k.city = :city AND o.dispatch_status IN ('cascading', 'broadcasting')";
+                WHERE LOWER(TRIM(k.city)) = LOWER(TRIM(:city))
+                  AND o.delivery_partner_id IS NULL
+                  AND o.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+                  AND (
+                      o.dispatch_status IN ('cascading', 'broadcasting')
+                      OR (o.dispatch_status = 'no_rider' AND o.order_status IN ('preparing', 'ready_for_pickup'))
+                  )";
         $stmt = $db->prepare($sql);
         $stmt->execute(['city' => $city]);
         $orders = $stmt->fetchAll();
@@ -468,7 +475,7 @@ class DispatchService {
 
         foreach ($orders as $order) {
             $orderId = (int)$order['id'];
-            $round   = (int)$order['dispatch_round'];
+            $round   = max(1, (int)($order['dispatch_round'] ?? 1));
 
             // Strict 15 km cap: do not ping if newly online rider is further than 15 km from kitchen
             if (!empty($order['latitude']) && !empty($order['longitude']) && !empty($dp['current_latitude']) && !empty($dp['current_longitude'])) {
@@ -488,7 +495,13 @@ class DispatchService {
                 continue; // Rider already rejected this order
             }
 
-            $checkSql = "SELECT id FROM delivery_offers WHERE order_id = :order_id AND delivery_partner_id = :dp_id";
+            // If order was marked 'no_rider', reopen it to broadcasting (Round 4)
+            if ($order['dispatch_status'] === 'no_rider') {
+                $round = 4;
+                $this->orderModel->setDispatchStatus($orderId, 'broadcasting', 4);
+            }
+
+            $checkSql = "SELECT id FROM delivery_offers WHERE order_id = :order_id AND delivery_partner_id = :dp_id AND status = 'pending'";
             $checkStmt = $db->prepare($checkSql);
             $checkStmt->execute(['order_id' => $orderId, 'dp_id' => $partnerId]);
 

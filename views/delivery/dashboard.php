@@ -7,6 +7,9 @@
             <p class="text-muted mb-0">Welcome back, <?= sanitize($partner['full_name']) ?></p>
         </div>
         <div class="col-md-6 text-md-end mt-3 mt-md-0 d-flex flex-wrap justify-content-md-end align-items-center gap-2">
+            <a href="<?= url('/delivery/runs') ?>" class="btn btn-warning text-dark rounded-pill px-3 py-2 shadow-sm fw-bold d-inline-flex align-items-center">
+                <i class="bi bi-box-seam-fill me-1"></i> Tiffin Batch Runs
+            </a>
             <button type="button" class="btn btn-outline-primary rounded-pill px-3 py-2 shadow-sm fw-semibold d-inline-flex align-items-center" data-bs-toggle="modal" data-bs-target="#dummyLocationModal" id="openDummyLocationBtn">
                 <i class="bi bi-geo-alt-fill text-danger me-1"></i> Set Dummy Location
             </button>

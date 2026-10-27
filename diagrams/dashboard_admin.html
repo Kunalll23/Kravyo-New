@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Kravyo Master Administrator Console</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0b0f19; color: #f1f5f9; padding: 20px; }
+  .header { display: flex; justify-content: space-between; align-items: center; background: #131b2e; padding: 16px 24px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #1e293b; }
+  .title { font-size: 20px; font-weight: 800; color: #f59e0b; display:flex; align-items:center; gap:8px; }
+  
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .stat-card { background: #131b2e; padding: 18px; border-radius: 10px; border: 1px solid #1e293b; }
+  .stat-label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; }
+  .stat-val { font-size: 24px; font-weight: 800; color: #ffffff; margin-top: 4px; }
+  .stat-rate { font-size: 11px; color: #10b981; font-weight: 600; }
+
+  .content-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+  .card { background: #131b2e; border-radius: 10px; border: 1px solid #1e293b; padding: 20px; }
+  .card-head { font-size: 15px; font-weight: 700; color: #f59e0b; margin-bottom: 14px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th { text-align: left; padding: 8px; color: #94a3b8; border-bottom: 1px solid #334155; font-size: 11px; }
+  td { padding: 10px 8px; border-bottom: 1px solid #1e293b; color: #cbd5e1; }
+  .badge-app { background: #065f46; color: #34d399; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+  .badge-pen { background: #78350f; color: #fcd34d; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="title">&#128737; Kravyo Enterprise Command Console &bull; Super Admin</div>
+    <div style="font-size:13px; color:#94a3b8;">Session: <strong>KRAVYO_ADMIN</strong> &bull; Host: localhost/Kravyo</div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-label">Platform GMV (Monthly)</div><div class="stat-val">&#8377; 4,82,450</div><div class="stat-rate">+22.4% vs last month</div></div>
+    <div class="stat-card"><div class="stat-label">Net Commission (10%)</div><div class="stat-val">&#8377; 48,245</div><div class="stat-rate">Zero-loss model</div></div>
+    <div class="stat-card"><div class="stat-label">Active Kitchens</div><div class="stat-val">45 Verified</div><div class="stat-rate">3 Pending FSSAI</div></div>
+    <div class="stat-card"><div class="stat-label">Fleet Couriers</div><div class="stat-val">28 Online</div><div class="stat-rate">Cascade Latency: 1.2s</div></div>
+  </div>
+
+  <div class="content-grid">
+    <div class="card">
+      <div class="card-head">FSSAI Kitchen Hygiene Certification & Compliance Review Queue</div>
+      <table>
+        <tr><th>Kitchen Name</th><th>Chef</th><th>FSSAI Number</th><th>Inspection Doc</th><th>Action</th></tr>
+        <tr><td>Annapurna Kitchen</td><td>Mehul Singh</td><td>10723001000124</td><td>fssai_cert_107.pdf</td><td><span class="badge-app">VERIFIED &#10004;</span></td></tr>
+        <tr><td>Shreeji Tiffin Services</td><td>Priya Sharma</td><td>10723001000189</td><td>fssai_priya_2026.pdf</td><td><span class="badge-app">VERIFIED &#10004;</span></td></tr>
+        <tr><td>Swad Kathiyawadi Home</td><td>Ramesh Patel</td><td>10723001000215</td><td>license_scan_0215.pdf</td><td><span class="badge-pen">PENDING AUDIT</span></td></tr>
+        <tr><td>Radhe Dhokla Express</td><td>Kiran Desai</td><td>10723001000233</td><td>fssai_doc_desai.pdf</td><td><span class="badge-pen">PENDING AUDIT</span></td></tr>
+      </table>
+    </div>
+
+    <div class="card">
+      <div class="card-head">System Health & Cloud Infrastructure</div>
+      <p style="font-size:12px; color:#94a3b8; line-height:1.7;">
+        &bull; <strong>Database:</strong> MySQL InnoDB (20 Normalized Tables)<br>
+        &bull; <strong>Google Maps Cache:</strong> 1,420 Cached Route Hits<br>
+        &bull; <strong>Pusher WebSockets:</strong> 100% Channel Uptime<br>
+        &bull; <strong>Razorpay Instant Refund:</strong> 0 Pending Disputes<br>
+        &bull; <strong>Python AI Service:</strong> Online (TF-IDF Microservice)
+      </p>
+    </div>
+  </div>
+</body>
+</html>

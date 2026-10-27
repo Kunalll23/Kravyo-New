@@ -1010,4 +1010,147 @@ class DeliveryController extends Controller {
             'deliveries' => $deliveries,
         ]);
     }
+
+    // ─── Multi-Tiffin Batch Delivery Runs (Phase 13) ───────────────────────────
+
+    /**
+     * Browse available tiffin batch runs & view active run
+     * GET /delivery/runs
+     */
+    public function tiffinRuns(): void {
+        Middleware::deliveryAuth();
+
+        require_once APP_PATH . '/models/DeliveryRun.php';
+        $runModel  = new DeliveryRun();
+        $partnerId = (int) Session::get('delivery_partner_id');
+        $partner   = $this->partnerModel->findWithUser($partnerId);
+        $city      = $partner['city'] ?? 'Bardoli';
+
+        $activeRun     = $runModel->getActiveRunForPartner($partnerId);
+        $availableRuns = $runModel->getAvailableRunsForCity($city);
+
+        $this->render('delivery/runs', [
+            'title'         => 'Tiffin Batch Delivery Runs',
+            'partner'       => $partner,
+            'activeRun'     => $activeRun,
+            'availableRuns' => $availableRuns,
+            'city'          => $city
+        ]);
+    }
+
+    /**
+     * View detailed step-by-step waypoint manifest of a run
+     * GET /delivery/run/{id}
+     */
+    public function tiffinRunDetail(string $id): void {
+        Middleware::deliveryAuth();
+
+        require_once APP_PATH . '/models/DeliveryRun.php';
+        $runModel  = new DeliveryRun();
+        $runId     = (int) $id;
+        $partnerId = (int) Session::get('delivery_partner_id');
+        $run       = $runModel->getRunDetails($runId);
+
+        if (!$run) {
+            Session::setFlash('danger', 'Tiffin delivery run not found.');
+            $this->redirect('/delivery/runs');
+            return;
+        }
+
+        $partner = $this->partnerModel->findWithUser($partnerId);
+
+        $this->render('delivery/run_manifest', [
+            'title'   => 'Run Manifest #' . $run['run_code'],
+            'partner' => $partner,
+            'run'     => $run,
+            'stops'   => $run['stops'] ?? []
+        ]);
+    }
+
+    /**
+     * Accept a tiffin batch run
+     * POST /delivery/run/{id}/accept
+     */
+    public function acceptTiffinRun(string $id): void {
+        Middleware::deliveryAuth();
+        Middleware::verifyCsrf();
+
+        require_once APP_PATH . '/models/DeliveryRun.php';
+        $runModel  = new DeliveryRun();
+        $runId     = (int) $id;
+        $partnerId = (int) Session::get('delivery_partner_id');
+
+        // Check if partner already has an active run
+        $existing = $runModel->getActiveRunForPartner($partnerId);
+        if ($existing) {
+            Session::setFlash('warning', 'You already have an active tiffin run in progress! Complete it first.');
+            $this->redirect('/delivery/run/' . $existing['id']);
+            return;
+        }
+
+        $success = $runModel->assignPartner($runId, $partnerId);
+        if ($success) {
+            Session::setFlash('success', 'Batch run accepted! Review your pickup and drop-off manifest.');
+            $this->redirect('/delivery/run/' . $runId);
+        } else {
+            Session::setFlash('danger', 'Could not accept run. It may have already been claimed.');
+            $this->redirect('/delivery/runs');
+        }
+    }
+
+    /**
+     * Start the delivery run
+     * POST /delivery/run/{id}/start
+     */
+    public function startTiffinRun(string $id): void {
+        Middleware::deliveryAuth();
+        Middleware::verifyCsrf();
+
+        require_once APP_PATH . '/models/DeliveryRun.php';
+        $runModel  = new DeliveryRun();
+        $runId     = (int) $id;
+        $partnerId = (int) Session::get('delivery_partner_id');
+
+        $success = $runModel->startRun($runId, $partnerId);
+        if ($success) {
+            Session::setFlash('success', 'Tiffin run started! Head to your first kitchen pickup.');
+        } else {
+            Session::setFlash('danger', 'Could not start run.');
+        }
+        $this->redirect('/delivery/run/' . $runId);
+    }
+
+    /**
+     * Complete a single stop (kitchen pickup or customer delivery with OTP)
+     * POST /delivery/run/{runId}/stop/{stopId}/complete
+     */
+    public function completeTiffinStop(string $runId, string $stopId): void {
+        Middleware::deliveryAuth();
+        Middleware::verifyCsrf();
+
+        require_once APP_PATH . '/models/DeliveryRun.php';
+        $runModel  = new DeliveryRun();
+        $rId       = (int) $runId;
+        $sId       = (int) $stopId;
+        $partnerId = (int) Session::get('delivery_partner_id');
+
+        $otp       = trim($_POST['delivery_otp'] ?? '');
+        $container = !empty($_POST['container_returned']);
+
+        $result = $runModel->completeStop($rId, $sId, $otp, $container);
+
+        if ($result['success']) {
+            if (!empty($result['run_completed'])) {
+                Session::setFlash('success', '🎉 All tiffins delivered! Delivery run completed and payout credited to your wallet.');
+                $this->redirect('/delivery/runs');
+                return;
+            } else {
+                Session::setFlash('success', $result['message']);
+            }
+        } else {
+            Session::setFlash('danger', $result['message']);
+        }
+
+        $this->redirect('/delivery/run/' . $rId);
+    }
 }

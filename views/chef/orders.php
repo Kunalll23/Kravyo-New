@@ -215,9 +215,20 @@
                                     <?php endif; ?>
                                 </div>
                             <?php elseif (($order['dispatch_status'] ?? '') === 'no_rider'): ?>
-                                <div class="mb-3 px-2 py-2 bg-danger bg-opacity-10 rounded small border border-danger text-danger">
-                                    <i class="bi bi-exclamation-triangle me-2"></i>
-                                    <strong>No Rider Found.</strong> Admin has been notified.
+                                <div class="mb-3 px-2 py-2 bg-danger bg-opacity-10 rounded small border border-danger text-danger d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        <strong>No Rider Found.</strong> Admin alerted.
+                                    </div>
+                                    <?php if (in_array($order['order_status'], [ORDER_STATUS_PREPARING, ORDER_STATUS_READY_FOR_PICKUP])): ?>
+                                        <form method="POST" action="<?= url('/chef/order/status') ?>" class="d-inline mb-0">
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
+                                            <button type="submit" name="new_status" value="request_rider" class="btn btn-warning btn-sm py-0 px-2 fw-bold" style="font-size:0.75rem;">
+                                                <i class="bi bi-arrow-clockwise me-1"></i> Retry
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
                                 </div>
                             <?php elseif (!empty($order['delivery_partner_id'])): ?>
                                 <div class="mb-3 px-2 py-1 bg-light rounded small border d-flex justify-content-between align-items-center">
@@ -279,9 +290,9 @@
                                             <?= csrf_field() ?>
                                             <input type="hidden" name="order_id" value="<?= $order['id'] ?>">
                                             
-                                            <?php if (($order['dispatch_status'] ?? 'none') === 'none'): ?>
+                                            <?php if (in_array($order['dispatch_status'] ?? 'none', ['none', 'no_rider'])): ?>
                                                 <button type="submit" name="new_status" value="request_rider" class="btn btn-warning btn-sm fw-bold">
-                                                    <i class="bi bi-bicycle me-1"></i> Request Rider (10m left)
+                                                    <i class="bi bi-bicycle me-1"></i> Request Rider
                                                 </button>
                                                 <button type="submit" name="new_status" value="<?= ORDER_STATUS_READY_FOR_PICKUP ?>" class="btn btn-outline-success btn-sm" title="Skip early request and mark ready now">
                                                     <i class="bi bi-box-seam"></i> Ready

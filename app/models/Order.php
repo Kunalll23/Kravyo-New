@@ -899,6 +899,15 @@ class Order extends Model {
     }
 
     /**
+     * Clear rejected drivers list on fresh manual retry / re-dispatch
+     */
+    public function clearRejectedDrivers(int $orderId): bool {
+        $sql = "UPDATE {$this->table} SET rejected_by_drivers = NULL WHERE id = :id";
+        $stmt = $this->db->prepare($sql);
+        return $stmt->execute(['id' => $orderId]);
+    }
+
+    /**
      * Get active dispatch orders (both cascading and broadcasting)
      */
     public function getActiveDispatchOrders(): array {

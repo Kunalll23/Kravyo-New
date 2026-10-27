@@ -240,6 +240,14 @@ return [
     'POST /delivery/reset-location'            => 'DeliveryController@resetLocation',
     'GET /delivery/history'                    => 'DeliveryController@history',
 
+    // --- Multi-Tiffin Batch Delivery Routes (Phase 13) ---
+    'GET /delivery/runs'                        => 'DeliveryController@tiffinRuns',
+    'GET /delivery/run/{id}'                    => 'DeliveryController@tiffinRunDetail',
+    'POST /delivery/run/{id}/accept'            => 'DeliveryController@acceptTiffinRun',
+    'POST /delivery/run/{id}/start'             => 'DeliveryController@startTiffinRun',
+    'POST /delivery/run/{runId}/stop/{stopId}/complete' => 'DeliveryController@completeTiffinStop',
+    'GET /subscription/track/{id}'              => 'SubscriptionController@trackTiffin',
+
     // --- Delivery Notification Routes ---
     'GET /delivery/notifications'                => 'NotificationController@index',
     'POST /delivery/notifications/mark-read'     => 'NotificationController@markRead',

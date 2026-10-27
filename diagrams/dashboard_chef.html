@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Kravyo Chef Kitchen Operations Desk</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #1e293b; padding: 20px; }
+  .header { display: flex; justify-content: space-between; align-items: center; background: #ffffff; padding: 16px 24px; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px; border: 1px solid #e2e8f0; }
+  .logo { font-size: 22px; font-weight: 800; color: #ea580c; display: flex; align-items: center; gap: 8px; }
+  .duty-switch { display: flex; align-items: center; gap: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; padding: 8px 16px; border-radius: 30px; font-weight: 600; color: #065f46; font-size: 13px; }
+  .duty-dot { width: 10px; height: 10px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px #10b981; }
+  
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .stat-card { background: #ffffff; padding: 18px; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .stat-label { font-size: 12px; font-weight: 600; color: #64748b; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-val { font-size: 24px; font-weight: 800; color: #0f172a; }
+  .stat-sub { font-size: 11px; color: #10b981; font-weight: 600; margin-top: 4px; }
+  
+  .main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+  .card { background: #ffffff; border-radius: 10px; border: 1px solid #e2e8f0; padding: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+  .card-head { font-size: 16px; font-weight: 700; color: #0f172a; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+  
+  .order-item { border: 1px solid #f1f5f9; background: #f8fafc; border-radius: 8px; padding: 14px; margin-bottom: 12px; border-left: 4px solid #ea580c; }
+  .order-top { display: flex; justify-content: space-between; font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+  .badges { display: flex; gap: 6px; margin: 8px 0; }
+  .badge { font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700; }
+  .badge-jain { background: #dcfce7; color: #166534; }
+  .badge-spice { background: #ffedd5; color: #c2410c; }
+  .badge-oil { background: #e0e7ff; color: #3730a3; }
+  
+  .btn-row { display: flex; gap: 8px; margin-top: 10px; }
+  .btn { padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; border: none; cursor: pointer; }
+  .btn-accept { background: #ea580c; color: #ffffff; }
+  .btn-ready { background: #10b981; color: #ffffff; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo">🍳 Kravyo Chef Desk &bull; Annapurna Kitchen (Bardoli)</div>
+    <div style="display:flex; align-items:center; gap:16px;">
+      <span style="font-size:13px; color:#64748b;">FSSAI Lic: <strong>10723001000124</strong> &#10004; Verified</span>
+      <div class="duty-switch"><div class="duty-dot"></div> Kitchen Open (Accepting Orders)</div>
+    </div>
+  </div>
+
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-label">Today's Revenue</div>
+      <div class="stat-val">&#8377; 4,850.00</div>
+      <div class="stat-sub">+18% vs yesterday</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Active Orders</div>
+      <div class="stat-val">3 Preparing</div>
+      <div class="stat-sub">Avg Prep: 18 mins</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Tiffin Subscriptions</div>
+      <div class="stat-val">24 Active</div>
+      <div class="stat-sub">14 Lunch / 10 Dinner</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Customer Rating</div>
+      <div class="stat-val">4.9 &#9733;</div>
+      <div class="stat-sub">Based on 142 reviews</div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div class="card">
+      <div class="card-head">
+        <span>Active Preparation Queue & Continuous Audio Chime Monitor</span>
+        <span style="font-size:12px; color:#10b981; font-weight:600;">&#128266; Web Audio Chime: ACTIVE</span>
+      </div>
+      
+      <div class="order-item">
+        <div class="order-top">
+          <span>Order #5412 &bull; 2x Kathiyawadi Thali + 1x Chaas</span>
+          <span style="color:#ea580c;">Preparing (12m remaining)</span>
+        </div>
+        <p style="font-size:12.5px; color:#475569;">Customer: Sahil Patel &bull; Drop: Baben, Bardoli (2.4 km)</p>
+        <div class="badges">
+          <span class="badge badge-spice">Spice: Medium</span>
+          <span class="badge badge-oil">Less Oil</span>
+          <span class="badge badge-jain">Strict Jain Preparation</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-ready">Mark Ready for Courier Pickup</button>
+        </div>
+      </div>
+
+      <div class="order-item" style="border-left-color: #3b82f6;">
+        <div class="order-top">
+          <span>Order #5414 &bull; 1x Gujarati Dal Dhokli Special</span>
+          <span style="color:#3b82f6;">Courier Assigned (Rider 102 Arriving in 4m)</span>
+        </div>
+        <p style="font-size:12.5px; color:#475569;">Customer: Neha Singh &bull; Drop: Royal Star Town (3.1 km)</p>
+        <div class="badges">
+          <span class="badge badge-spice">Spice: Low</span>
+          <span class="badge badge-oil">Normal Ghee</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <span>Today's Tiffin Dispatch Forecast</span>
+      </div>
+      <div style="font-size:13px; line-height:1.7; color:#334155;">
+        <p><strong>Lunch Slot (12:30 PM - 1:30 PM):</strong></p>
+        <p>&bull; Standard Veg Thali: <strong>10 Portions</strong></p>
+        <p>&bull; Jain Satvik Thali: <strong>4 Portions</strong></p>
+        <div style="margin: 12px 0; border-top: 1px solid #f1f5f9;"></div>
+        <p><strong>Dinner Slot (7:30 PM - 8:30 PM):</strong></p>
+        <p>&bull; Kathiyawadi Khichdi & Kadhi: <strong>7 Portions</strong></p>
+        <p>&bull; Diabetic Multigrain Roti Meal: <strong>3 Portions</strong></p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

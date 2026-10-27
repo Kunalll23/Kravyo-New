@@ -20,7 +20,7 @@ define('HYGIENE_BADGE_VERIFIED', 'verified');
 
 // Distance & Dispatch Limits (in kilometers)
 define('MAX_DELIVERY_KM', 15.0);          // Kitchen to customer maximum delivery range
-define('MAX_DISPATCH_RADIUS_KM', 15.0);   // Kitchen to delivery partner maximum search radius
+define('MAX_DISPATCH_RADIUS_KM', 25.0);   // Kitchen to delivery partner maximum search radius (allows suburban/metro fringe riders)
 
 // Order Statuses
 define('ORDER_STATUS_PENDING', 'pending');

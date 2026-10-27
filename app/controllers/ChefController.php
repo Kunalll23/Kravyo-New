@@ -861,9 +861,9 @@ class ChefController extends Controller {
             return;
         }
 
-        // --- NEW PHASE: Early Dispatch Request ---
+        // --- NEW PHASE: Early Dispatch Request & Retry ---
         if ($newStatus === 'request_rider') {
-            if ($order['order_status'] === ORDER_STATUS_PREPARING && $order['dispatch_status'] === 'none') {
+            if (in_array($order['order_status'], [ORDER_STATUS_PREPARING, ORDER_STATUS_READY_FOR_PICKUP]) && in_array($order['dispatch_status'], ['none', 'no_rider'])) {
                 require_once APP_PATH . '/services/DispatchService.php';
                 require_once APP_PATH . '/models/DeliveryOffer.php';
                 require_once APP_PATH . '/models/DeliveryPartner.php';
@@ -871,7 +871,10 @@ class ChefController extends Controller {
                 $dispatchService = new DispatchService();
                 $dispatchService->broadcast($orderId);
                 
-                Session::setFlash('success', 'Looking for a rider! Keep preparing the food.');
+                $flashMsg = ($order['order_status'] === ORDER_STATUS_READY_FOR_PICKUP)
+                    ? 'Looking for a rider for pickup! Request dispatched.'
+                    : 'Looking for a rider! Keep preparing the food.';
+                Session::setFlash('success', $flashMsg);
             } else {
                 Session::setFlash('danger', 'Cannot request rider at this time.');
             }
@@ -897,7 +900,7 @@ class ChefController extends Controller {
 
         // --- PHASE 12: BROADCAST DISPATCH ---
         if ($newStatus === ORDER_STATUS_READY_FOR_PICKUP) {
-            if ($order['dispatch_status'] === 'none') {
+            if (in_array($order['dispatch_status'], ['none', 'no_rider'])) {
                 require_once APP_PATH . '/services/DispatchService.php';
                 require_once APP_PATH . '/models/DeliveryOffer.php';
                 require_once APP_PATH . '/models/DeliveryPartner.php';
