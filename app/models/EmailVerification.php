@@ -38,21 +38,24 @@ class EmailVerification extends Model {
         $resentAt  = date('Y-m-d H:i:s');
 
         $sql = "REPLACE INTO {$this->table}
-                (email, full_name, phone, city, password_hash, role, email_otp_hash, email_otp_expires_at, email_otp_resent_at, email_otp_attempts)
+                (email, full_name, phone, city, password_hash, role, vehicle_type, vehicle_number, driving_license_number, email_otp_hash, email_otp_expires_at, email_otp_resent_at, email_otp_attempts)
                 VALUES
-                (:email, :full_name, :phone, :city, :password_hash, :role, :otp_hash, :expires_at, :resent_at, 0)";
+                (:email, :full_name, :phone, :city, :password_hash, :role, :vehicle_type, :vehicle_number, :driving_license_number, :otp_hash, :expires_at, :resent_at, 0)";
 
         $stmt = $this->db->prepare($sql);
         $stmt->execute([
-            'email'         => $userData['email'],
-            'full_name'     => $userData['full_name'],
-            'phone'         => $userData['phone'],
-            'city'          => $userData['city'] ?? '',
-            'password_hash' => $userData['password_hash'],
-            'role'          => $userData['role'],
-            'otp_hash'      => $hashedOtp,
-            'expires_at'    => $expiresAt,
-            'resent_at'     => $resentAt,
+            'email'                  => $userData['email'],
+            'full_name'              => $userData['full_name'],
+            'phone'                  => $userData['phone'],
+            'city'                   => $userData['city'] ?? '',
+            'password_hash'          => $userData['password_hash'],
+            'role'                   => $userData['role'],
+            'vehicle_type'           => $userData['vehicle_type'] ?? null,
+            'vehicle_number'         => $userData['vehicle_number'] ?? null,
+            'driving_license_number' => $userData['driving_license_number'] ?? null,
+            'otp_hash'               => $hashedOtp,
+            'expires_at'             => $expiresAt,
+            'resent_at'              => $resentAt,
         ]);
     }
 

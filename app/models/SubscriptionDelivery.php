@@ -15,18 +15,26 @@ class SubscriptionDelivery extends Model {
         // First, auto-generate missing delivery records for today for all active subscriptions
         $this->generateTodaysDeliveries($kitchenId, $today);
 
-        // Fetch them
+        // Fetch them with order and delivery rider details
         $sql = "SELECT sd.*, 
                        cs.id as sub_id, cs.special_instructions, cs.start_date, cs.end_date,
                        u.full_name as customer_name, u.phone as customer_phone,
                        a.street_address, a.landmark, a.city as delivery_city,
-                       s.plan_name, s.meals_per_day, s.plan_type,
-                       s.breakfast_time, s.lunch_time, s.dinner_time
+                       s.plan_name, s.meals_per_day, s.plan_type, s.description as plan_description,
+                       s.breakfast_time, s.lunch_time, s.dinner_time,
+                       o.id as order_id, o.order_number, o.order_status, o.delivery_partner_id,
+                       du.full_name as rider_name, du.phone as rider_phone,
+                       dp.vehicle_type, dp.vehicle_number,
+                       dr.run_code, dr.status as run_status
                 FROM {$this->table} sd
                 JOIN customer_subscriptions cs ON sd.customer_subscription_id = cs.id
                 JOIN customers u ON cs.customer_id = u.id
                 JOIN addresses a ON cs.address_id = a.id
                 JOIN tiffin_subscriptions s ON cs.subscription_plan_id = s.id
+                LEFT JOIN orders o ON o.subscription_delivery_id = sd.id
+                LEFT JOIN delivery_partners dp ON o.delivery_partner_id = dp.id
+                LEFT JOIN delivery_users du ON dp.user_id = du.id
+                LEFT JOIN delivery_runs dr ON sd.run_id = dr.id
                 WHERE sd.kitchen_id = :kitchen_id 
                   AND sd.delivery_date = :today
                   AND cs.status = 'active'
@@ -154,10 +162,13 @@ class SubscriptionDelivery extends Model {
         }
         $today = date('Y-m-d');
         $placeholders = implode(',', $subscriptionIds);
-        $sql = "SELECT customer_subscription_id, status 
-                FROM {$this->table} 
-                WHERE customer_subscription_id IN ({$placeholders}) 
-                  AND delivery_date = :today";
+        $sql = "SELECT sd.customer_subscription_id, sd.status,
+                       o.id AS order_id, o.order_number, o.delivery_otp, o.order_status
+                FROM {$this->table} sd
+                LEFT JOIN orders o ON o.subscription_delivery_id = sd.id
+                WHERE sd.customer_subscription_id IN ({$placeholders}) 
+                  AND sd.delivery_date = :today
+                ORDER BY sd.id DESC";
         $stmt = $this->db->prepare($sql);
         $stmt->execute(['today' => $today]);
         $rows = $stmt->fetchAll();
@@ -165,7 +176,13 @@ class SubscriptionDelivery extends Model {
         foreach ($rows as $r) {
             $subId = (int) $r['customer_subscription_id'];
             if (!isset($map[$subId]) || $r['status'] === 'delivered') {
-                $map[$subId] = $r['status'];
+                $map[$subId] = [
+                    'status'        => $r['status'],
+                    'order_id'      => $r['order_id'] ? (int)$r['order_id'] : null,
+                    'order_number'  => $r['order_number'] ?? null,
+                    'delivery_otp'  => $r['delivery_otp'] ?? null,
+                    'order_status'  => $r['order_status'] ?? null
+                ];
             }
         }
         return $map;

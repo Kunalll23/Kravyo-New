@@ -117,10 +117,14 @@ class DeliveryRun extends Model {
                 ]);
             }
 
-            // STAGE B: Customer Drop-off Stops (Sequential delivery along corridor)
+            // STAGE B: Customer Drop-off Stops (Optimized by Nearest-Neighbor Corridor Routing)
+            $originLat = (float)($batchDeliveries[0]['kitchen_lat'] ?? 21.1195);
+            $originLng = (float)($batchDeliveries[0]['kitchen_lng'] ?? 73.1142);
+            $sequencedDeliveries = $this->optimizeDeliverySequence($originLat, $originLng, $batchDeliveries);
+
             $upSubStmt = $this->db->prepare("UPDATE subscription_deliveries SET run_id = :run_id, stop_number = :seq WHERE id = :id");
 
-            foreach ($batchDeliveries as $deliv) {
+            foreach ($sequencedDeliveries as $deliv) {
                 $otp = sprintf('%04d', rand(1000, 9999));
                 $currSeq = $stopSequence++;
 
@@ -136,7 +140,7 @@ class DeliveryRun extends Model {
                     'lat'       => $deliv['drop_lat'],
                     'lng'       => $deliv['drop_lng'],
                     'count'     => 1,
-                    'notes'     => $deliv['special_instructions'] ?: 'Hand over fresh tiffin and collect clean empty container',
+                    'notes'     => $deliv['special_instructions'] ?: 'Hand over fresh tiffin at doorstep',
                     'otp'       => $otp
                 ]);
 
@@ -146,6 +150,26 @@ class DeliveryRun extends Model {
                     'seq'    => $currSeq,
                     'id'     => $deliv['delivery_id']
                 ]);
+
+                // Ensure an order is created for tracking and invoicing
+                $chkOrder = $this->db->prepare("SELECT id FROM orders WHERE subscription_delivery_id = ?");
+                $chkOrder->execute([$deliv['delivery_id']]);
+                if (!$chkOrder->fetch()) {
+                    $orderNum = 'TFN-' . date('Ymd', strtotime($date)) . '-' . strtoupper(substr(md5((string)$deliv['delivery_id']), 0, 5));
+                    $insOrder = $this->db->prepare("INSERT INTO orders 
+                        (order_number, customer_id, kitchen_id, address_id, delivery_latitude, delivery_longitude, total_amount, payment_method, payment_status, order_status, dispatch_status, order_type, subscription_delivery_id, special_instructions, created_at, updated_at)
+                        VALUES (?, ?, ?, ?, ?, ?, 0.00, 'cod', 'completed', 'preparing', 'none', 'tiffin', ?, ?, NOW(), NOW())");
+                    $insOrder->execute([
+                        $orderNum,
+                        $deliv['customer_id'],
+                        $deliv['kitchen_id'],
+                        $deliv['address_id'],
+                        $deliv['drop_lat'],
+                        $deliv['drop_lng'],
+                        $deliv['delivery_id'],
+                        $deliv['special_instructions'] ?: 'Tiffin Delivery'
+                    ]);
+                }
             }
         }
 
@@ -230,7 +254,16 @@ class DeliveryRun extends Model {
                 SET delivery_partner_id = :dp_id, status = 'assigned' 
                 WHERE id = :id AND status = 'draft'";
         $stmt = $this->db->prepare($sql);
-        return $stmt->execute(['dp_id' => $partnerId, 'id' => $runId]);
+        $res = $stmt->execute(['dp_id' => $partnerId, 'id' => $runId]);
+        if ($res) {
+            // Assign delivery_partner_id to all linked orders in this run
+            $ordStmt = $this->db->prepare("UPDATE orders o
+                                           JOIN delivery_run_stops drs ON drs.subscription_delivery_id = o.subscription_delivery_id
+                                           SET o.delivery_partner_id = :dp_id, o.dispatch_status = 'assigned'
+                                           WHERE drs.run_id = :run_id");
+            $ordStmt->execute(['dp_id' => $partnerId, 'run_id' => $runId]);
+        }
+        return $res;
     }
 
     /**
@@ -247,7 +280,7 @@ class DeliveryRun extends Model {
     /**
      * Complete a single stop (kitchen pickup or customer drop-off)
      */
-    public function completeStop(int $runId, int $stopId, ?string $submittedOtp = null, bool $containerReturned = false): array {
+    public function completeStop(int $runId, int $stopId, ?string $submittedOtp = null): array {
         $stopStmt = $this->db->prepare("SELECT * FROM delivery_run_stops WHERE id = :id AND run_id = :run_id LIMIT 1");
         $stopStmt->execute(['id' => $stopId, 'run_id' => $runId]);
         $stop = $stopStmt->fetch(PDO::FETCH_ASSOC);
@@ -260,29 +293,48 @@ class DeliveryRun extends Model {
             return ['success' => true, 'message' => 'Stop already completed.'];
         }
 
-        // If it's a dropoff stop and OTP is required, verify OTP
-        if ($stop['stop_type'] === 'dropoff' && !empty($stop['delivery_otp'])) {
-            if (empty($submittedOtp) || trim($submittedOtp) !== trim($stop['delivery_otp'])) {
-                return ['success' => false, 'message' => 'Invalid delivery OTP entered. Please ask the customer for their 4-digit code.'];
-            }
-        }
+        // Daily tiffin drop-offs are verified by contactless doorstep delivery (No OTP required)
 
         // Mark stop completed
         $upSql = "UPDATE delivery_run_stops 
                   SET status = 'completed', 
-                      container_returned = :ret, 
                       completed_at = NOW() 
                   WHERE id = :id";
         $upStmt = $this->db->prepare($upSql);
         $upStmt->execute([
-            'ret' => $containerReturned ? 1 : 0,
             'id'  => $stopId
         ]);
 
-        // If dropoff, update subscription_deliveries record to delivered
+        // When Stop 1 (Kitchen Pickup) is confirmed completed, transition linked tiffins to 'dispatched' / 'out_for_delivery'
+        if ($stop['stop_type'] === 'pickup') {
+            $runData = $this->db->query("SELECT delivery_partner_id FROM {$this->table} WHERE id = $runId")->fetch(PDO::FETCH_ASSOC);
+            $partnerId = $runData['delivery_partner_id'] ?? null;
+
+            $this->db->prepare("UPDATE subscription_deliveries sd
+                                JOIN delivery_run_stops drs ON drs.subscription_delivery_id = sd.id
+                                SET sd.status = 'dispatched'
+                                WHERE drs.run_id = :run_id AND drs.stop_type = 'dropoff' AND sd.status = 'pending'")
+                     ->execute(['run_id' => $runId]);
+
+            if ($partnerId) {
+                $this->db->prepare("UPDATE orders o
+                                    JOIN delivery_run_stops drs ON drs.subscription_delivery_id = o.subscription_delivery_id
+                                    SET o.order_status = 'out_for_delivery',
+                                        o.dispatch_status = 'assigned',
+                                        o.delivery_partner_id = :partner_id
+                                    WHERE drs.run_id = :run_id AND o.order_status = 'preparing'")
+                         ->execute(['run_id' => $runId, 'partner_id' => $partnerId]);
+            }
+        }
+
+        // If dropoff, update subscription_deliveries and orders record to delivered
         if ($stop['stop_type'] === 'dropoff' && !empty($stop['subscription_delivery_id'])) {
+            $subId = (int)$stop['subscription_delivery_id'];
             $sdStmt = $this->db->prepare("UPDATE subscription_deliveries SET status = 'delivered' WHERE id = :id");
-            $sdStmt->execute(['id' => $stop['subscription_delivery_id']]);
+            $sdStmt->execute(['id' => $subId]);
+
+            $ordStmt = $this->db->prepare("UPDATE orders SET order_status = 'delivered', dispatch_status = 'assigned' WHERE subscription_delivery_id = :id");
+            $ordStmt->execute(['id' => $subId]);
         }
 
         // Check if all stops in this run are now completed
@@ -320,7 +372,7 @@ class DeliveryRun extends Model {
      */
     public function getCustomerTrackingInfo(int $subscriptionDeliveryId): ?array {
         $sql = "SELECT s.id as stop_id, s.run_id, s.stop_sequence as my_stop_sequence, s.status as my_stop_status,
-                       s.delivery_otp, s.container_returned, s.completed_at,
+                       s.delivery_otp, s.completed_at,
                        dr.run_code, dr.meal_type, dr.status as run_status, dr.total_orders,
                        sd.delivery_date, sd.delivery_time, sd.status as delivery_status,
                        u.full_name as customer_name,
@@ -378,4 +430,114 @@ class DeliveryRun extends Model {
 
         return $info;
     }
+
+    /**
+     * Get batch delivery runs involving a specific kitchen on a given date
+     * Includes intelligent fallback to recent active runs so presentation data never disappears when the date advances.
+     */
+    public function getRunsForKitchen(int $kitchenId, ?string $date = null): array {
+        $targetDate = $date ?? date('Y-m-d');
+        $sql = "SELECT dr.*, drs.items_count as kitchen_items_count, drs.status as pickup_status,
+                       du.full_name as rider_name, du.phone as rider_phone
+                FROM delivery_runs dr
+                JOIN delivery_run_stops drs ON drs.run_id = dr.id AND drs.stop_type = 'pickup' AND drs.target_id = :k_id
+                LEFT JOIN delivery_partners dp ON dr.delivery_partner_id = dp.id
+                LEFT JOIN delivery_users du ON dp.user_id = du.id
+                WHERE dr.delivery_date = :deliv_date
+                ORDER BY FIELD(dr.meal_type, 'breakfast', 'lunch', 'dinner'), dr.id ASC";
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute([
+            'k_id'       => $kitchenId,
+            'deliv_date' => $targetDate
+        ]);
+        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Fallback: If no runs match this exact calendar day (e.g. date advanced),
+        // fetch the kitchen's latest active/recent runs so the UI never disappears!
+        if (empty($results)) {
+            $latestDateSql = "SELECT dr.delivery_date 
+                              FROM delivery_runs dr
+                              JOIN delivery_run_stops drs ON drs.run_id = dr.id AND drs.stop_type = 'pickup' AND drs.target_id = :k_id
+                              ORDER BY dr.delivery_date DESC 
+                              LIMIT 1";
+            $ldStmt = $this->db->prepare($latestDateSql);
+            $ldStmt->execute(['k_id' => $kitchenId]);
+            $latestDate = $ldStmt->fetchColumn();
+
+            if ($latestDate) {
+                $fbSql = "SELECT dr.*, drs.items_count as kitchen_items_count, drs.status as pickup_status,
+                                 du.full_name as rider_name, du.phone as rider_phone
+                          FROM delivery_runs dr
+                          JOIN delivery_run_stops drs ON drs.run_id = dr.id AND drs.stop_type = 'pickup' AND drs.target_id = :k_id
+                          LEFT JOIN delivery_partners dp ON dr.delivery_partner_id = dp.id
+                          LEFT JOIN delivery_users du ON dp.user_id = du.id
+                          WHERE dr.delivery_date = :latest_date
+                          ORDER BY FIELD(dr.meal_type, 'breakfast', 'lunch', 'dinner'), dr.id ASC";
+                $fbStmt = $this->db->prepare($fbSql);
+                $fbStmt->execute(['k_id' => $kitchenId, 'latest_date' => $latestDate]);
+                $results = $fbStmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Nearest-Neighbor Traveling Salesperson (TSP) Corridor Route Optimizer
+     * Orders stops so each next stop is the closest neighbor in the direction of travel
+     */
+    public function optimizeDeliverySequence(float $startLat, float $startLng, array $deliveries): array {
+        if (empty($deliveries)) return [];
+
+        $optimized = [];
+        $currentLat = $startLat;
+        $currentLng = $startLng;
+        $unvisited = array_values($deliveries);
+
+        while (!empty($unvisited)) {
+            $bestIndex = 0;
+            $minDist = PHP_FLOAT_MAX;
+
+            foreach ($unvisited as $idx => $candidate) {
+                $cLat = (float)($candidate['drop_lat'] ?? $candidate['latitude'] ?? 0);
+                $cLng = (float)($candidate['drop_lng'] ?? $candidate['longitude'] ?? 0);
+
+                if ($cLat == 0 && $cLng == 0) {
+                    $dist = 999.0;
+                } else {
+                    $dist = $this->calculateHaversineDistance($currentLat, $currentLng, $cLat, $cLng);
+                }
+
+                if ($dist < $minDist) {
+                    $minDist = $dist;
+                    $bestIndex = $idx;
+                }
+            }
+
+            $chosen = $unvisited[$bestIndex];
+            $optimized[] = $chosen;
+            $currentLat = (float)($chosen['drop_lat'] ?? $chosen['latitude'] ?? $currentLat);
+            $currentLng = (float)($chosen['drop_lng'] ?? $chosen['longitude'] ?? $currentLng);
+
+            unset($unvisited[$bestIndex]);
+            $unvisited = array_values($unvisited);
+        }
+
+        return $optimized;
+    }
+
+    /**
+     * Calculate Haversine distance in kilometers
+     */
+    public function calculateHaversineDistance(float $lat1, float $lon1, float $lat2, float $lon2): float {
+        $earthRadius = 6371; // km
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+        $a = sin($dLat / 2) * sin($dLat / 2) +
+             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+             sin($dLon / 2) * sin($dLon / 2);
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+        return $earthRadius * $c;
+    }
 }
+

@@ -51,42 +51,62 @@
                             </form>
 
                         <?php elseif ($order['delivery_status'] === 'out_for_delivery'): ?>
-                            <p class="text-muted">You are at the customer location. Ask them for the 4-digit Delivery OTP.</p>
+                            <?php $isTiffin = (($order['order_type'] ?? 'standard') === 'tiffin'); ?>
                             
-                            <?php if ($order['payment_method'] === 'cod' && $order['payment_status'] !== 'completed'): ?>
-                                <div class="card border-warning bg-warning bg-opacity-10 mb-3 mx-auto text-start shadow-sm" style="max-width: 360px;">
-                                    <div class="card-body p-3">
-                                        <div class="d-flex align-items-center justify-content-between mb-2">
-                                            <span class="badge bg-warning text-dark fw-bold"><i class="bi bi-cash-stack me-1"></i> Cash Pending</span>
-                                            <span class="fw-bold text-dark fs-5"><?= format_currency($order['total_amount']) ?></span>
-                                        </div>
-                                        <p class="small text-muted mb-2">Customer wants to pay full or split via UPI QR?</p>
-                                        <button type="button" class="btn btn-dark btn-sm w-100 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#doorstepUpiModal">
-                                            <i class="bi bi-qr-code-scan me-1 text-warning"></i> Show Customer UPI QR (Full or Split)
-                                        </button>
+                            <?php if ($isTiffin): ?>
+                                <div class="alert alert-success border-0 shadow-sm mb-3 mx-auto text-start" style="max-width: 380px;">
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <i class="bi bi-box2-heart-fill text-success fs-4"></i>
+                                        <h6 class="fw-bold mb-0 text-success">Daily Tiffin Subscription Drop-Off</h6>
                                     </div>
+                                    <p class="small text-muted mb-0">Contactless delivery enabled. Leave tiffin at doorstep/reception or handover directly. <strong>No OTP required!</strong></p>
                                 </div>
-                            <?php elseif ($order['payment_method'] === 'split' && $order['payment_status'] === 'completed'): ?>
-                                <div class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill mb-3">
-                                    <i class="bi bi-pie-chart-fill me-1"></i> Split Payment Settled (Cash: <?= format_currency($order['paid_cash_amount']) ?> + UPI: <?= format_currency($order['paid_online_amount']) ?>)
-                                </div>
-                            <?php elseif ($order['payment_method'] === 'upi' || $order['payment_status'] === 'completed'): ?>
-                                <div class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill mb-3">
-                                    <i class="bi bi-check-circle-fill me-1"></i> Payment Completed (<?= strtoupper($order['payment_method']) ?>) — No Cash Needed
-                                </div>
-                            <?php endif; ?>
 
-                            <form action="<?= url('/delivery/order/' . $order['id'] . '/complete') ?>" method="POST" class="mx-auto" style="max-width: 300px;" data-once>
-                                <?= csrf_field() ?>
-                                <div class="mb-3">
-                                    <input type="text" class="form-control form-control-lg text-center fw-bold fs-4" 
-                                           name="delivery_otp" placeholder="Enter OTP" 
-                                           maxlength="4" pattern="[0-9]{4}" required autocomplete="off">
-                                </div>
-                                <button type="submit" class="btn btn-success w-100 btn-lg fw-bold shadow-sm" data-loading-text="Verifying OTP...">
-                                    <i class="bi bi-check2-circle me-2"></i> Verify & Complete
-                                </button>
-                            </form>
+                                <form action="<?= url('/delivery/order/' . $order['id'] . '/complete') ?>" method="POST" class="mx-auto" style="max-width: 320px;" data-once>
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="delivery_otp" value="TIFFIN">
+                                    <button type="submit" class="btn btn-success w-100 btn-lg fw-bold shadow-sm" data-loading-text="Completing...">
+                                        <i class="bi bi-check2-circle me-2"></i> Confirm Tiffin Delivered
+                                    </button>
+                                </form>
+                            <?php else: ?>
+                                <p class="text-muted">You are at the customer location. Ask them for the 4-digit Delivery OTP.</p>
+                                
+                                <?php if ($order['payment_method'] === 'cod' && $order['payment_status'] !== 'completed'): ?>
+                                    <div class="card border-warning bg-warning bg-opacity-10 mb-3 mx-auto text-start shadow-sm" style="max-width: 360px;">
+                                        <div class="card-body p-3">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <span class="badge bg-warning text-dark fw-bold"><i class="bi bi-cash-stack me-1"></i> Cash Pending</span>
+                                                <span class="fw-bold text-dark fs-5"><?= format_currency($order['total_amount']) ?></span>
+                                            </div>
+                                            <p class="small text-muted mb-2">Customer wants to pay full or split via UPI QR?</p>
+                                            <button type="button" class="btn btn-dark btn-sm w-100 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#doorstepUpiModal">
+                                                <i class="bi bi-qr-code-scan me-1 text-warning"></i> Show Customer UPI QR (Full or Split)
+                                            </button>
+                                        </div>
+                                    </div>
+                                <?php elseif ($order['payment_method'] === 'split' && $order['payment_status'] === 'completed'): ?>
+                                    <div class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill mb-3">
+                                        <i class="bi bi-pie-chart-fill me-1"></i> Split Payment Settled (Cash: <?= format_currency($order['paid_cash_amount']) ?> + UPI: <?= format_currency($order['paid_online_amount']) ?>)
+                                    </div>
+                                <?php elseif ($order['payment_method'] === 'upi' || $order['payment_status'] === 'completed'): ?>
+                                    <div class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill mb-3">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Payment Completed (<?= strtoupper($order['payment_method']) ?>) — No Cash Needed
+                                    </div>
+                                <?php endif; ?>
+
+                                <form action="<?= url('/delivery/order/' . $order['id'] . '/complete') ?>" method="POST" class="mx-auto" style="max-width: 300px;" data-once>
+                                    <?= csrf_field() ?>
+                                    <div class="mb-3">
+                                        <input type="text" class="form-control form-control-lg text-center fw-bold fs-4" 
+                                               name="delivery_otp" placeholder="Enter OTP" 
+                                               maxlength="4" pattern="[0-9]{4}" required autocomplete="off">
+                                    </div>
+                                    <button type="submit" class="btn btn-success w-100 btn-lg fw-bold shadow-sm" data-loading-text="Verifying OTP...">
+                                        <i class="bi bi-check2-circle me-2"></i> Verify & Complete
+                                    </button>
+                                </form>
+                            <?php endif; ?>
 
                             <hr class="my-4">
                             

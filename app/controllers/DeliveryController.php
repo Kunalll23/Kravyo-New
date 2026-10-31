@@ -112,6 +112,17 @@ class DeliveryController extends Controller {
         $fullName  = sanitize(trim($_POST['full_name'] ?? ''));
         $email     = strtolower(trim($_POST['email'] ?? ''));
         $phone     = sanitize(trim($_POST['phone'] ?? ''));
+        $rawCity   = trim($_POST['city'] ?? '');
+        if ($rawCity === '__other__' || empty($rawCity)) {
+            $rawCity = trim($_POST['other_city'] ?? '');
+        }
+        $city = sanitize($rawCity);
+        if (strcasecmp($city, 'bengaluru') === 0 || strcasecmp($city, 'bangalore (bengaluru)') === 0) {
+            $city = 'Bangalore';
+        }
+        if (empty($city)) {
+            $city = 'Surat';
+        }
         $password  = $_POST['password'] ?? '';
         $confirmPassword = $_POST['confirm_password'] ?? '';
         $vehicleType    = sanitize(trim($_POST['vehicle_type'] ?? 'scooter'));
@@ -171,41 +182,90 @@ class DeliveryController extends Controller {
             $vehicleType = 'scooter';
         }
 
+        // Strict validation for Vehicle Number & Driving License
+        $normVehicle = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $vehicleNumber));
+        $normLicense = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $licenseNumber));
+
+        if ($vehicleType === 'bicycle') {
+            $vehicleNumber = 'N/A';
+            $isAadhaar = (strlen($normLicense) === 12 && ctype_digit($normLicense));
+            $isNA      = in_array($normLicense, ['NA', 'NOTAPPLICABLE', 'NONE']);
+            if (!$isAadhaar && !$isNA) {
+                Session::setFlash('danger', 'For bicycles, please enter "N/A" or a valid 12-digit Aadhaar number for Driving License.');
+                $this->redirect('/delivery/register');
+                return;
+            }
+            if ($isNA) {
+                $licenseNumber = 'N/A';
+            }
+        } else {
+            // Standard Indian vehicle registration format (e.g. GJ05AB1234 or Bharat series 22BH1234AA)
+            $vehiclePattern = '/^([A-Z]{2}[0-9]{1,2}[A-Z]{1,3}[0-9]{1,4}|[0-9]{2}BH[0-9]{4}[A-Z]{1,2})$/';
+            if (!preg_match($vehiclePattern, $normVehicle)) {
+                Session::setFlash('danger', 'Invalid Vehicle Number format. Please enter a valid Indian vehicle number (e.g., GJ 05 AB 1234 or MH01AB1234).');
+                $this->redirect('/delivery/register');
+                return;
+            }
+
+            // Standard Indian Driving License format: State(2) + RTO(2) + Year(4) + Number(4-7), or legacy (13-16 chars)
+            $licensePattern = '/^([A-Z]{2}[0-9]{2}(?:19|20)[0-9]{2}[0-9]{4,7}|[A-Z]{2}[0-9]{11,14})$/';
+            if (!preg_match($licensePattern, $normLicense)) {
+                Session::setFlash('danger', 'Invalid Driving License format. Please enter a valid Indian Driving License number (e.g., GJ0520200012345 or DL-04-2018-0001234).');
+                $this->redirect('/delivery/register');
+                return;
+            }
+        }
+
         try {
-            $db = Database::getInstance();
-            $db->beginTransaction();
+            require_once APP_PATH . '/models/EmailVerification.php';
+            $emailVerModel = new EmailVerification();
 
-            // Create user record
-            $sql = "INSERT INTO delivery_users (full_name, email, phone, password_hash, role, status)
-                    VALUES (:full_name, :email, :phone, :password_hash, 'delivery', 'active')";
-            $stmt = $db->prepare($sql);
-            $stmt->execute([
-                'full_name'     => $fullName,
-                'email'         => $email,
-                'phone'         => $phone,
-                'password_hash' => password_hash($password, PASSWORD_DEFAULT),
-            ]);
-            $userId = (int) $db->lastInsertId();
+            $passwordHash = password_hash($password, PASSWORD_DEFAULT);
 
-            // Create delivery partner profile
-            $this->partnerModel->create([
-                'user_id'                => $userId,
+            $userData = [
+                'full_name'              => $fullName,
+                'email'                  => $email,
+                'phone'                  => $phone,
+                'city'                   => $city,
+                'password_hash'          => $passwordHash,
+                'role'                   => ROLE_DELIVERY,
                 'vehicle_type'           => $vehicleType,
                 'vehicle_number'         => $vehicleNumber,
                 'driving_license_number' => $licenseNumber,
-                'verification_status'    => DELIVERY_VERIFICATION_PENDING,
-                'is_online'              => 0,
-            ]);
+            ];
 
-            $db->commit();
+            // Generate OTP
+            $plainOtp = $emailVerModel->generateOtp();
 
-            Session::setFlash('success', '✅ Registration successful! Your account is <strong>pending verification</strong>. An admin will review and approve your profile.');
-            $this->redirect('/delivery/login');
+            // Store in pending_registrations table
+            $emailVerModel->storePendingRegistration($userData, $plainOtp);
+
+            // Send verification email
+            $emailSent = $emailVerModel->sendVerificationEmail(
+                $email,
+                $fullName,
+                $plainOtp
+            );
+
+            // Store pending email in session and root cookie for verify-email screen
+            Session::set('_pending_verification_email', $email);
+            setcookie('kravyo_pending_email', $email, time() + 3600, '/', '', false, true);
+
+            if ($emailSent) {
+                $masked = substr($email, 0, 2) . '***@' . explode('@', $email)[1];
+                Session::setFlash('success',
+                    'OTP is sent to your email (' . sanitize($masked) . '). Please check your inbox.'
+                );
+            } else {
+                Session::setFlash('warning',
+                    'Could not send verification email. Your test OTP is: <strong>' . $plainOtp . '</strong>'
+                );
+            }
+
+            $this->redirect('/verify-email');
+            return;
 
         } catch (\Exception $e) {
-            if (isset($db) && $db->inTransaction()) {
-                $db->rollBack();
-            }
             error_log('[Kravyo Delivery] Registration error: ' . $e->getMessage());
             Session::setFlash('danger', 'An error occurred during registration. Please try again.');
             $this->redirect('/delivery/register');
@@ -434,14 +494,33 @@ class DeliveryController extends Controller {
         
         $claimed = $dispatchService->claim($orderId, $partnerId);
         
+        $redirectUrl = '/delivery/dashboard';
+        $order = (new Order())->find($orderId);
+        if ($order && !empty($order['order_number']) && str_starts_with($order['order_number'], 'RUN-')) {
+            $runCode = substr($order['order_number'], 4);
+            $db = Database::getInstance();
+            $stmt = $db->prepare("SELECT id FROM delivery_runs WHERE run_code = ? LIMIT 1");
+            $stmt->execute([$runCode]);
+            $runId = $stmt->fetchColumn();
+            if ($runId) {
+                $redirectUrl = '/delivery/run/' . $runId;
+            }
+        }
+
         if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
             header('Content-Type: application/json');
-            echo json_encode(['success' => $claimed, 'message' => $claimed ? 'Accepted!' : 'Taken by another rider']);
+            echo json_encode([
+                'success' => $claimed, 
+                'message' => $claimed ? 'Accepted!' : 'Taken by another rider',
+                'redirect_url' => url($redirectUrl)
+            ]);
             exit;
         }
 
         if ($claimed) {
-            Session::setFlash('success', 'Order accepted successfully!');
+            Session::setFlash('success', 'Batch run accepted! Review your sequential customer stops.');
+            $this->redirect($redirectUrl);
+            return;
         } else {
             Session::setFlash('danger', 'Taken by another rider.');
         }
@@ -486,6 +565,19 @@ class DeliveryController extends Controller {
             Session::setFlash('danger', 'Order not found or not assigned to you.');
             $this->redirect('/delivery/dashboard');
             return;
+        }
+
+        // Redirect tiffin batch milk-run orders directly to the sequential waypoint manifest!
+        if (!empty($order['order_number']) && str_starts_with($order['order_number'], 'RUN-')) {
+            $runCode = substr($order['order_number'], 4);
+            $db = Database::getInstance();
+            $stmt = $db->prepare("SELECT id FROM delivery_runs WHERE run_code = ? LIMIT 1");
+            $stmt->execute([$runCode]);
+            $runId = $stmt->fetchColumn();
+            if ($runId) {
+                $this->redirect('/delivery/run/' . $runId);
+                return;
+            }
         }
 
         require_once APP_PATH . '/models/OrderItem.php';
@@ -590,6 +682,13 @@ class DeliveryController extends Controller {
 
         $this->orderModel->updateDeliveryStatus($orderId, DELIVERY_STATUS_OUT_FOR_DELIVERY, ORDER_STATUS_OUT_FOR_DELIVERY);
 
+        // If grouped tiffin milk-run order, update delivery_runs to in_progress
+        if (!empty($order['order_number']) && str_starts_with($order['order_number'], 'RUN-')) {
+            $runCode = substr($order['order_number'], 4);
+            $db = Database::getInstance();
+            $db->prepare("UPDATE delivery_runs SET status = 'in_progress', started_at = NOW() WHERE run_code = ?")->execute([$runCode]);
+        }
+
         // Notify customer
         try {
             require_once APP_PATH . '/models/Notification.php';
@@ -658,9 +757,13 @@ class DeliveryController extends Controller {
                 return 'not_out_for_delivery';
             }
 
-            // Verify OTP against locked row
-            if (empty($submittedOtp) || (string)$lockedOrder['delivery_otp'] !== (string)$submittedOtp) {
-                return 'invalid_otp';
+            $isTiffin = (($lockedOrder['order_type'] ?? 'standard') === 'tiffin');
+
+            // Verify OTP against locked row (Bypassed for recurring daily tiffins)
+            if (!$isTiffin) {
+                if (empty($submittedOtp) || (string)$lockedOrder['delivery_otp'] !== (string)$submittedOtp) {
+                    return 'invalid_otp';
+                }
             }
 
             // Mark as delivered
@@ -676,10 +779,25 @@ class DeliveryController extends Controller {
             $this->partnerModel->setIsBusy($partnerId, 0);
 
             // Complete Tiffin Delivery if applicable
-            if (($lockedOrder['order_type'] ?? 'standard') === 'tiffin' && !empty($lockedOrder['subscription_delivery_id'])) {
+            if (($lockedOrder['order_type'] ?? 'standard') === 'tiffin') {
                 require_once APP_PATH . '/models/SubscriptionDelivery.php';
                 $sdModel = new SubscriptionDelivery();
-                $sdModel->updateStatus((int)$lockedOrder['subscription_delivery_id'], 'delivered', (int)$lockedOrder['kitchen_id']);
+
+                // If this is a grouped tiffin milk-run order (RUN-TR-...)
+                if (!empty($lockedOrder['order_number']) && str_starts_with($lockedOrder['order_number'], 'RUN-')) {
+                    $runCode = substr($lockedOrder['order_number'], 4);
+                    $runStmt = $db->prepare("SELECT id FROM delivery_runs WHERE run_code = ? LIMIT 1");
+                    $runStmt->execute([$runCode]);
+                    $runRow = $runStmt->fetch();
+                    if ($runRow) {
+                        $rId = (int)$runRow['id'];
+                        $db->prepare("UPDATE delivery_runs SET status = 'completed', completed_at = NOW() WHERE id = ?")->execute([$rId]);
+                        $db->prepare("UPDATE delivery_run_stops SET status = 'completed', completed_at = NOW() WHERE run_id = ?")->execute([$rId]);
+                        $db->prepare("UPDATE subscription_deliveries SET status = 'delivered' WHERE run_id = ?")->execute([$rId]);
+                    }
+                } elseif (!empty($lockedOrder['subscription_delivery_id'])) {
+                    $sdModel->updateStatus((int)$lockedOrder['subscription_delivery_id'], 'delivered', (int)$lockedOrder['kitchen_id']);
+                }
             }
 
             $order = $lockedOrder;
@@ -1135,9 +1253,8 @@ class DeliveryController extends Controller {
         $partnerId = (int) Session::get('delivery_partner_id');
 
         $otp       = trim($_POST['delivery_otp'] ?? '');
-        $container = !empty($_POST['container_returned']);
 
-        $result = $runModel->completeStop($rId, $sId, $otp, $container);
+        $result = $runModel->completeStop($rId, $sId, $otp);
 
         if ($result['success']) {
             if (!empty($result['run_completed'])) {

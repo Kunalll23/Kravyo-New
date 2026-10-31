@@ -82,7 +82,7 @@ $_footerCtx = Session::currentContext();
                 <?php else: // Customer ?>
                     <h6 class="text-white fw-bold mb-3">For Home Chefs</h6>
                     <ul class="list-unstyled small">
-                        <li class="mb-2"><a href="<?= url('/register') ?>">Partner with Us</a></li>
+                        <li class="mb-2"><a href="<?= url('/register?role=chef') ?>">Partner with Us</a></li>
                         <li class="mb-2"><a href="<?= url('/chef/login') ?>" target="_blank">Chef Portal Login</a></li>
                         <li class="mb-2"><a href="<?= url('/about') ?>">About Kravyo</a></li>
                     </ul>

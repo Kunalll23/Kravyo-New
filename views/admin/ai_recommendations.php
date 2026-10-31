@@ -223,11 +223,16 @@
                 <?= csrf_field() ?>
                 <div class="col-md-5">
                     <label class="form-label fw-semibold">Customer ID</label>
-                    <input type="number" class="form-control" name="test_user_id" min="1"
-                           placeholder="e.g. 5"
+                    <input type="number" class="form-control" name="test_user_id" id="test_user_id" min="1"
+                           placeholder="e.g. 1"
                            value="<?= isset($testUserId) ? (int)$testUserId : '' ?>"
                            required <?= !$aiOnline ? 'disabled' : '' ?>>
-                    <small class="text-muted">Enter a valid customer user ID from the database</small>
+                    <div class="mt-1 d-flex flex-wrap gap-1 align-items-center" style="font-size: 0.75rem;">
+                        <span class="text-muted">Quick Pick:</span>
+                        <a href="javascript:void(0)" onclick="document.getElementById('test_user_id').value='1'" class="badge bg-light text-primary border text-decoration-none">Neha Singh (ID: 1)</a>
+                        <a href="javascript:void(0)" onclick="document.getElementById('test_user_id').value='55'" class="badge bg-light text-primary border text-decoration-none">Kunalll (ID: 55)</a>
+                        <a href="javascript:void(0)" onclick="document.getElementById('test_user_id').value='47'" class="badge bg-light text-primary border text-decoration-none">Amit Kumar (ID: 47)</a>
+                    </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label fw-semibold">Limit</label>

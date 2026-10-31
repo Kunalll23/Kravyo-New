@@ -23,13 +23,17 @@ abstract class Controller {
     }
 
     /**
-     * Redirect to relative URL
+     * Redirect to relative URL or absolute URL
      */
     protected function redirect(string $url): void {
         if (session_status() === PHP_SESSION_ACTIVE) {
             session_write_close();
         }
-        header("Location: " . APP_URL . $url);
+        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            header("Location: " . $url);
+        } else {
+            header("Location: " . APP_URL . '/' . ltrim($url, '/'));
+        }
         exit;
     }
 }

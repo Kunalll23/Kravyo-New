@@ -23,8 +23,8 @@ DROP TABLE IF EXISTS `addresses`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `addresses` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) NOT NULL,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `user_id` int(5) NOT NULL,
   `address_type` enum('Home','Work','Other') DEFAULT 'Home',
   `apartment` varchar(150) DEFAULT NULL,
   `street_address` text NOT NULL,
@@ -60,7 +60,7 @@ DROP TABLE IF EXISTS `admins`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `admins` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
   `full_name` varchar(50) NOT NULL,
   `email` varchar(50) NOT NULL,
   `phone` char(10) NOT NULL,
@@ -102,7 +102,7 @@ DROP TABLE IF EXISTS `categories`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `categories` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
   `category_name` varchar(50) NOT NULL,
   `description` varchar(255) DEFAULT NULL,
   `image` varchar(255) DEFAULT NULL,
@@ -130,7 +130,7 @@ DROP TABLE IF EXISTS `chefs`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `chefs` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
   `full_name` varchar(50) NOT NULL,
   `email` varchar(50) NOT NULL,
   `phone` char(10) NOT NULL,
@@ -174,12 +174,12 @@ DROP TABLE IF EXISTS `customer_reports`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `customer_reports` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `customer_id` int(11) NOT NULL,
-  `kitchen_id` int(11) NOT NULL,
-  `order_id` int(11) DEFAULT NULL,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `customer_id` int(5) NOT NULL,
+  `kitchen_id` int(5) NOT NULL,
+  `order_id` int(5) DEFAULT NULL,
   `target_type` enum('kitchen','dish','delivery') NOT NULL,
-  `target_id` int(11) DEFAULT NULL,
+  `target_id` int(5) DEFAULT NULL,
   `reason` varchar(100) NOT NULL,
   `description` text NOT NULL,
   `status` enum('pending','reviewed','resolved') DEFAULT 'pending',
@@ -219,11 +219,11 @@ DROP TABLE IF EXISTS `customer_subscriptions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `customer_subscriptions` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `customer_id` int(11) NOT NULL,
-  `subscription_plan_id` int(11) NOT NULL,
-  `kitchen_id` int(11) NOT NULL,
-  `address_id` int(11) NOT NULL,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `customer_id` int(5) NOT NULL,
+  `subscription_plan_id` int(5) NOT NULL,
+  `kitchen_id` int(5) NOT NULL,
+  `address_id` int(5) NOT NULL,
   `start_date` date NOT NULL,
   `end_date` date NOT NULL,
   `status` enum('pending','active','paused','cancelled','completed') DEFAULT 'pending',
@@ -265,7 +265,7 @@ DROP TABLE IF EXISTS `customers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `customers` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
   `full_name` varchar(50) NOT NULL,
   `email` varchar(50) NOT NULL,
   `phone` char(10) NOT NULL,
@@ -309,9 +309,9 @@ DROP TABLE IF EXISTS `delivery_offers`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `delivery_offers` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `order_id` int(11) NOT NULL,
-  `delivery_partner_id` int(11) NOT NULL,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `order_id` int(5) NOT NULL,
+  `delivery_partner_id` int(5) NOT NULL,
   `round` tinyint(4) NOT NULL DEFAULT 1,
   `offer_type` enum('cascade','broadcast','batch') NOT NULL DEFAULT 'cascade',
   `status` enum('pending','accepted','declined','lost','expired','cancelled') NOT NULL DEFAULT 'pending',
@@ -343,8 +343,8 @@ DROP TABLE IF EXISTS `delivery_partners`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `delivery_partners` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) NOT NULL,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `user_id` int(5) NOT NULL,
   `vehicle_type` enum('bicycle','scooter','motorcycle','car') NOT NULL DEFAULT 'scooter',
   `vehicle_number` varchar(20) NOT NULL,
   `city` varchar(60) NOT NULL DEFAULT 'Surat',
@@ -356,7 +356,7 @@ CREATE TABLE `delivery_partners` (
   `current_latitude` decimal(10,8) DEFAULT NULL,
   `current_longitude` decimal(11,8) DEFAULT NULL,
   `location_updated_at` timestamp NULL DEFAULT NULL,
-  `total_deliveries` int(11) NOT NULL DEFAULT 0,
+  `total_deliveries` int(5) NOT NULL DEFAULT 0,
   `total_earnings` decimal(10,2) NOT NULL DEFAULT 0.00,
   `admin_notes` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -389,7 +389,7 @@ DROP TABLE IF EXISTS `delivery_users`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `delivery_users` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
   `full_name` varchar(50) NOT NULL,
   `email` varchar(50) NOT NULL,
   `phone` char(10) NOT NULL,
@@ -433,8 +433,8 @@ DROP TABLE IF EXISTS `kitchens`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `kitchens` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) NOT NULL,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `user_id` int(5) NOT NULL,
   `kitchen_name` varchar(50) NOT NULL,
   `personal_story` text DEFAULT NULL,
   `address` text NOT NULL,
@@ -477,9 +477,9 @@ DROP TABLE IF EXISTS `menu_items`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `menu_items` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `kitchen_id` int(11) NOT NULL,
-  `category_id` int(11) NOT NULL,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `kitchen_id` int(5) NOT NULL,
+  `category_id` int(5) NOT NULL,
   `item_name` varchar(50) NOT NULL,
   `description` text DEFAULT NULL,
   `price` decimal(6,2) NOT NULL,
@@ -516,8 +516,8 @@ DROP TABLE IF EXISTS `notifications`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `notifications` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `user_id` int(11) DEFAULT NULL COMMENT 'NULL = broadcast to all users',
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `user_id` int(5) DEFAULT NULL COMMENT 'NULL = broadcast to all users',
   `user_type` enum('customer','chef','delivery','admin') NOT NULL,
   `title` varchar(100) NOT NULL,
   `message` varchar(500) NOT NULL,
@@ -549,9 +549,9 @@ DROP TABLE IF EXISTS `order_items`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `order_items` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `order_id` int(11) NOT NULL,
-  `menu_item_id` int(11) NOT NULL,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `order_id` int(5) NOT NULL,
+  `menu_item_id` int(5) NOT NULL,
   `quantity` smallint(5) unsigned NOT NULL,
   `unit_price` decimal(6,2) NOT NULL,
   `subtotal` decimal(8,2) NOT NULL,
@@ -587,13 +587,13 @@ DROP TABLE IF EXISTS `orders`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `orders` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
   `order_number` varchar(30) NOT NULL,
   `order_type` enum('standard','tiffin') NOT NULL DEFAULT 'standard',
-  `subscription_delivery_id` int(11) DEFAULT NULL,
-  `customer_id` int(11) NOT NULL,
-  `kitchen_id` int(11) NOT NULL,
-  `address_id` int(11) NOT NULL,
+  `subscription_delivery_id` int(5) DEFAULT NULL,
+  `customer_id` int(5) NOT NULL,
+  `kitchen_id` int(5) NOT NULL,
+  `address_id` int(5) NOT NULL,
   `delivery_latitude` decimal(10,8) DEFAULT NULL,
   `delivery_longitude` decimal(11,8) DEFAULT NULL,
   `total_amount` decimal(8,2) NOT NULL,
@@ -601,8 +601,8 @@ CREATE TABLE `orders` (
   `payment_status` enum('pending','completed','failed','refunded') DEFAULT 'pending',
   `razorpay_payment_id` varchar(50) DEFAULT NULL,
   `order_status` enum('pending','accepted','preparing','ready_for_pickup','out_for_delivery','delivered','cancelled','delivery_failed') DEFAULT 'pending',
-  `delivery_partner_id` int(11) DEFAULT NULL,
-  `offered_driver_id` int(11) DEFAULT NULL,
+  `delivery_partner_id` int(5) DEFAULT NULL,
+  `offered_driver_id` int(5) DEFAULT NULL,
   `offer_expires_at` datetime DEFAULT NULL,
   `rejected_by_drivers` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`rejected_by_drivers`)),
   `delivery_otp` char(4) DEFAULT NULL,
@@ -683,10 +683,10 @@ DROP TABLE IF EXISTS `reviews`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `reviews` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `order_id` int(11) NOT NULL,
-  `customer_id` int(11) NOT NULL,
-  `kitchen_id` int(11) NOT NULL,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `order_id` int(5) NOT NULL,
+  `customer_id` int(5) NOT NULL,
+  `kitchen_id` int(5) NOT NULL,
   `rating` tinyint(3) unsigned NOT NULL,
   `review_text` varchar(500) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
@@ -718,9 +718,9 @@ DROP TABLE IF EXISTS `subscription_deliveries`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `subscription_deliveries` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `customer_subscription_id` int(11) NOT NULL,
-  `kitchen_id` int(11) NOT NULL,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `customer_subscription_id` int(5) NOT NULL,
+  `kitchen_id` int(5) NOT NULL,
   `delivery_date` date NOT NULL,
   `meal_type` enum('breakfast','lunch','dinner') NOT NULL DEFAULT 'lunch',
   `delivery_time` varchar(50) DEFAULT NULL,
@@ -753,8 +753,8 @@ DROP TABLE IF EXISTS `tiffin_subscriptions`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `tiffin_subscriptions` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `kitchen_id` int(11) NOT NULL,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `kitchen_id` int(5) NOT NULL,
   `plan_name` varchar(50) NOT NULL,
   `plan_type` enum('weekly','monthly') NOT NULL,
   `price` decimal(8,2) NOT NULL,
@@ -789,9 +789,9 @@ DROP TABLE IF EXISTS `zero_waste_items`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;
 CREATE TABLE `zero_waste_items` (
-  `id` int(11) NOT NULL AUTO_INCREMENT,
-  `menu_item_id` int(11) NOT NULL,
-  `kitchen_id` int(11) NOT NULL,
+  `id` int(5) NOT NULL AUTO_INCREMENT,
+  `menu_item_id` int(5) NOT NULL,
+  `kitchen_id` int(5) NOT NULL,
   `original_price` decimal(6,2) NOT NULL,
   `discounted_price` decimal(6,2) NOT NULL,
   `quantity_available` smallint(5) unsigned NOT NULL,

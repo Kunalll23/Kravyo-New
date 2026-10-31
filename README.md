@@ -1,4 +1,4 @@
-# Kravyo — Multi-Tenant Cloud Kitchen & Tiffin Subscription Platform
+# Kravyo: A Cloud Kitchen Platform for Homemakers and Small Food Businesses
 
 **Kravyo** is a production-ready, full-stack cloud kitchen and meal subscription platform designed to empower homemakers, independent home chefs, and micro food entrepreneurs. It enables home chefs to operate authentic, hygienic virtual kitchens without physical restaurant overheads, connected to nearby customers through a smart hybrid delivery dispatch engine.
 

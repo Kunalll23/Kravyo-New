@@ -21,7 +21,7 @@ $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
                     <p class="text-muted mb-0">
                         <i class="bi bi-clock me-1"></i> Placed on <?= date('M d, Y \a\t h:i A', strtotime($order['created_at'])) ?>
                         <span class="mx-2">•</span>
-                        <i class="bi bi-shop me-1"></i> <?= sanitize($order['kitchen_name']) ?>
+                        <i class="bi bi-shop me-1"></i> <?= html_entity_decode(sanitize($order['kitchen_name']), ENT_QUOTES, 'UTF-8') ?>
                     </p>
                 </div>
                 <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
@@ -104,14 +104,24 @@ $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
                     </div>
                 <?php endif; ?>
 
-                <?php if ($order['order_status'] === 'out_for_delivery' && !empty($order['delivery_otp'])): ?>
-                    <div class="alert alert-info border-0 shadow-sm mb-4 d-flex align-items-center">
-                        <i class="bi bi-shield-lock-fill fs-1 me-3 text-info"></i>
-                        <div>
-                            <h5 class="fw-bold mb-1">Delivery OTP: <span class="text-primary fs-3"><?= sanitize($order['delivery_otp']) ?></span></h5>
-                            <p class="mb-0 small text-muted">Share this OTP with your delivery partner to receive your order.</p>
+                <?php if (in_array($order['order_status'], ['preparing', 'ready_for_pickup', 'picked_up', 'out_for_delivery'])): ?>
+                    <?php if (($order['order_type'] ?? 'standard') === 'tiffin'): ?>
+                        <div class="alert alert-success border-0 shadow-sm mb-4 d-flex align-items-center">
+                            <i class="bi bi-box2-heart-fill fs-1 me-3 text-success"></i>
+                            <div>
+                                <h5 class="fw-bold mb-1 text-success">Daily Tiffin Subscription Delivery</h5>
+                                <p class="mb-0 small text-muted">Contactless / doorstep handover enabled. <strong>No OTP required</strong> for your daily meals!</p>
+                            </div>
                         </div>
-                    </div>
+                    <?php elseif (!empty($order['delivery_otp'])): ?>
+                        <div class="alert alert-info border-0 shadow-sm mb-4 d-flex align-items-center">
+                            <i class="bi bi-shield-lock-fill fs-1 me-3 text-info"></i>
+                            <div>
+                                <h5 class="fw-bold mb-1">Delivery OTP: <span class="text-primary fs-3 font-monospace letter-spacing-1"><?= sanitize($order['delivery_otp']) ?></span></h5>
+                                <p class="mb-0 small text-muted">Share this 4-digit OTP with your delivery partner upon delivery.</p>
+                            </div>
+                        </div>
+                    <?php endif; ?>
                 <?php endif; ?>
 
                 <?php if (!empty($order['delivery_partner_id']) && $order['order_status'] === ORDER_STATUS_OUT_FOR_DELIVERY): ?>
@@ -162,55 +172,97 @@ $_existingReview = $_reviewModel->findByOrderId((int) $order['id']);
                     <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#reportModal" data-kitchen-id="<?= $order['kitchen_id'] ?>" data-order-id="<?= $order['id'] ?>" data-target-type="delivery" data-target-id="<?= $order['id'] ?>"><i class="bi bi-flag me-1"></i> Report Delivery Issue</button>
                 </div>
 
-                <!-- Order Items -->
-                <div class="checkout-section">
-                    <h5 class="checkout-section-title">
-                        <i class="bi bi-bag me-2 text-warning"></i>Order Items
-                    </h5>
-
-                    <?php foreach ($orderItems as $item): ?>
-                        <div class="order-track-item d-flex align-items-center gap-3 mb-3">
-                            <div class="order-track-item-img">
-                                <?php if (!empty($item['image'])): ?>
-                                    <img src="<?= UPLOAD_URL . '/dishes/' . $item['image'] ?>"
-                                         alt="<?= sanitize($item['item_name']) ?>">
-                                <?php else: ?>
-                                    <div class="order-track-item-placeholder">
-                                        <i class="bi bi-egg-fried"></i>
-                                    </div>
-                                <?php endif; ?>
-                            </div>
-                            <div class="flex-grow-1">
-                                <h6 class="fw-bold mb-1">
-                                    <?php if ($item['is_veg']): ?>
-                                        <i class="bi bi-circle-fill text-success me-1" style="font-size:0.5rem;"></i>
-                                    <?php else: ?>
-                                        <i class="bi bi-circle-fill text-danger me-1" style="font-size:0.5rem;"></i>
-                                    <?php endif; ?>
-                                    <?= sanitize($item['item_name']) ?>
-                                </h6>
-                                <?php if (!empty($item['is_zero_waste'])): ?>
-                                    <span class="badge rounded-pill fw-semibold small px-2 py-1" style="background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">
-                                        <i class="bi bi-recycle me-1"></i>Zero Waste Deal
+                <?php if (($order['order_type'] ?? 'standard') === 'tiffin'): ?>
+                    <!-- Tiffin Package Details -->
+                    <div class="checkout-section mb-4">
+                        <h5 class="checkout-section-title">
+                            <i class="bi bi-box2-heart me-2 text-warning"></i>Tiffin Package Details
+                        </h5>
+                        <div class="bg-light p-4 rounded-3 border">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div class="stat-icon-box bg-warning bg-opacity-10 text-warning" style="width:52px;height:52px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;">
+                                    <i class="bi bi-calendar2-heart"></i>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h5 class="fw-bold mb-1">Daily Home-Cooked Tiffin Meal</h5>
+                                    <p class="text-muted small mb-0">
+                                        <i class="bi bi-shop me-1 text-primary"></i>Prepared by <strong><?= html_entity_decode(sanitize($order['kitchen_name'] ?? 'Home Kitchen'), ENT_QUOTES, 'UTF-8') ?></strong>
+                                    </p>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 fs-6 rounded-pill">
+                                        <i class="bi bi-check-circle-fill me-1"></i>Prepaid
                                     </span>
-                                <?php else: ?>
-                                    <div class="d-flex gap-1">
-                                        <span class="cart-custom-tag">🌶️ <?= sanitize($item['spice_level']) ?></span>
-                                        <span class="cart-custom-tag">🫒 <?= sanitize($item['oil_level']) ?></span>
-                                        <?php if ($item['is_jain']): ?>
-                                            <span class="cart-custom-tag cart-custom-jain">🌿 Jain</span>
-                                        <?php endif; ?>
-                                    </div>
-                                <?php endif; ?>
+                                </div>
                             </div>
-                            <div class="text-end">
-                                <div class="small text-muted"><?= format_currency($item['unit_price']) ?> × <?= $item['quantity'] ?></div>
-                                <div class="fw-bold <?= !empty($item['is_zero_waste']) ? 'text-success' : '' ?>"><?= format_currency($item['subtotal']) ?></div>
-                                <button type="button" class="btn btn-sm btn-link text-danger p-0 mt-1 text-decoration-none" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#reportModal" data-kitchen-id="<?= $order['kitchen_id'] ?>" data-order-id="<?= $order['id'] ?>" data-target-type="dish" data-target-id="<?= $item['menu_item_id'] ?>"><i class="bi bi-flag"></i> Report</button>
+
+                            <div class="row g-2 border-top pt-3">
+                                <div class="col-sm-6">
+                                    <small class="text-muted d-block fw-bold" style="font-size: 0.72rem;">MEAL &amp; SCHEDULE</small>
+                                    <div class="fw-semibold text-dark">
+                                        <i class="bi bi-clock-history text-warning me-1"></i><?= sanitize($order['special_instructions'] ?: 'Daily Scheduled Meal') ?>
+                                    </div>
+                                </div>
+                                <div class="col-sm-6">
+                                    <small class="text-muted d-block fw-bold" style="font-size: 0.72rem;">DELIVERING TO</small>
+                                    <div class="small text-dark">
+                                        <i class="bi bi-geo-alt-fill text-danger me-1"></i><?= sanitize($order['customer_address'] ?? 'Customer Address') ?>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    <?php endforeach; ?>
-                </div>
+                    </div>
+                <?php else: ?>
+                    <!-- Order Items -->
+                    <div class="checkout-section">
+                        <h5 class="checkout-section-title">
+                            <i class="bi bi-bag me-2 text-warning"></i>Order Items
+                        </h5>
+
+                        <?php foreach ($orderItems as $item): ?>
+                            <div class="order-track-item d-flex align-items-center gap-3 mb-3">
+                                <div class="order-track-item-img">
+                                    <?php if (!empty($item['image'])): ?>
+                                        <img src="<?= UPLOAD_URL . '/dishes/' . $item['image'] ?>"
+                                             alt="<?= sanitize($item['item_name']) ?>">
+                                    <?php else: ?>
+                                        <div class="order-track-item-placeholder">
+                                            <i class="bi bi-egg-fried"></i>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="flex-grow-1">
+                                    <h6 class="fw-bold mb-1">
+                                        <?php if ($item['is_veg']): ?>
+                                            <i class="bi bi-circle-fill text-success me-1" style="font-size:0.5rem;"></i>
+                                        <?php else: ?>
+                                            <i class="bi bi-circle-fill text-danger me-1" style="font-size:0.5rem;"></i>
+                                        <?php endif; ?>
+                                        <?= sanitize($item['item_name']) ?>
+                                    </h6>
+                                    <?php if (!empty($item['is_zero_waste'])): ?>
+                                        <span class="badge rounded-pill fw-semibold small px-2 py-1" style="background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0;">
+                                            <i class="bi bi-recycle me-1"></i>Zero Waste Deal
+                                        </span>
+                                    <?php else: ?>
+                                        <div class="d-flex gap-1">
+                                            <span class="cart-custom-tag">🌶️ <?= sanitize($item['spice_level']) ?></span>
+                                            <span class="cart-custom-tag">🫒 <?= sanitize($item['oil_level']) ?></span>
+                                            <?php if ($item['is_jain']): ?>
+                                                <span class="cart-custom-tag cart-custom-jain">🌿 Jain</span>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="text-end">
+                                    <div class="small text-muted"><?= format_currency($item['unit_price']) ?> × <?= $item['quantity'] ?></div>
+                                    <div class="fw-bold <?= !empty($item['is_zero_waste']) ? 'text-success' : '' ?>"><?= format_currency($item['subtotal']) ?></div>
+                                    <button type="button" class="btn btn-sm btn-link text-danger p-0 mt-1 text-decoration-none" style="font-size: 0.75rem;" data-bs-toggle="modal" data-bs-target="#reportModal" data-kitchen-id="<?= $order['kitchen_id'] ?>" data-order-id="<?= $order['id'] ?>" data-target-type="dish" data-target-id="<?= $item['menu_item_id'] ?>"><i class="bi bi-flag"></i> Report</button>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
 
                 <!-- Phase 9: Rate & Review (only when delivered) -->
                 <?php if ($order['order_status'] === 'delivered'): ?>

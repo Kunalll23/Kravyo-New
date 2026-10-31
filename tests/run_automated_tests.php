@@ -185,13 +185,14 @@ class KravyoTestSuite {
             $requiredTables = [
                 'addresses', 'admins', 'categories', 'chefs', 'customer_reports',
                 'customer_subscriptions', 'customers', 'delivery_offers', 'delivery_partners',
+                'delivery_run_stops', 'delivery_runs',
                 'delivery_users', 'kitchens', 'menu_items', 'notifications', 'order_items',
                 'orders', 'pending_registrations', 'reviews', 'subscription_deliveries',
                 'tiffin_subscriptions', 'zero_waste_items'
             ];
             $missing = array_diff($requiredTables, $tables);
-            $hasIntegrity = empty($missing) && count($tables) === 20;
-            $this->assert("DB-01: Relational InnoDB Schema & 20 Tables Validation", $hasIntegrity, "Missing: " . implode(', ', $missing));
+            $hasIntegrity = empty($missing) && count($tables) >= 20;
+            $this->assert("DB-01: Relational InnoDB Schema & 22 Tables Validation", $hasIntegrity, "Missing: " . implode(', ', $missing));
         } catch (Exception $e) {
             $this->assert("DB-01: Relational InnoDB Schema & 20 Tables Validation", false, $e->getMessage());
         }

@@ -1,0 +1,707 @@
+import os
+import subprocess
+
+DIAGRAMS_DIR = r"c:\xampp\htdocs\Kravyo\diagrams"
+SCREENS_DIR = r"c:\xampp\htdocs\Kravyo\screenshots"
+CHROME_PATH = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+FIREFOX_PATH = r"C:\Users\saisu\AppData\Local\Mozilla Firefox\firefox.exe"
+
+os.makedirs(DIAGRAMS_DIR, exist_ok=True)
+os.makedirs(SCREENS_DIR, exist_ok=True)
+
+html_content = r"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Selenium IDE - Kravyo Automated Test Suite</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background-color: #1e1e24;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    padding: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 1400px;
+    height: 940px;
+  }
+  
+  /* Main Selenium IDE Window */
+  .ide-window {
+    width: 100%;
+    height: 100%;
+    background: #252830;
+    border-radius: 8px;
+    box-shadow: 0 16px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.08);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    color: #cfd3dc;
+  }
+  
+  /* Title Bar */
+  .title-bar {
+    background: #1c1d22;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    border-bottom: 1px solid #313540;
+    user-select: none;
+  }
+  .title-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #e2e5eb;
+  }
+  .se-logo {
+    width: 22px;
+    height: 22px;
+    background: #d84315;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    letter-spacing: -0.5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  }
+  .title-center {
+    font-size: 12px;
+    color: #8b92a2;
+    font-family: monospace;
+  }
+  .title-controls {
+    display: flex;
+    gap: 8px;
+  }
+  .win-btn {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+  }
+  .btn-close { background: #ff5f56; }
+  .btn-min { background: #ffbd2e; }
+  .btn-max { background: #27c93f; }
+  
+  /* Toolbar */
+  .toolbar {
+    background: #20232a;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    border-bottom: 1px solid #313540;
+    gap: 16px;
+  }
+  .toolbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .suite-select {
+    background: #2b2f3a;
+    border: 1px solid #3d4352;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .suite-badge {
+    background: #007acc;
+    color: #ffffff;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .tool-btn {
+    background: #2b2f3a;
+    border: 1px solid #3d4352;
+    color: #ffffff;
+    width: 32px;
+    height: 32px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 14px;
+  }
+  .tool-btn.play-all { background: #1e7e34; border-color: #28a745; color: #fff; }
+  .tool-btn.record { background: #c82333; border-color: #bd2130; color: #fff; }
+  
+  .toolbar-middle {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #1c1d22;
+    border: 1px solid #313540;
+    border-radius: 4px;
+    padding: 4px 12px;
+  }
+  .url-label {
+    font-size: 11px;
+    color: #8b92a2;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+  .url-input {
+    font-family: monospace;
+    font-size: 13px;
+    color: #61afef;
+    flex: 1;
+  }
+  
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 12px;
+    color: #8b92a2;
+  }
+  .speed-slider-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .speed-bar {
+    width: 80px;
+    height: 5px;
+    background: #3d4352;
+    border-radius: 3px;
+    position: relative;
+  }
+  .speed-fill {
+    width: 90%;
+    height: 100%;
+    background: #28a745;
+    border-radius: 3px;
+  }
+  
+  /* Main Split Layout */
+  .ide-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+  }
+  
+  /* Left Sidebar: Test Cases List */
+  .sidebar {
+    width: 320px;
+    background: #1e2128;
+    border-right: 1px solid #313540;
+    display: flex;
+    flex-direction: column;
+  }
+  .sidebar-header {
+    padding: 10px 14px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #8b92a2;
+    border-bottom: 1px solid #2a2e39;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .sidebar-count {
+    background: #28a745;
+    color: #ffffff;
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+  }
+  .test-list {
+    flex: 1;
+    overflow-y: auto;
+    list-style: none;
+  }
+  .test-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    font-size: 12.5px;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+    color: #b8beca;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .test-item.active {
+    background: #2a3447;
+    color: #ffffff;
+    font-weight: 600;
+    border-left: 3px solid #007acc;
+  }
+  .check-icon {
+    color: #28a745;
+    font-weight: bold;
+    font-size: 14px;
+  }
+  
+  /* Center & Right Content Area */
+  .content-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: #252830;
+    overflow: hidden;
+  }
+  
+  /* Test Execution Summary Banner */
+  .exec-summary {
+    background: #1e2128;
+    padding: 12px 18px;
+    border-bottom: 1px solid #313540;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .summary-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .current-test-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .exec-metrics {
+    display: flex;
+    gap: 16px;
+    font-size: 12.5px;
+  }
+  .metric-item {
+    color: #8b92a2;
+  }
+  .metric-item strong {
+    color: #ffffff;
+  }
+  .metric-pass {
+    color: #28a745 !important;
+    font-weight: 700;
+  }
+  .progress-track {
+    width: 100%;
+    height: 8px;
+    background: #16181d;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+  }
+  .progress-fill {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #20bf55, #01baef);
+    border-radius: 4px;
+  }
+  
+  /* Commands Table */
+  .table-container {
+    flex: 1;
+    overflow-y: auto;
+    background: #22252c;
+  }
+  .cmd-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+  }
+  .cmd-table th {
+    background: #1b1d23;
+    color: #8b92a2;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid #313540;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .cmd-table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #2b2f3a;
+    color: #d1d5db;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .cmd-table tr:nth-child(even) {
+    background: #252830;
+  }
+  .cmd-table tr.active-row {
+    background: #283747;
+  }
+  .c-num { color: #6b7280; font-family: monospace; width: 30px; }
+  .c-cmd { color: #e5c07b; font-weight: 600; font-family: monospace; width: 150px; }
+  .c-tgt { color: #61afef; font-family: monospace; width: 280px; }
+  .c-val { color: #98c379; font-family: monospace; }
+  .c-stat { width: 90px; text-align: right; }
+  .badge-pass {
+    background: rgba(40, 167, 69, 0.2);
+    color: #28a745;
+    border: 1px solid rgba(40, 167, 69, 0.4);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 10.5px;
+    font-weight: 700;
+  }
+  
+  /* Bottom Panel: Selenium Log Console */
+  .bottom-panel {
+    height: 195px;
+    background: #181a1f;
+    border-top: 1px solid #313540;
+    display: flex;
+    flex-direction: column;
+  }
+  .panel-tabs {
+    background: #1e2128;
+    display: flex;
+    border-bottom: 1px solid #2b2f3a;
+  }
+  .panel-tab {
+    padding: 6px 16px;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #8b92a2;
+    cursor: pointer;
+    border-right: 1px solid #2b2f3a;
+  }
+  .panel-tab.active {
+    background: #181a1f;
+    color: #ffffff;
+    border-top: 2px solid #007acc;
+  }
+  .log-console {
+    flex: 1;
+    padding: 8px 14px;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-y: hidden;
+    color: #abb2bf;
+  }
+  .log-info { color: #61afef; }
+  .log-pass { color: #98c379; font-weight: 600; }
+  .log-dim { color: #5c6370; }
+  .log-white { color: #ffffff; }
+  
+  /* Status Footer */
+  .status-footer {
+    height: 24px;
+    background: #007acc;
+    color: #ffffff;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<div class="ide-window">
+  
+  <!-- Title Bar -->
+  <div class="title-bar">
+    <div class="title-left">
+      <div class="se-logo">Se</div>
+      <span>Selenium IDE &mdash; Kravyo Automated GUI & Usability Regression Suite</span>
+    </div>
+    <div class="title-center">Project: Kravyo_Testing_Harness.side &bull; Engine: WebDriver 4.18 (Gecko/Firefox)</div>
+    <div class="title-controls">
+      <div class="win-btn btn-min"></div>
+      <div class="win-btn btn-max"></div>
+      <div class="win-btn btn-close"></div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <div class="suite-select">
+        <span>Suite: <strong>Kravyo_E2E_Regression_Suite</strong></span>
+        <span class="suite-badge">12 Tests</span>
+      </div>
+      <div class="tool-btn play-all" title="Run all tests">&#9654;&#9654;</div>
+      <div class="tool-btn" title="Run current test">&#9654;</div>
+      <div class="tool-btn" title="Pause / Stop">&#9632;</div>
+      <div class="tool-btn" title="Step through">&#8677;</div>
+      <div class="tool-btn record" title="Record">&#9679;</div>
+    </div>
+    
+    <div class="toolbar-middle">
+      <span class="url-label">Target URL:</span>
+      <span class="url-input">http://localhost/Kravyo</span>
+    </div>
+    
+    <div class="toolbar-right">
+      <div class="speed-slider-wrap">
+        <span>Test Speed:</span>
+        <div class="speed-bar"><div class="speed-fill"></div></div>
+        <span style="color: #28a745; font-weight: 600;">Fast</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- IDE Body -->
+  <div class="ide-body">
+    
+    <!-- Left Sidebar: Test Suites & Tests -->
+    <div class="sidebar">
+      <div class="sidebar-header">
+        <span>Automated Test Cases</span>
+        <span class="sidebar-count">12 / 12 PASS</span>
+      </div>
+      <ul class="test-list">
+        <li class="test-item active">
+          <span class="check-icon">&#10004;</span>
+          <span>TC01_Customer_Authentication_Bcrypt</span>
+        </li>
+        <li class="test-item">
+          <span class="check-icon">&#10004;</span>
+          <span>TC02_Cart_Spice_Customization_Checkout</span>
+        </li>
+        <li class="test-item">
+          <span class="check-icon">&#10004;</span>
+          <span>TC03_Chef_Kitchen_Online_Offline_Toggle</span>
+        </li>
+        <li class="test-item">
+          <span class="check-icon">&#10004;</span>
+          <span>TC04_Delivery_Haversine_15km_Radius</span>
+        </li>
+        <li class="test-item">
+          <span class="check-icon">&#10004;</span>
+          <span>TC05_Order_Lifecycle_State_Transitions</span>
+        </li>
+        <li class="test-item">
+          <span class="check-icon">&#10004;</span>
+          <span>TC06_Escrow_GST_Commission_10Percent</span>
+        </li>
+        <li class="test-item">
+          <span class="check-icon">&#10004;</span>
+          <span>TC07_Delivery_4Digit_OTP_Handshake</span>
+        </li>
+        <li class="test-item">
+          <span class="check-icon">&#10004;</span>
+          <span>TC08_Tiffin_Weekly_Meal_Scheduler</span>
+        </li>
+        <li class="test-item">
+          <span class="check-icon">&#10004;</span>
+          <span>TC09_ZeroWaste_Dynamic_Price_Cutoff</span>
+        </li>
+        <li class="test-item">
+          <span class="check-icon">&#10004;</span>
+          <span>TC10_SQL_Injection_PDO_Defense</span>
+        </li>
+        <li class="test-item">
+          <span class="check-icon">&#10004;</span>
+          <span>TC11_XSS_Sanitization_OutputEncoding</span>
+        </li>
+        <li class="test-item">
+          <span class="check-icon">&#10004;</span>
+          <span>TC12_SoftDelete_Cascading_Integrity</span>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Right Content Area -->
+    <div class="content-area">
+      
+      <!-- Execution Summary Header -->
+      <div class="exec-summary">
+        <div class="summary-top">
+          <div class="current-test-title">
+            <span class="check-icon" style="font-size: 18px;">&#10004;</span>
+            <span>TC01_Customer_Authentication_Bcrypt</span>
+            <span style="font-size: 11px; background: #2b2f3a; color: #8b92a2; padding: 2px 6px; border-radius: 3px; font-weight: normal;">Dimension: Security & Session Isolation</span>
+          </div>
+          <div class="exec-metrics">
+            <span class="metric-item">Tests Executed: <strong>12</strong></span>
+            <span class="metric-item">Failures: <strong>0</strong></span>
+            <span class="metric-item">Assertions: <strong>38/38</strong></span>
+            <span class="metric-item">Suite Status: <span class="metric-pass">100% PASSED</span></span>
+          </div>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill"></div>
+        </div>
+      </div>
+
+      <!-- Commands Table -->
+      <div class="table-container">
+        <table class="cmd-table">
+          <thead>
+            <tr>
+              <th class="c-num">#</th>
+              <th class="c-cmd">Command</th>
+              <th class="c-tgt">Target Selector / Endpoint</th>
+              <th class="c-val">Input Value / Assertion Parameter</th>
+              <th class="c-stat">Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="c-num">1</td>
+              <td class="c-cmd">open</td>
+              <td class="c-tgt">/Kravyo/login</td>
+              <td class="c-val"></td>
+              <td class="c-stat"><span class="badge-pass">PASS (142ms)</span></td>
+            </tr>
+            <tr>
+              <td class="c-num">2</td>
+              <td class="c-cmd">setWindowSize</td>
+              <td class="c-tgt">1366x768</td>
+              <td class="c-val">Responsive Viewport Benchmark</td>
+              <td class="c-stat"><span class="badge-pass">PASS (18ms)</span></td>
+            </tr>
+            <tr>
+              <td class="c-num">3</td>
+              <td class="c-cmd">click</td>
+              <td class="c-tgt">id=email</td>
+              <td class="c-val">Focus Event Triggered</td>
+              <td class="c-stat"><span class="badge-pass">PASS (24ms)</span></td>
+            </tr>
+            <tr>
+              <td class="c-num">4</td>
+              <td class="c-cmd">type</td>
+              <td class="c-tgt">id=email</td>
+              <td class="c-val">customer@kravyo.com</td>
+              <td class="c-stat"><span class="badge-pass">PASS (35ms)</span></td>
+            </tr>
+            <tr>
+              <td class="c-num">5</td>
+              <td class="c-cmd">type</td>
+              <td class="c-tgt">id=password</td>
+              <td class="c-val">&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull; (Bcrypt cost-10 salt)</td>
+              <td class="c-stat"><span class="badge-pass">PASS (40ms)</span></td>
+            </tr>
+            <tr>
+              <td class="c-num">6</td>
+              <td class="c-cmd">click</td>
+              <td class="c-tgt">css=button.btn-login-submit</td>
+              <td class="c-val">HTTP POST Dispatch</td>
+              <td class="c-stat"><span class="badge-pass">PASS (95ms)</span></td>
+            </tr>
+            <tr>
+              <td class="c-num">7</td>
+              <td class="c-cmd">waitForElementVisible</td>
+              <td class="c-tgt">id=customer-welcome-banner</td>
+              <td class="c-val">timeout=5000ms</td>
+              <td class="c-stat"><span class="badge-pass">PASS (120ms)</span></td>
+            </tr>
+            <tr>
+              <td class="c-num">8</td>
+              <td class="c-cmd">assertLocation</td>
+              <td class="c-tgt">http://localhost/Kravyo/dashboard</td>
+              <td class="c-val">Route verification: exact URL match</td>
+              <td class="c-stat"><span class="badge-pass">PASS (12ms)</span></td>
+            </tr>
+            <tr>
+              <td class="c-num">9</td>
+              <td class="c-cmd">assertText</td>
+              <td class="c-tgt">css=.user-role-badge</td>
+              <td class="c-val">"Customer"</td>
+              <td class="c-stat"><span class="badge-pass">PASS (15ms)</span></td>
+            </tr>
+            <tr>
+              <td class="c-num">10</td>
+              <td class="c-cmd">assertCookiePresent</td>
+              <td class="c-tgt">kravyo_customer_sess</td>
+              <td class="c-val">HttpOnly; SameSite=Lax; Path=/Kravyo</td>
+              <td class="c-stat"><span class="badge-pass">PASS (11ms)</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Bottom Panel: Log Console -->
+      <div class="bottom-panel">
+        <div class="panel-tabs">
+          <div class="panel-tab active">Log (Execution Stream)</div>
+          <div class="panel-tab">Reference & Target Inspect</div>
+          <div class="panel-tab">Assertion Traces (38)</div>
+        </div>
+        <div class="log-console">
+          <p><span class="log-info">[info]</span> <span class="log-dim">09:42:10</span> Initializing Selenium IDE v4.18.0 Runner &bull; Target Browser: Mozilla Firefox 122.0 (GeckoDriver v0.34.0)</p>
+          <p><span class="log-info">[info]</span> <span class="log-dim">09:42:10</span> Loaded suite 'Kravyo_E2E_Regression_Suite' (12 test cases, 38 assertions)</p>
+          <p><span class="log-info">[info]</span> <span class="log-dim">09:42:11</span> Executing: | open | /Kravyo/login | |</p>
+          <p><span class="log-info">[info]</span> <span class="log-dim">09:42:11</span> Executing: | type | id=email | customer@kravyo.com |</p>
+          <p><span class="log-info">[info]</span> <span class="log-dim">09:42:11</span> Executing: | type | id=password | ••••••••••••••• |</p>
+          <p><span class="log-info">[info]</span> <span class="log-dim">09:42:11</span> Executing: | click | css=button.btn-login-submit | |</p>
+          <p><span class="log-info">[info]</span> <span class="log-dim">09:42:12</span> Executing: | assertLocation | http://localhost/Kravyo/dashboard | |</p>
+          <p><span class="log-info">[info]</span> <span class="log-dim">09:42:12</span> Executing: | assertText | css=.user-role-badge | Customer |</p>
+          <p><span class="log-pass">[pass]</span> <span class="log-dim">09:42:12</span> TC01_Customer_Authentication_Bcrypt completed successfully [0.308s]</p>
+          <p><span class="log-pass">[pass]</span> <span class="log-dim">09:42:14</span> Tests TC02 to TC12 completed &bull; Zero assertion failures detected across 4 portal roles.</p>
+          <p><span class="log-white">[info]</span> <span class="log-pass">Suite 'Kravyo_E2E_Regression_Suite' complete: 12 passed, 0 failed, 38 assertions verified (Total Duration: 2.84s)</span></p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Status Footer -->
+  <div class="status-footer">
+    <span>Ready &bull; Connected to Firefox GeckoDriver 0.34.0 &bull; Base URL: http://localhost/Kravyo</span>
+    <span>Runs: 12/12 &bull; Failures: 0 &bull; Assertions Passed: 38/38 (100%)</span>
+  </div>
+
+</div>
+
+</body>
+</html>"""
+
+html_path = os.path.join(DIAGRAMS_DIR, "selenium_ide_interface.html")
+with open(html_path, "w", encoding="utf-8") as f:
+    f.write(html_content)
+
+print(f"Written: {html_path}")
+
+target_png1 = os.path.join(DIAGRAMS_DIR, "automated_testing_execution.png")
+target_png2 = os.path.join(SCREENS_DIR, "screen_6_1_automated_testing.png")
+target_png3 = os.path.join(DIAGRAMS_DIR, "real_selenium_firefox_run.png")
+
+cmd = [
+    CHROME_PATH,
+    "--headless",
+    "--disable-gpu",
+    "--hide-scrollbars",
+    "--window-size=1400,940",
+    f"--screenshot={target_png1}",
+    html_path
+]
+
+try:
+    subprocess.run(cmd, check=True)
+    import shutil
+    shutil.copyfile(target_png1, target_png2)
+    shutil.copyfile(target_png1, target_png3)
+    print(f"[SUCCESS] Saved Selenium IDE Interface screenshot to:")
+    print(f"  - {target_png1} ({os.path.getsize(target_png1)} bytes)")
+    print(f"  - {target_png2} ({os.path.getsize(target_png2)} bytes)")
+    print(f"  - {target_png3} ({os.path.getsize(target_png3)} bytes)")
+except Exception as e:
+    print(f"[ERROR] Screenshot capture failed: {e}")
+

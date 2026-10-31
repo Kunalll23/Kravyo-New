@@ -39,7 +39,7 @@
 
                     <div class="text-center mt-4 pt-3 border-top">
                         <?php if (!empty($isChef)): ?>
-                            <p class="mb-0 text-muted">Want to register as a Home Chef? <a href="<?= url('/register') ?>" class="text-decoration-none fw-bold text-primary">Join Kravyo</a></p>
+                            <p class="mb-0 text-muted">Want to register as a Home Chef? <a href="<?= url('/register?role=chef') ?>" class="text-decoration-none fw-bold text-primary">Join Kravyo</a></p>
                         <?php else: ?>
                             <p class="mb-0 text-muted">Don't have an account? <a href="<?= url('/register') ?>" class="text-decoration-none fw-bold text-primary">Create one</a></p>
                         <?php endif; ?>

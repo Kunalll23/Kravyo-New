@@ -359,14 +359,17 @@ class ChefController extends Controller {
             $this->redirect('/chef/dashboard');
         }
 
-        // Sanitize text inputs
+        // Clean text inputs (decode any existing entities to prevent double-encoding)
+        $cleanText = function($val) {
+            return html_entity_decode(trim((string)$val), ENT_QUOTES, 'UTF-8');
+        };
         $data = [
-            'kitchen_name'    => sanitize($_POST['kitchen_name'] ?? ''),
-            'personal_story'  => sanitize($_POST['personal_story'] ?? ''),
-            'address'         => sanitize($_POST['address'] ?? ''),
-            'city'            => sanitize($_POST['city'] ?? ''),
-            'pincode'         => sanitize($_POST['pincode'] ?? ''),
-            'fssai_license'   => sanitize($_POST['fssai_license'] ?? ''),
+            'kitchen_name'    => $cleanText($_POST['kitchen_name'] ?? ''),
+            'personal_story'  => $cleanText($_POST['personal_story'] ?? ''),
+            'address'         => $cleanText($_POST['address'] ?? ''),
+            'city'            => $cleanText($_POST['city'] ?? ''),
+            'pincode'         => $cleanText($_POST['pincode'] ?? ''),
+            'fssai_license'   => $cleanText($_POST['fssai_license'] ?? ''),
         ];
 
         // Validate required fields
@@ -1095,6 +1098,10 @@ class ChefController extends Controller {
         $todaysDeliveries = $deliveryModel->getTodaysDeliveries($kitchenId);
         $subscriberCount = count($activeSubscribers);
 
+        require_once APP_PATH . '/models/DeliveryRun.php';
+        $runModel = new DeliveryRun();
+        $todayRuns = $runModel->getRunsForKitchen($kitchenId, date('Y-m-d'));
+
         $this->render('chef/subscriptions', [
             'title'              => 'Tiffin Subscription Plans',
             'kitchen'            => $kitchen,
@@ -1102,6 +1109,7 @@ class ChefController extends Controller {
             'activeSubscribers'  => $activeSubscribers,
             'pendingSubscribers' => $pendingSubscribers,
             'todaysDeliveries'   => $todaysDeliveries,
+            'todayRuns'          => $todayRuns,
             'subscriberCount'    => $subscriberCount,
         ]);
     }
@@ -1525,8 +1533,15 @@ class ChefController extends Controller {
     }
 
     /**
-     * Batch dispatch multiple today's tiffin deliveries at once
+     * Batch dispatch a grouped tiffin delivery run to nearby riders via cascade
      * POST /chef/subscription/delivery/batch-dispatch
+     * 
+     * Flow:
+     * 1. Chef marks run as "prepared" → run status becomes 'assigned' (awaiting rider)
+     * 2. A SINGLE grouped order is created for the entire run (not per-tiffin)
+     * 3. That single order is broadcast to riders via the cascade dispatch system
+     * 4. A rider ACCEPTS via cascade → run gets assigned to them
+     * 5. No hardcoded driver assignment — pure cascade/broadcast acceptance
      */
     public function batchDispatchDeliveries(): void {
         Middleware::verifyCsrf();
@@ -1551,12 +1566,48 @@ class ChefController extends Controller {
 
         $kitchenId = (int) $kitchen['id'];
         
-        // Either explicit delivery IDs array OR meal_type
+        // Either explicit delivery IDs array OR meal_type OR run_id
         $rawDeliveryIds = $_POST['delivery_ids'] ?? [];
         $mealType       = trim($_POST['meal_type'] ?? '');
+        $runId          = (int)($_POST['run_id'] ?? 0);
 
         $targetDeliveryIds = [];
-        if (!empty($rawDeliveryIds) && is_array($rawDeliveryIds)) {
+        $runCode = '';
+        $runMealType = '';
+        $runCity = '';
+        $runTotalOrders = 0;
+
+        if ($runId > 0) {
+            $db = Database::getInstance();
+
+            // Get run info first
+            $runInfoStmt = $db->prepare("SELECT * FROM delivery_runs WHERE id = ?");
+            $runInfoStmt->execute([$runId]);
+            $runInfo = $runInfoStmt->fetch();
+
+            if ($runInfo) {
+                $runCode = $runInfo['run_code'] ?? '';
+                $runMealType = $runInfo['meal_type'] ?? '';
+                $runCity = $runInfo['city'] ?? '';
+                $runTotalOrders = (int)($runInfo['total_orders'] ?? 0);
+            }
+
+            // Fetch subscription deliveries belonging to this run
+            $stmt = $db->prepare("SELECT id FROM subscription_deliveries WHERE kitchen_id = ? AND run_id = ?");
+            $stmt->execute([$kitchenId, $runId]);
+            $targetDeliveryIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+            if (empty($targetDeliveryIds)) {
+                $stmt = $db->prepare("SELECT subscription_delivery_id FROM delivery_run_stops WHERE run_id = ? AND stop_type = 'dropoff' AND subscription_delivery_id IS NOT NULL");
+                $stmt->execute([$runId]);
+                $targetDeliveryIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+            }
+
+            // DO NOT hardcode a driver — mark run as awaiting rider acceptance via cascade
+            $runStmt = $db->prepare("UPDATE delivery_runs SET status = 'assigned' WHERE id = ? AND status = 'draft'");
+            $runStmt->execute([$runId]);
+
+        } elseif (!empty($rawDeliveryIds) && is_array($rawDeliveryIds)) {
             $targetDeliveryIds = array_map('intval', array_filter($rawDeliveryIds, 'is_numeric'));
         } elseif (!empty($mealType)) {
             // Find all pending deliveries for this kitchen today for this meal_type
@@ -1579,14 +1630,16 @@ class ChefController extends Controller {
         }
 
         $dispatchedCount = 0;
-        $createdOrderIds = [];
+        $groupedOrderId  = 0;
 
         Database::withTransaction(function() use (
             $deliveryModel, $targetDeliveryIds, $kitchenId, $orderModel,
-            &$dispatchedCount, &$createdOrderIds
+            $runId, $runCode, $runMealType, $runCity, $runTotalOrders,
+            &$dispatchedCount, &$groupedOrderId
         ) {
             $db = Database::getInstance();
 
+            // Mark all individual tiffin deliveries as dispatched
             foreach ($targetDeliveryIds as $deliveryId) {
                 // Lock row
                 $stmt = $db->prepare(
@@ -1596,81 +1649,83 @@ class ChefController extends Controller {
                 $currentDelivery = $stmt->fetch();
 
                 if (!$currentDelivery || $currentDelivery['status'] !== 'pending') {
-                    continue; // Skip if already dispatched or not belonging to kitchen
-                }
-
-                $updated = $deliveryModel->updateStatus($deliveryId, 'dispatched', $kitchenId);
-                if (!$updated) {
                     continue;
                 }
 
-                $dispatchedCount++;
+                $updated = $deliveryModel->updateStatus($deliveryId, 'dispatched', $kitchenId);
+                if ($updated) {
+                    $dispatchedCount++;
+                }
+            }
 
-                // Check existing order
-                $checkOrderStmt = $db->prepare(
-                    "SELECT id FROM orders WHERE subscription_delivery_id = ? LIMIT 1 FOR UPDATE"
-                );
-                $checkOrderStmt->execute([$deliveryId]);
-                $existingOrder = $checkOrderStmt->fetch();
+            // Create ONE grouped order for the entire run (not individual orders per tiffin!)
+            if ($dispatchedCount > 0 && $runId > 0) {
+                // Check if a grouped order already exists for this run
+                $checkStmt = $db->prepare("SELECT id, order_status FROM orders WHERE order_type = 'tiffin' AND kitchen_id = ? AND special_instructions LIKE ? AND order_status NOT IN ('delivered', 'delivery_failed', 'cancelled') ORDER BY id DESC LIMIT 1");
+                $runRef = '%RUN#' . $runCode . '%';
+                $checkStmt->execute([$kitchenId, $runRef]);
+                $existingGroupedOrder = $checkStmt->fetch();
 
-                if (!$existingOrder) {
-                    $sql = "SELECT sd.*, cs.customer_id, cs.address_id, cs.special_instructions 
-                            FROM subscription_deliveries sd 
-                            JOIN customer_subscriptions cs ON sd.customer_subscription_id = cs.id
-                            WHERE sd.id = ?";
-                    $stmtInfo = $db->prepare($sql);
-                    $stmtInfo->execute([$deliveryId]);
-                    $deliveryInfo = $stmtInfo->fetch();
+                if ($existingGroupedOrder) {
+                    $groupedOrderId = (int) $existingGroupedOrder['id'];
+                } else {
+                    $orderNumber = 'RUN-' . $runCode;
+                    $mealLabel = strtoupper($runMealType ?: 'TIFFIN');
+                    $timeWindow = match(strtolower($runMealType)) {
+                        'breakfast' => '08:00 AM - 09:00 AM',
+                        'lunch'     => '12:30 PM - 01:30 PM',
+                        'dinner'    => '07:30 PM - 08:30 PM',
+                        default     => ''
+                    };
 
-                    if ($deliveryInfo) {
-                        $orderNumber = 'TFN-' . date('Ymd') . '-' . strtoupper(substr(md5((string)$deliveryId), 0, 5));
-                        
-                        $deliveryLat = null;
-                        $deliveryLng = null;
-                        if (!empty($deliveryInfo['address_id'])) {
-                            $addrStmt = $db->prepare("SELECT * FROM addresses WHERE id = ?");
-                            $addrStmt->execute([$deliveryInfo['address_id']]);
-                            $addrRecord = $addrStmt->fetch();
-                            if ($addrRecord && !empty($addrRecord['latitude']) && !empty($addrRecord['longitude'])) {
-                                $deliveryLat = (float) $addrRecord['latitude'];
-                                $deliveryLng = (float) $addrRecord['longitude'];
-                            }
-                        }
-
-                        $timeWindow = !empty($deliveryInfo['delivery_time']) ? ' (' . $deliveryInfo['delivery_time'] . ')' : '';
-
-                        $orderData = [
-                            'order_number'             => $orderNumber,
-                            'customer_id'              => $deliveryInfo['customer_id'],
-                            'kitchen_id'               => $kitchenId,
-                            'address_id'               => $deliveryInfo['address_id'],
-                            'delivery_latitude'        => $deliveryLat,
-                            'delivery_longitude'       => $deliveryLng,
-                            'total_amount'             => 0.00,
-                            'payment_method'           => 'cod',
-                            'payment_status'           => 'completed',
-                            'order_status'             => 'preparing',
-                            'special_instructions'     => 'TIFFIN ' . strtoupper($deliveryInfo['meal_type']) . $timeWindow . ' - ' . ($deliveryInfo['special_instructions'] ?? ''),
-                            'order_type'               => 'tiffin',
-                            'subscription_delivery_id' => $deliveryId
-                        ];
-
-                        $newOrderId = (int) $orderModel->create($orderData);
-                        if ($newOrderId > 0) {
-                            $createdOrderIds[] = $newOrderId;
-                        }
+                    // Use kitchen coordinates for pickup
+                    $kitchenLat = null;
+                    $kitchenLng = null;
+                    $kitchenStmt = $db->prepare("SELECT latitude, longitude FROM kitchens WHERE id = ?");
+                    $kitchenStmt->execute([$kitchenId]);
+                    $kitchenCoords = $kitchenStmt->fetch();
+                    if ($kitchenCoords) {
+                        $kitchenLat = !empty($kitchenCoords['latitude']) ? (float)$kitchenCoords['latitude'] : null;
+                        $kitchenLng = !empty($kitchenCoords['longitude']) ? (float)$kitchenCoords['longitude'] : null;
                     }
+
+                    // Use first customer as representative for the grouped order
+                    $firstDelivId = $targetDeliveryIds[0];
+                    $repStmt = $db->prepare("SELECT sd.*, cs.customer_id, cs.address_id FROM subscription_deliveries sd JOIN customer_subscriptions cs ON sd.customer_subscription_id = cs.id WHERE sd.id = ?");
+                    $repStmt->execute([$firstDelivId]);
+                    $rep = $repStmt->fetch();
+
+                    $orderData = [
+                        'order_number'             => $orderNumber,
+                        'customer_id'              => $rep ? (int)$rep['customer_id'] : 0,
+                        'kitchen_id'               => $kitchenId,
+                        'address_id'               => $rep ? (int)$rep['address_id'] : null,
+                        'delivery_latitude'        => $kitchenLat,
+                        'delivery_longitude'       => $kitchenLng,
+                        'total_amount'             => $runTotalOrders > 0 ? (80.00 + ($runTotalOrders * 18.00)) : 170.00,
+                        'payment_method'           => 'cod',
+                        'payment_status'           => 'completed',
+                        'order_status'             => 'ready_for_pickup',
+                        'special_instructions'     => "GROUPED TIFFIN RUN#{$runCode} | {$mealLabel} {$timeWindow} | {$dispatchedCount} tiffins | Pickup ALL from kitchen, deliver to {$dispatchedCount} customers along corridor",
+                        'order_type'               => 'tiffin',
+                        'subscription_delivery_id' => $firstDelivId
+                    ];
+
+                    $groupedOrderId = (int) $orderModel->create($orderData);
                 }
             }
         });
 
-        // Broadcast to riders OUTSIDE the transaction
-        foreach ($createdOrderIds as $orderId) {
-            $dispatchService->broadcast($orderId, 1);
+        // Broadcast the SINGLE grouped run order to riders via cascade (not individual orders!)
+        if ($groupedOrderId > 0) {
+            $dispatchService->broadcast($groupedOrderId, 1);
         }
 
         if ($dispatchedCount > 0) {
-            Session::setFlash('success', "🚀 Successfully prepared and dispatched {$dispatchedCount} tiffin deliver" . ($dispatchedCount === 1 ? 'y' : 'ies') . ' to riders!');
+            $msg = !empty($runCode)
+                ? "\xF0\x9F\x93\xA6 Run #{$runCode} marked as prepared ({$dispatchedCount} tiffins). Broadcasting to nearby riders for acceptance..."
+                : "\xF0\x9F\x93\xA6 {$dispatchedCount} tiffin deliveries prepared. Broadcasting to nearby riders...";
+            Session::setFlash('success', $msg);
         } else {
             Session::setFlash('info', 'No pending deliveries were eligible for dispatch.');
         }

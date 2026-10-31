@@ -8,7 +8,7 @@ class Database {
     private static ?PDO $instance = null;
 
     private function __construct() {}
-    private function __clone() {}
+    private function __clone()  {}
 
     /**
      * Get singleton PDO connection instance

@@ -117,6 +117,10 @@
                         </select>
                     </div>
 
+
+
+
+                    
                     <!-- Date Range Dropdown -->
                     <div class="col-lg-2 col-md-3 col-6">
                         <select name="date_range" class="form-select form-select-sm" onchange="this.form.submit()">
@@ -128,13 +132,16 @@
                         </select>
                     </div>
 
+
+
+
                     <!-- Kitchen Dropdown -->
                     <div class="col-lg-2 col-md-3 col-6">
                         <select name="kitchen_id" class="form-select form-select-sm" onchange="this.form.submit()">
                             <option value="">🍳 All Kitchens</option>
                             <?php foreach ($kitchens as $k): ?>
                                 <option value="<?= (int)$k['id'] ?>" <?= ($kitchenFilter == $k['id']) ? 'selected' : '' ?>>
-                                    <?= sanitize($k['kitchen_name']) ?><?= !empty($k['city']) ? ' (' . sanitize($k['city']) . ')' : '' ?>
+                                    <?= sanitize($k['kitchen_name']) ?><?= !empty($k['city']) ? ' (' . sanitize($k['city']) . ')' : '' ?> 
                                 </option>
                             <?php endforeach; ?>
                         </select>

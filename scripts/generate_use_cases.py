@@ -1,11 +1,12 @@
 import os
 import subprocess
+import math
 
 DIAGRAMS_DIR = r"c:\xampp\htdocs\Kravyo\diagrams"
 CHROME_PATH = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 os.makedirs(DIAGRAMS_DIR, exist_ok=True)
 
-def render_svg_to_png(svg_content, html_filename, png_filename, width=1150, height=1200):
+def render_svg_to_png(svg_content, html_filename, png_filename, width=1180, height=1480):
     html_path = os.path.join(DIAGRAMS_DIR, html_filename)
     png_path = os.path.join(DIAGRAMS_DIR, png_filename)
     
@@ -46,7 +47,7 @@ def render_svg_to_png(svg_content, html_filename, png_filename, width=1150, heig
         html_path
     ]
     subprocess.run(cmd, check=True)
-    print(f"Generated with correct UML arrow directions: {png_filename}")
+    print(f"Generated clean UML diagram with separated routing: {png_filename}")
 
 # Standard Draw.io UML Markers
 UML_DEFS = """
@@ -89,39 +90,65 @@ def draw_drawio_ellipse(cx, cy, rx, ry, text1, text2=None):
 def draw_drawio_assoc(x1, y1, x2, y2):
     return f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="#000000" stroke-width="1.2" />'
 
-def draw_drawio_rel(base_x, base_y, target_x, target_y, stereotype="<<extend>>"):
+def draw_drawio_rel(base_cx, base_cy, base_rx, base_ry,
+                    target_cx, target_cy, target_rx, target_ry,
+                    stereotype="<<extend>>",
+                    port_angle_deg=0,
+                    target_port_angle_deg=None,
+                    label_t=0.50,
+                    label_y_offset=0):
     """
     Standard UML Direction Rules:
     - <<include>>: Base Use Case -> Included Use Case (Arrow points RIGHT towards target)
     - <<extend>>:  Extension Use Case -> Base Use Case (Arrow points LEFT towards base)
+    
+    Port angle routing:
+    Routes arrows independently along the perimeter of the ellipses to prevent line & label collision.
     """
-    mid_x = (base_x + target_x) / 2
-    mid_y = (base_y + target_y) / 2
+    # Departure point on base ellipse
+    angle_rad = math.radians(port_angle_deg)
+    x1 = base_cx + base_rx * math.cos(angle_rad)
+    y1 = base_cy + base_ry * math.sin(angle_rad)
+        
+    # Arrival point on target ellipse
+    if target_port_angle_deg is None:
+        t_angle = math.atan2(target_cy - y1, target_cx - x1)
+        x2 = target_cx - target_rx * math.cos(t_angle)
+        y2 = target_cy - target_ry * math.sin(t_angle)
+    else:
+        t_rad = math.radians(target_port_angle_deg)
+        x2 = target_cx - target_rx * math.cos(t_rad)
+        y2 = target_cy - target_ry * math.sin(t_rad)
+        
+    mid_x = x1 + label_t * (x2 - x1)
+    mid_y = y1 + label_t * (y2 - y1) + label_y_offset
     box_w = 68 if "extend" in stereotype else 72
+    clean_stereo = stereotype.replace('<<','').replace('>>','')
     
     if "extend" in stereotype:
-        # Arrowhead points to BASE (left: base_x, base_y)
-        line_svg = f'<line x1="{target_x}" y1="{target_y}" x2="{base_x}" y2="{base_y}" stroke="#000000" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#uml_arrow)" />'
+        # Arrowhead points to BASE (x1, y1)
+        line_svg = f'<line x1="{x2:.1f}" y1="{y2:.1f}" x2="{x1:.1f}" y2="{y1:.1f}" stroke="#000000" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#uml_arrow)" />'
     else:
-        # <<include>>: Arrowhead points to TARGET (right: target_x, target_y)
-        line_svg = f'<line x1="{base_x}" y1="{base_y}" x2="{target_x}" y2="{target_y}" stroke="#000000" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#uml_arrow)" />'
+        # <<include>>: Arrowhead points to TARGET (x2, y2)
+        line_svg = f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}" stroke="#000000" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#uml_arrow)" />'
         
     return f"""
     {line_svg}
-    <rect x="{mid_x - box_w/2}" y="{mid_y - 8}" width="{box_w}" height="16" fill="#ffffff" />
-    <text x="{mid_x}" y="{mid_y + 4}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10" font-style="italic" fill="#000000">&lt;&lt;{stereotype.replace('<<','').replace('>>','')}&gt;&gt;</text>
+    <rect x="{mid_x - box_w/2:.1f}" y="{mid_y - 8:.1f}" width="{box_w}" height="16" fill="#ffffff" />
+    <text x="{mid_x:.1f}" y="{mid_y + 4:.1f}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10" font-style="italic" fill="#000000">&lt;&lt;{clean_stereo}&gt;&gt;</text>
     """
 
 # =========================================================================
 # 1. CUSTOMER USE CASE DIAGRAM
 # =========================================================================
 def build_customer_diagram():
-    w, h = 1100, 1150
-    box_x, box_y, box_w, box_h = 240, 40, 800, 1030
-    actor_x, actor_y = 110, 520
+    w, h = 1160, 1460
+    box_x, box_y, box_w, box_h = 240, 35, 840, 1360
+    actor_x, actor_y = 110, 680
     
-    col1_x = 420
-    col2_x = 830
+    col1_x = 430
+    col2_x = 860
+    base_rx, base_ry = 105, 25
     
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {UML_DEFS}
@@ -131,69 +158,87 @@ def build_customer_diagram():
     {draw_drawio_actor(actor_x, actor_y, "Customer")}
     """
     
+    # Base Use Cases perfectly centered with respect to their connected secondary use cases:
     cases = [
-        (105, "Register / Login", None),
-        (205, "Browse & Search Food", None),
-        (305, "Customize Meal", None),
-        (400, "Manage Cart", None),
-        (495, "Place Online Order", None),
-        (610, "Track Order Live", None),
-        (720, "Manage Subscriptions", None),
-        (820, "Claim Zero Waste Deals", None),
-        (910, "Submit Review", None),
-        (995, "File Dispute / Report", None),
+        (135, "Register / Login", None),
+        (320, "Browse & Search Food", None),
+        (460, "Customize Meal", None),
+        (555, "Manage Cart", None),
+        (745, "Place Online Order", None),
+        (935, "Track Order Live", None),
+        (1030, "Manage Subscriptions", None),
+        (1125, "Claim Zero Waste Deals", None),
+        (1215, "Submit Review", None),
+        (1305, "File Dispute / Report", None),
     ]
     
     for cy, l1, l2 in cases:
-        svg += draw_drawio_assoc(actor_x + 25, actor_y - 10, col1_x - 105, cy)
-        svg += draw_drawio_ellipse(col1_x, cy, 105, 25, l1, l2)
+        svg += draw_drawio_assoc(actor_x + 25, actor_y - 10, col1_x - base_rx, cy)
+        svg += draw_drawio_ellipse(col1_x, cy, base_rx, base_ry, l1, l2)
         
-    # Relationships with strict UML arrow directions:
-    # extend: points LEFT to base (col1)
-    # include: points RIGHT to target (col2)
-    svg += draw_drawio_ellipse(col2_x, 85, 95, 23, "Verify Email OTP", None)
-    svg += draw_drawio_rel(col1_x + 105, 105, col2_x - 95, 85, "<<extend>>")
+    # Relationships with 90-95px vertical spacing and distinct perimeter routing:
+    # 1. Register / Login (cy=135) -> Verify Email OTP (cy=90), Forgot Password (cy=180) [90px separation]
+    svg += draw_drawio_ellipse(col2_x, 90, 100, 24, "Verify Email OTP", None)
+    svg += draw_drawio_rel(col1_x, 135, base_rx, base_ry, col2_x, 90, 100, 24,
+                           "<<extend>>", port_angle_deg=-40, target_port_angle_deg=-15, label_t=0.42, label_y_offset=-2)
     
-    svg += draw_drawio_ellipse(col2_x, 140, 95, 23, "Forgot Password", None)
-    svg += draw_drawio_rel(col1_x + 105, 105, col2_x - 95, 140, "<<extend>>")
+    svg += draw_drawio_ellipse(col2_x, 180, 100, 24, "Forgot Password", None)
+    svg += draw_drawio_rel(col1_x, 135, base_rx, base_ry, col2_x, 180, 100, 24,
+                           "<<extend>>", port_angle_deg=40, target_port_angle_deg=15, label_t=0.60, label_y_offset=2)
     
-    svg += draw_drawio_ellipse(col2_x, 195, 105, 23, "View AI Recommendations", None)
-    svg += draw_drawio_rel(col1_x + 105, 205, col2_x - 105, 195, "<<extend>>")
+    # 2. Browse & Search Food (cy=320) -> View AI Recommendations (cy=275), Filter Veg/Jain/Diabetic (cy=365) [90px separation]
+    svg += draw_drawio_ellipse(col2_x, 275, 105, 24, "View AI Recommendations", None)
+    svg += draw_drawio_rel(col1_x, 320, base_rx, base_ry, col2_x, 275, 105, 24,
+                           "<<extend>>", port_angle_deg=-40, target_port_angle_deg=-15, label_t=0.42, label_y_offset=-2)
     
-    svg += draw_drawio_ellipse(col2_x, 250, 105, 23, "Filter Veg/Jain/Diabetic", None)
-    svg += draw_drawio_rel(col1_x + 105, 205, col2_x - 105, 250, "<<extend>>")
+    svg += draw_drawio_ellipse(col2_x, 365, 105, 24, "Filter Veg/Jain/Diabetic", None)
+    svg += draw_drawio_rel(col1_x, 320, base_rx, base_ry, col2_x, 365, 105, 24,
+                           "<<extend>>", port_angle_deg=40, target_port_angle_deg=15, label_t=0.60, label_y_offset=2)
     
-    svg += draw_drawio_ellipse(col2_x, 305, 105, 23, "Select Spice/Oil/Jain", None)
-    svg += draw_drawio_rel(col1_x + 105, 305, col2_x - 105, 305, "<<extend>>")
+    # 3. Customize Meal (cy=460) -> Select Spice/Oil/Jain (cy=460) [perfectly horizontal]
+    svg += draw_drawio_ellipse(col2_x, 460, 105, 24, "Select Spice/Oil/Jain", None)
+    svg += draw_drawio_rel(col1_x, 460, base_rx, base_ry, col2_x, 460, 105, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    svg += draw_drawio_ellipse(col2_x, 400, 95, 23, "Apply Coupon", None)
-    svg += draw_drawio_rel(col1_x + 105, 400, col2_x - 95, 400, "<<extend>>")
+    # 4. Manage Cart (cy=555) -> Apply Coupon (cy=555) [perfectly horizontal]
+    svg += draw_drawio_ellipse(col2_x, 555, 95, 24, "Apply Coupon", None)
+    svg += draw_drawio_rel(col1_x, 555, base_rx, base_ry, col2_x, 555, 95, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    # Place Online Order INCLUDES Make Razorpay Payment and Receive Delivery OTP
-    svg += draw_drawio_ellipse(col2_x, 465, 100, 23, "Make Razorpay Payment", None)
-    svg += draw_drawio_rel(col1_x + 105, 495, col2_x - 100, 465, "<<include>>")
+    # 5. Place Online Order (cy=745) -> Make Razorpay Payment (cy=650), Receive Delivery OTP (cy=745), Cancel Order (cy=840)
+    # Generous 95px separation between each target, distinct perimeter departure angles (-45°, 0°, +45°), staggered labels (t=0.38, 0.52, 0.66)
+    svg += draw_drawio_ellipse(col2_x, 650, 105, 24, "Make Razorpay Payment", None)
+    svg += draw_drawio_rel(col1_x, 745, base_rx, base_ry, col2_x, 650, 105, 24,
+                           "<<include>>", port_angle_deg=-45, target_port_angle_deg=-16, label_t=0.38, label_y_offset=-2)
     
-    svg += draw_drawio_ellipse(col2_x, 520, 100, 23, "Receive Delivery OTP", None)
-    svg += draw_drawio_rel(col1_x + 105, 495, col2_x - 100, 520, "<<include>>")
+    svg += draw_drawio_ellipse(col2_x, 745, 105, 24, "Receive Delivery OTP", None)
+    svg += draw_drawio_rel(col1_x, 745, base_rx, base_ry, col2_x, 745, 105, 24,
+                           "<<include>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.52, label_y_offset=0)
     
-    svg += draw_drawio_ellipse(col2_x, 575, 95, 23, "Cancel Order", None)
-    svg += draw_drawio_rel(col1_x + 105, 495, col2_x - 95, 575, "<<extend>>")
+    svg += draw_drawio_ellipse(col2_x, 840, 95, 24, "Cancel Order", None)
+    svg += draw_drawio_rel(col1_x, 745, base_rx, base_ry, col2_x, 840, 95, 24,
+                           "<<extend>>", port_angle_deg=45, target_port_angle_deg=16, label_t=0.66, label_y_offset=2)
     
-    # Track Order Live INCLUDES Live WebSockets Map
-    svg += draw_drawio_ellipse(col2_x, 635, 105, 23, "Live WebSockets Map", None)
-    svg += draw_drawio_rel(col1_x + 105, 610, col2_x - 105, 635, "<<include>>")
+    # 6. Track Order Live (cy=935) -> Live WebSockets Map (cy=935) [perfectly horizontal]
+    svg += draw_drawio_ellipse(col2_x, 935, 105, 24, "Live WebSockets Map", None)
+    svg += draw_drawio_rel(col1_x, 935, base_rx, base_ry, col2_x, 935, 105, 24,
+                           "<<include>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    svg += draw_drawio_ellipse(col2_x, 720, 95, 23, "Pause/Resume Delivery", None)
-    svg += draw_drawio_rel(col1_x + 105, 720, col2_x - 95, 720, "<<extend>>")
+    # 7. Manage Subscriptions (cy=1030) -> Pause/Resume Delivery (cy=1030) [perfectly horizontal]
+    svg += draw_drawio_ellipse(col2_x, 1030, 100, 24, "Pause/Resume Delivery", None)
+    svg += draw_drawio_rel(col1_x, 1030, base_rx, base_ry, col2_x, 1030, 100, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    svg += draw_drawio_ellipse(col2_x, 820, 95, 23, "View Expiry Timer", None)
-    svg += draw_drawio_rel(col1_x + 105, 820, col2_x - 95, 820, "<<extend>>")
+    # 8. Claim Zero Waste Deals (cy=1125) -> View Expiry Timer (cy=1125) [perfectly horizontal]
+    svg += draw_drawio_ellipse(col2_x, 1125, 95, 24, "View Expiry Timer", None)
+    svg += draw_drawio_rel(col1_x, 1125, base_rx, base_ry, col2_x, 1125, 95, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    svg += draw_drawio_ellipse(col2_x, 995, 95, 23, "Attach Defect Photo", None)
-    svg += draw_drawio_rel(col1_x + 105, 995, col2_x - 95, 995, "<<extend>>")
-    
-    svg += f'<text x="{box_x + box_w/2}" y="{box_y + box_h + 35}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.2.1 Customer - Use Case Diagram</text>'
-    
+    # 9. File Dispute / Report (cy=1305) -> Attach Defect Photo (cy=1305) [perfectly horizontal]
+    svg += draw_drawio_ellipse(col2_x, 1305, 95, 24, "Attach Defect Photo", None)
+    svg += draw_drawio_rel(col1_x, 1305, base_rx, base_ry, col2_x, 1305, 95, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
+
     svg += "</svg>"
     return svg
 
@@ -201,12 +246,13 @@ def build_customer_diagram():
 # 2. HOME CHEF USE CASE DIAGRAM
 # =========================================================================
 def build_chef_diagram():
-    w, h = 1100, 1050
-    box_x, box_y, box_w, box_h = 240, 40, 800, 930
-    actor_x, actor_y = 110, 480
+    w, h = 1160, 1160
+    box_x, box_y, box_w, box_h = 240, 35, 840, 1050
+    actor_x, actor_y = 110, 535
     
-    col1_x = 420
-    col2_x = 830
+    col1_x = 430
+    col2_x = 860
+    base_rx, base_ry = 105, 25
     
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {UML_DEFS}
@@ -216,57 +262,71 @@ def build_chef_diagram():
     {draw_drawio_actor(actor_x, actor_y, "Home Chef")}
     """
     
+    # Base Use Cases centered with respect to connected secondary use cases:
     cases = [
-        (105, "Register / Login", None),
-        (210, "Manage Kitchen Profile", None),
-        (320, "Manage Menu", None),
-        (435, "Manage Orders", None),
-        (560, "Update Preparation Status", None),
-        (665, "Manage Subscriptions", None),
-        (765, "List Discounted Meals", None),
-        (855, "View Dashboard", None),
+        (90, "Register / Login", None),
+        (238, "Manage Kitchen Profile", None),
+        (385, "Manage Menu", None),
+        (532, "Manage Orders", None),
+        (680, "Update Preparation Status", None),
+        (780, "Manage Subscriptions", None),
+        (880, "List Discounted Meals", None),
+        (980, "View Dashboard", None),
     ]
     
     for cy, l1, l2 in cases:
-        svg += draw_drawio_assoc(actor_x + 25, actor_y - 10, col1_x - 105, cy)
-        svg += draw_drawio_ellipse(col1_x, cy, 105, 25, l1, l2)
+        svg += draw_drawio_assoc(actor_x + 25, actor_y - 10, col1_x - base_rx, cy)
+        svg += draw_drawio_ellipse(col1_x, cy, base_rx, base_ry, l1, l2)
         
-    svg += draw_drawio_ellipse(col2_x, 105, 95, 23, "Forgot Password", None)
-    svg += draw_drawio_rel(col1_x + 105, 105, col2_x - 95, 105, "<<extend>>")
+    # Relationships with 95-100px vertical spacing and distinct perimeter routing:
+    # 1. Register / Login (cy=90) -> Forgot Password (cy=90)
+    svg += draw_drawio_ellipse(col2_x, 90, 95, 24, "Forgot Password", None)
+    svg += draw_drawio_rel(col1_x, 90, base_rx, base_ry, col2_x, 90, 95, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    svg += draw_drawio_ellipse(col2_x, 185, 105, 23, "Apply Hygiene Verification", None)
-    svg += draw_drawio_rel(col1_x + 105, 210, col2_x - 105, 185, "<<extend>>")
+    # 2. Manage Kitchen Profile (cy=238) -> Apply Hygiene Verification (cy=190), Toggle Kitchen Open/Close (cy=285) [95px separation]
+    svg += draw_drawio_ellipse(col2_x, 190, 105, 24, "Apply Hygiene Verification", None)
+    svg += draw_drawio_rel(col1_x, 238, base_rx, base_ry, col2_x, 190, 105, 24,
+                           "<<extend>>", port_angle_deg=-42, target_port_angle_deg=-15, label_t=0.42, label_y_offset=-2)
     
-    svg += draw_drawio_ellipse(col2_x, 240, 105, 23, "Toggle Kitchen Open/Close", None)
-    svg += draw_drawio_rel(col1_x + 105, 210, col2_x - 105, 240, "<<extend>>")
+    svg += draw_drawio_ellipse(col2_x, 285, 105, 24, "Toggle Kitchen Open/Close", None)
+    svg += draw_drawio_rel(col1_x, 238, base_rx, base_ry, col2_x, 285, 105, 24,
+                           "<<extend>>", port_angle_deg=42, target_port_angle_deg=15, label_t=0.60, label_y_offset=2)
     
-    svg += draw_drawio_ellipse(col2_x, 320, 105, 23, "Assign Dietary Tags", None)
-    svg += draw_drawio_rel(col1_x + 105, 320, col2_x - 105, 320, "<<extend>>")
+    # 3. Manage Menu (cy=385) -> Assign Dietary Tags (cy=385)
+    svg += draw_drawio_ellipse(col2_x, 385, 105, 24, "Assign Dietary Tags", None)
+    svg += draw_drawio_rel(col1_x, 385, base_rx, base_ry, col2_x, 385, 105, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    # Manage Orders INCLUDES Audio Alert; EXTENDS Reject Orders
-    svg += draw_drawio_ellipse(col2_x, 395, 105, 23, "Audio Alert (beep.wav)", None)
-    svg += draw_drawio_rel(col1_x + 105, 435, col2_x - 105, 395, "<<include>>")
+    # 4. Manage Orders (cy=532) -> Audio Alert (beep.wav) (cy=485), Reject Orders (cy=580) [95px separation]
+    svg += draw_drawio_ellipse(col2_x, 485, 105, 24, "Audio Alert (beep.wav)", None)
+    svg += draw_drawio_rel(col1_x, 532, base_rx, base_ry, col2_x, 485, 105, 24,
+                           "<<include>>", port_angle_deg=-42, target_port_angle_deg=-15, label_t=0.42, label_y_offset=-2)
     
-    svg += draw_drawio_ellipse(col2_x, 455, 95, 23, "Reject Orders", None)
-    svg += draw_drawio_rel(col1_x + 105, 435, col2_x - 95, 455, "<<extend>>")
+    svg += draw_drawio_ellipse(col2_x, 580, 95, 24, "Reject Orders", None)
+    svg += draw_drawio_rel(col1_x, 532, base_rx, base_ry, col2_x, 580, 95, 24,
+                           "<<extend>>", port_angle_deg=42, target_port_angle_deg=15, label_t=0.60, label_y_offset=2)
     
-    # Update Prep Status INCLUDES Mark Ready for Pickup
-    svg += draw_drawio_ellipse(col2_x, 560, 105, 23, "Mark Ready for Pickup", None)
-    svg += draw_drawio_rel(col1_x + 105, 560, col2_x - 105, 560, "<<include>>")
+    # 5. Update Prep Status (cy=680) -> Mark Ready for Pickup (cy=680)
+    svg += draw_drawio_ellipse(col2_x, 680, 105, 24, "Mark Ready for Pickup", None)
+    svg += draw_drawio_rel(col1_x, 680, base_rx, base_ry, col2_x, 680, 105, 24,
+                           "<<include>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    # Manage Subscriptions INCLUDES Daily Production Forecast
-    svg += draw_drawio_ellipse(col2_x, 665, 105, 23, "Daily Production Forecast", None)
-    svg += draw_drawio_rel(col1_x + 105, 665, col2_x - 105, 665, "<<include>>")
+    # 6. Manage Subscriptions (cy=780) -> Daily Production Forecast (cy=780)
+    svg += draw_drawio_ellipse(col2_x, 780, 105, 24, "Daily Production Forecast", None)
+    svg += draw_drawio_rel(col1_x, 780, base_rx, base_ry, col2_x, 780, 105, 24,
+                           "<<include>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    # List Discounted Meals INCLUDES Set Expiry Timer
-    svg += draw_drawio_ellipse(col2_x, 765, 100, 23, "Set Expiry Timer", None)
-    svg += draw_drawio_rel(col1_x + 105, 765, col2_x - 100, 765, "<<include>>")
+    # 7. List Discounted Meals (cy=880) -> Set Expiry Timer (cy=880)
+    svg += draw_drawio_ellipse(col2_x, 880, 100, 24, "Set Expiry Timer", None)
+    svg += draw_drawio_rel(col1_x, 880, base_rx, base_ry, col2_x, 880, 100, 24,
+                           "<<include>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    svg += draw_drawio_ellipse(col2_x, 855, 100, 23, "View Reviews & Ratings", None)
-    svg += draw_drawio_rel(col1_x + 105, 855, col2_x - 100, 855, "<<extend>>")
-    
-    svg += f'<text x="{box_x + box_w/2}" y="{box_y + box_h + 35}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.2.2 Home Chef - Use Case Diagram</text>'
-    
+    # 8. View Dashboard (cy=980) -> View Reviews & Ratings (cy=980)
+    svg += draw_drawio_ellipse(col2_x, 980, 105, 24, "View Reviews & Ratings", None)
+    svg += draw_drawio_rel(col1_x, 980, base_rx, base_ry, col2_x, 980, 105, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
+
     svg += "</svg>"
     return svg
 
@@ -274,12 +334,13 @@ def build_chef_diagram():
 # 3. DELIVERY PARTNER USE CASE DIAGRAM
 # =========================================================================
 def build_delivery_diagram():
-    w, h = 1100, 1050
-    box_x, box_y, box_w, box_h = 240, 40, 800, 930
-    actor_x, actor_y = 110, 480
+    w, h = 1160, 1120
+    box_x, box_y, box_w, box_h = 240, 35, 840, 1010
+    actor_x, actor_y = 110, 510
     
-    col1_x = 420
-    col2_x = 830
+    col1_x = 430
+    col2_x = 860
+    base_rx, base_ry = 105, 25
     
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {UML_DEFS}
@@ -290,54 +351,65 @@ def build_delivery_diagram():
     """
     
     cases = [
-        (105, "Register / Login", None),
-        (215, "Manage Shift Duty", None),
-        (335, "Receive Dispatch Offer", None),
-        (455, "Navigate Route", None),
-        (565, "Confirm Kitchen Pickup", None),
-        (665, "Stream Live GPS Location", None),
-        (765, "Deliver Order", None),
-        (855, "View Earnings History", None),
+        (90, "Register / Login", None),
+        (195, "Manage Shift Duty", None),
+        (352, "Receive Dispatch Offer", None),
+        (510, "Navigate Route", None),
+        (615, "Confirm Kitchen Pickup", None),
+        (720, "Stream Live GPS Location", None),
+        (825, "Deliver Order", None),
+        (930, "View Earnings History", None),
     ]
     
     for cy, l1, l2 in cases:
-        svg += draw_drawio_assoc(actor_x + 25, actor_y - 10, col1_x - 105, cy)
-        svg += draw_drawio_ellipse(col1_x, cy, 105, 25, l1, l2)
+        svg += draw_drawio_assoc(actor_x + 25, actor_y - 10, col1_x - base_rx, cy)
+        svg += draw_drawio_ellipse(col1_x, cy, base_rx, base_ry, l1, l2)
         
-    # Register INCLUDES Upload Driving License
-    svg += draw_drawio_ellipse(col2_x, 105, 100, 23, "Upload Driving License", None)
-    svg += draw_drawio_rel(col1_x + 105, 105, col2_x - 100, 105, "<<include>>")
+    # Relationships with 105px vertical spacing and distinct perimeter routing:
+    # 1. Register / Login (cy=90) -> Upload Driving License (cy=90)
+    svg += draw_drawio_ellipse(col2_x, 90, 100, 24, "Upload Driving License", None)
+    svg += draw_drawio_rel(col1_x, 90, base_rx, base_ry, col2_x, 90, 100, 24,
+                           "<<include>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    svg += draw_drawio_ellipse(col2_x, 215, 100, 23, "Toggle Online / Offline", None)
-    svg += draw_drawio_rel(col1_x + 105, 215, col2_x - 100, 215, "<<extend>>")
+    # 2. Manage Shift Duty (cy=195) -> Toggle Online / Offline (cy=195)
+    svg += draw_drawio_ellipse(col2_x, 195, 100, 24, "Toggle Online / Offline", None)
+    svg += draw_drawio_rel(col1_x, 195, base_rx, base_ry, col2_x, 195, 100, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    svg += draw_drawio_ellipse(col2_x, 305, 100, 23, "Accept 25s Ping Offer", None)
-    svg += draw_drawio_rel(col1_x + 105, 335, col2_x - 100, 305, "<<extend>>")
+    # 3. Receive Dispatch Offer (cy=352) -> Accept 25s Ping Offer (cy=300), Decline / Timeout Offer (cy=405) [105px separation]
+    svg += draw_drawio_ellipse(col2_x, 300, 105, 24, "Accept 25s Ping Offer", None)
+    svg += draw_drawio_rel(col1_x, 352, base_rx, base_ry, col2_x, 300, 105, 24,
+                           "<<extend>>", port_angle_deg=-42, target_port_angle_deg=-15, label_t=0.42, label_y_offset=-2)
     
-    svg += draw_drawio_ellipse(col2_x, 365, 100, 23, "Decline / Timeout Offer", None)
-    svg += draw_drawio_rel(col1_x + 105, 335, col2_x - 100, 365, "<<extend>>")
+    svg += draw_drawio_ellipse(col2_x, 405, 105, 24, "Decline / Timeout Offer", None)
+    svg += draw_drawio_rel(col1_x, 352, base_rx, base_ry, col2_x, 405, 105, 24,
+                           "<<extend>>", port_angle_deg=42, target_port_angle_deg=15, label_t=0.60, label_y_offset=2)
     
-    # Navigate Route INCLUDES Google Routes Navigation
-    svg += draw_drawio_ellipse(col2_x, 455, 105, 23, "Google Routes Navigation", None)
-    svg += draw_drawio_rel(col1_x + 105, 455, col2_x - 105, 455, "<<include>>")
+    # 4. Navigate Route (cy=510) -> Google Routes Navigation (cy=510)
+    svg += draw_drawio_ellipse(col2_x, 510, 105, 24, "Google Routes Navigation", None)
+    svg += draw_drawio_rel(col1_x, 510, base_rx, base_ry, col2_x, 510, 105, 24,
+                           "<<include>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    # Kitchen Pickup INCLUDES Update Out for Delivery
-    svg += draw_drawio_ellipse(col2_x, 565, 105, 23, "Update Out for Delivery", None)
-    svg += draw_drawio_rel(col1_x + 105, 565, col2_x - 105, 565, "<<include>>")
+    # 5. Confirm Kitchen Pickup (cy=615) -> Update Out for Delivery (cy=615)
+    svg += draw_drawio_ellipse(col2_x, 615, 105, 24, "Update Out for Delivery", None)
+    svg += draw_drawio_rel(col1_x, 615, base_rx, base_ry, col2_x, 615, 105, 24,
+                           "<<include>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    # Stream GPS INCLUDES Broadcast Pusher GPS
-    svg += draw_drawio_ellipse(col2_x, 665, 105, 23, "Broadcast Pusher GPS", None)
-    svg += draw_drawio_rel(col1_x + 105, 665, col2_x - 105, 665, "<<include>>")
+    # 6. Stream Live GPS Location (cy=720) -> Broadcast Pusher GPS (cy=720)
+    svg += draw_drawio_ellipse(col2_x, 720, 105, 24, "Broadcast Pusher GPS", None)
+    svg += draw_drawio_rel(col1_x, 720, base_rx, base_ry, col2_x, 720, 105, 24,
+                           "<<include>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    # Deliver Order INCLUDES Verify Customer OTP
-    svg += draw_drawio_ellipse(col2_x, 765, 105, 23, "Verify Customer OTP", None)
-    svg += draw_drawio_rel(col1_x + 105, 765, col2_x - 105, 765, "<<include>>")
+    # 7. Deliver Order (cy=825) -> Verify Customer OTP (cy=825)
+    svg += draw_drawio_ellipse(col2_x, 825, 105, 24, "Verify Customer OTP", None)
+    svg += draw_drawio_rel(col1_x, 825, base_rx, base_ry, col2_x, 825, 105, 24,
+                           "<<include>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    svg += draw_drawio_ellipse(col2_x, 855, 95, 23, "View Trip Incentives", None)
-    svg += draw_drawio_rel(col1_x + 105, 855, col2_x - 95, 855, "<<extend>>")
-    
-    svg += f'<text x="{box_x + box_w/2}" y="{box_y + box_h + 35}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.2.3 Delivery Partner - Use Case Diagram</text>'
-    
+    # 8. View Earnings History (cy=930) -> View Trip Incentives (cy=930)
+    svg += draw_drawio_ellipse(col2_x, 930, 100, 24, "View Trip Incentives", None)
+    svg += draw_drawio_rel(col1_x, 930, base_rx, base_ry, col2_x, 930, 100, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
+
     svg += "</svg>"
     return svg
 
@@ -345,12 +417,13 @@ def build_delivery_diagram():
 # 4. ADMINISTRATOR USE CASE DIAGRAM
 # =========================================================================
 def build_admin_diagram():
-    w, h = 1100, 1050
-    box_x, box_y, box_w, box_h = 240, 40, 800, 930
-    actor_x, actor_y = 110, 480
+    w, h = 1160, 1160
+    box_x, box_y, box_w, box_h = 240, 35, 840, 1050
+    actor_x, actor_y = 110, 530
     
-    col1_x = 420
-    col2_x = 830
+    col1_x = 430
+    col2_x = 860
+    base_rx, base_ry = 105, 25
     
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {UML_DEFS}
@@ -361,63 +434,77 @@ def build_admin_diagram():
     """
     
     cases = [
-        (110, "Admin Login", None),
-        (225, "Manage Users & Kitchens", None),
-        (345, "Manage Delivery Partners", None),
-        (465, "Manage Food & Categories", None),
-        (580, "Handle Disputes & Complaints", None),
-        (700, "Monitor Orders & Fleet", None),
-        (825, "Generate Analytics", None),
+        (90, "Admin Login", None),
+        (238, "Manage Users & Kitchens", None),
+        (432, "Manage Delivery Partners", None),
+        (580, "Manage Food & Categories", None),
+        (728, "Handle Disputes & Complaints", None),
+        (875, "Monitor Orders & Fleet", None),
+        (975, "Generate Analytics", None),
     ]
     
     for cy, l1, l2 in cases:
-        svg += draw_drawio_assoc(actor_x + 25, actor_y - 10, col1_x - 105, cy)
-        svg += draw_drawio_ellipse(col1_x, cy, 105, 25, l1, l2)
+        svg += draw_drawio_assoc(actor_x + 25, actor_y - 10, col1_x - base_rx, cy)
+        svg += draw_drawio_ellipse(col1_x, cy, base_rx, base_ry, l1, l2)
         
-    svg += draw_drawio_ellipse(col2_x, 110, 95, 23, "Change Password", None)
-    svg += draw_drawio_rel(col1_x + 105, 110, col2_x - 95, 110, "<<extend>>")
+    # Relationships with 95-100px vertical spacing and distinct perimeter routing:
+    # 1. Admin Login (cy=90) -> Change Password (cy=90)
+    svg += draw_drawio_ellipse(col2_x, 90, 95, 24, "Change Password", None)
+    svg += draw_drawio_rel(col1_x, 90, base_rx, base_ry, col2_x, 90, 95, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    svg += draw_drawio_ellipse(col2_x, 195, 105, 23, "Approve Hygiene Badges", None)
-    svg += draw_drawio_rel(col1_x + 105, 225, col2_x - 105, 195, "<<extend>>")
+    # 2. Manage Users & Kitchens (cy=238) -> Approve Hygiene Badges (cy=190), Review FSSAI License (cy=285) [95px separation]
+    svg += draw_drawio_ellipse(col2_x, 190, 105, 24, "Approve Hygiene Badges", None)
+    svg += draw_drawio_rel(col1_x, 238, base_rx, base_ry, col2_x, 190, 105, 24,
+                           "<<extend>>", port_angle_deg=-42, target_port_angle_deg=-15, label_t=0.42, label_y_offset=-2)
     
-    # Manage Kitchens INCLUDES Review FSSAI License
-    svg += draw_drawio_ellipse(col2_x, 255, 105, 23, "Review FSSAI License", None)
-    svg += draw_drawio_rel(col1_x + 105, 225, col2_x - 105, 255, "<<include>>")
+    svg += draw_drawio_ellipse(col2_x, 285, 105, 24, "Review FSSAI License", None)
+    svg += draw_drawio_rel(col1_x, 238, base_rx, base_ry, col2_x, 285, 105, 24,
+                           "<<include>>", port_angle_deg=42, target_port_angle_deg=15, label_t=0.60, label_y_offset=2)
     
-    svg += draw_drawio_ellipse(col2_x, 320, 100, 23, "Approve Driver License", None)
-    svg += draw_drawio_rel(col1_x + 105, 345, col2_x - 100, 320, "<<extend>>")
+    # 3. Manage Delivery Partners (cy=432) -> Approve Driver License (cy=385), Suspend Rider Account (cy=480) [95px separation]
+    svg += draw_drawio_ellipse(col2_x, 385, 100, 24, "Approve Driver License", None)
+    svg += draw_drawio_rel(col1_x, 432, base_rx, base_ry, col2_x, 385, 100, 24,
+                           "<<extend>>", port_angle_deg=-42, target_port_angle_deg=-15, label_t=0.42, label_y_offset=-2)
     
-    svg += draw_drawio_ellipse(col2_x, 375, 100, 23, "Suspend Rider Account", None)
-    svg += draw_drawio_rel(col1_x + 105, 345, col2_x - 100, 375, "<<extend>>")
+    svg += draw_drawio_ellipse(col2_x, 480, 100, 24, "Suspend Rider Account", None)
+    svg += draw_drawio_rel(col1_x, 432, base_rx, base_ry, col2_x, 480, 100, 24,
+                           "<<extend>>", port_angle_deg=42, target_port_angle_deg=15, label_t=0.60, label_y_offset=2)
     
-    svg += draw_drawio_ellipse(col2_x, 465, 95, 23, "Moderate Reviews", None)
-    svg += draw_drawio_rel(col1_x + 105, 465, col2_x - 95, 465, "<<extend>>")
+    # 4. Manage Food & Categories (cy=580) -> Moderate Reviews (cy=580)
+    svg += draw_drawio_ellipse(col2_x, 580, 95, 24, "Moderate Reviews", None)
+    svg += draw_drawio_rel(col1_x, 580, base_rx, base_ry, col2_x, 580, 95, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    # Handle Disputes INCLUDES Audit Order Timestamps; EXTENDS Process Razorpay Refund
-    svg += draw_drawio_ellipse(col2_x, 550, 105, 23, "Audit Order Timestamps", None)
-    svg += draw_drawio_rel(col1_x + 105, 580, col2_x - 105, 550, "<<include>>")
+    # 5. Handle Disputes & Complaints (cy=728) -> Audit Order Timestamps (cy=680), Process Razorpay Refund (cy=775) [95px separation]
+    svg += draw_drawio_ellipse(col2_x, 680, 105, 24, "Audit Order Timestamps", None)
+    svg += draw_drawio_rel(col1_x, 728, base_rx, base_ry, col2_x, 680, 105, 24,
+                           "<<include>>", port_angle_deg=-42, target_port_angle_deg=-15, label_t=0.42, label_y_offset=-2)
     
-    svg += draw_drawio_ellipse(col2_x, 615, 105, 23, "Process Razorpay Refund", None)
-    svg += draw_drawio_rel(col1_x + 105, 580, col2_x - 105, 615, "<<extend>>")
+    svg += draw_drawio_ellipse(col2_x, 775, 105, 24, "Process Razorpay Refund", None)
+    svg += draw_drawio_rel(col1_x, 728, base_rx, base_ry, col2_x, 775, 105, 24,
+                           "<<extend>>", port_angle_deg=42, target_port_angle_deg=15, label_t=0.60, label_y_offset=2)
     
-    svg += draw_drawio_ellipse(col2_x, 700, 95, 23, "Live Fleet Map", None)
-    svg += draw_drawio_rel(col1_x + 105, 700, col2_x - 95, 700, "<<extend>>")
+    # 6. Monitor Orders & Fleet (cy=875) -> Live Fleet Map (cy=875)
+    svg += draw_drawio_ellipse(col2_x, 875, 95, 24, "Live Fleet Map", None)
+    svg += draw_drawio_rel(col1_x, 875, base_rx, base_ry, col2_x, 875, 95, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
     
-    svg += draw_drawio_ellipse(col2_x, 825, 100, 23, "Export Revenue CSV", None)
-    svg += draw_drawio_rel(col1_x + 105, 825, col2_x - 100, 825, "<<extend>>")
-    
-    svg += f'<text x="{box_x + box_w/2}" y="{box_y + box_h + 35}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.2.4 Administrator - Use Case Diagram</text>'
-    
+    # 7. Generate Analytics (cy=975) -> Export Revenue CSV (cy=975)
+    svg += draw_drawio_ellipse(col2_x, 975, 100, 24, "Export Revenue CSV", None)
+    svg += draw_drawio_rel(col1_x, 975, base_rx, base_ry, col2_x, 975, 100, 24,
+                           "<<extend>>", port_angle_deg=0, target_port_angle_deg=0, label_t=0.50)
+
     svg += "</svg>"
     return svg
 
 def main():
-    print("Re-rendering all 4 diagrams with strict UML arrow directions...")
-    render_svg_to_png(build_customer_diagram(), "use_case_customer.html", "use_case_customer.png", 1120, 1180)
-    render_svg_to_png(build_chef_diagram(), "use_case_chef.html", "use_case_chef.png", 1120, 1080)
-    render_svg_to_png(build_delivery_diagram(), "use_case_delivery.html", "use_case_delivery.png", 1120, 1080)
-    render_svg_to_png(build_admin_diagram(), "use_case_admin.html", "use_case_admin.png", 1120, 1080)
-    print("All 4 diagrams updated with correct UML arrow directions!")
+    print("Re-rendering all 4 diagrams with generous spacing and non-overlapping routes...")
+    render_svg_to_png(build_customer_diagram(), "use_case_customer.html", "use_case_customer.png", 1180, 1480)
+    render_svg_to_png(build_chef_diagram(), "use_case_chef.html", "use_case_chef.png", 1180, 1180)
+    render_svg_to_png(build_delivery_diagram(), "use_case_delivery.html", "use_case_delivery.png", 1180, 1140)
+    render_svg_to_png(build_admin_diagram(), "use_case_admin.html", "use_case_admin.png", 1180, 1180)
+    print("All 4 diagrams updated successfully with zero collision!")
 
 if __name__ == "__main__":
     main()

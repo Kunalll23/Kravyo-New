@@ -88,7 +88,7 @@
             <?php foreach ($plans as $plan): ?>
                 <div class="col-lg-4 col-md-6">
                     <div class="card subscription-card h-100">
-                        <div class="card-body p-4">
+                        <div class="card-body p-4 d-flex flex-column">
                             <!-- Plan Type Badge -->
                             <div class="d-flex justify-content-between align-items-start mb-3">
                                 <span class="plan-type-badge plan-type-<?= $plan['plan_type'] ?>">
@@ -102,12 +102,8 @@
                                 <?php endif; ?>
                             </div>
 
-                            <!-- Plan Name & Price -->
-                            <h5 class="fw-bold mb-1"><?= sanitize($plan['plan_name']) ?></h5>
-                            <div class="subscription-price mb-2">
-                                <?= format_currency($plan['price']) ?>
-                                <span class="text-muted small fw-normal">/ <?= $plan['plan_type'] === 'weekly' ? '7 days' : '30 days' ?></span>
-                            </div>
+                            <!-- Plan Name -->
+                            <h5 class="fw-bold mb-2"><?= sanitize($plan['plan_name']) ?></h5>
 
                             <!-- Description / Includes -->
                             <?php if (!empty($plan['description'])): ?>
@@ -140,8 +136,14 @@
                                 <?php endforeach; ?>
                             </div>
 
+                            <!-- Price & Duration (Above Kitchen Name) -->
+                            <div class="subscription-price mt-auto border-top pt-3 mb-2">
+                                <?= format_currency($plan['price']) ?>
+                                <span class="text-muted small fw-normal">/ <?= $plan['plan_type'] === 'weekly' ? '7 days' : '30 days' ?></span>
+                            </div>
+
                             <!-- Kitchen Info -->
-                            <div class="d-flex align-items-center gap-2 mb-3 border-top pt-3">
+                            <div class="d-flex align-items-center gap-2 mb-3">
                                 <div class="avatar-circle-sm"><?= strtoupper(substr($plan['chef_name'], 0, 1)) ?></div>
                                 <div>
                                     <div class="fw-semibold small"><?= sanitize($plan['kitchen_name']) ?></div>

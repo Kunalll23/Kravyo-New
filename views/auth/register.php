@@ -1,8 +1,61 @@
 <?php
-$role = $_GET['role'] ?? 'customer';
+$role = $role ?? $_GET['role'] ?? 'customer';
 if ($role !== 'chef') $role = 'customer';
 $roleName = ($role === 'chef') ? 'Home Chef' : 'Customer';
 $iconClass = ($role === 'chef') ? 'bi-shop text-warning' : 'bi-person-heart text-danger';
+
+// Core operational cities on Kravyo
+$operatingCities = [
+    'Surat',
+    'Bardoli',
+    'Ahmedabad',
+    'Mumbai',
+    'Pune',
+    'Delhi',
+    'Bangalore',
+    'Hyderabad',
+    'Jaipur',
+];
+
+// Dynamically merge any approved kitchen cities from database
+try {
+    require_once APP_PATH . '/models/Kitchen.php';
+    $dbKitchenCities = (new Kitchen())->getDistinctCities();
+    if (!empty($dbKitchenCities)) {
+        $operatingCities = array_values(array_unique(array_merge($operatingCities, $dbKitchenCities)));
+    }
+} catch (\Throwable $e) {}
+
+// City display label overrides
+$cityLabels = [
+    'Bangalore' => 'Bangalore (Bengaluru)',
+    'Delhi'     => 'Delhi / NCR',
+];
+
+// Comprehensive catalog of all major Indian cities across states and UTs
+$allIndianCities = [
+    'Agra', 'Ahmedabad', 'Ajmer', 'Aligarh', 'Allahabad (Prayagraj)', 'Amravati', 'Amritsar', 
+    'Anand', 'Asansol', 'Aurangabad (Chhatrapati Sambhaji Nagar)', 'Bangalore', 'Bardoli', 
+    'Bareilly', 'Belgaum (Belagavi)', 'Bhavnagar', 'Bhilai', 'Bhopal', 'Bhubaneswar', 
+    'Bikaner', 'Bokaro Steel City', 'Chandigarh', 'Chennai', 'Coimbatore', 'Cuttack', 
+    'Dehradun', 'Delhi', 'Dhanbad', 'Durgapur', 'Erode', 'Faridabad', 'Firozabad', 
+    'Gandhinagar', 'Ghaziabad', 'Gorakhpur', 'Gulbarga (Kalaburagi)', 'Guntur', 
+    'Gurgaon (Gurugram)', 'Guwahati', 'Gwalior', 'Hubli-Dharwad', 'Hyderabad', 'Indore', 
+    'Jabalpur', 'Jaipur', 'Jalandhar', 'Jalgaon', 'Jammu', 'Jamnagar', 'Jamshedpur', 
+    'Jhansi', 'Jodhpur', 'Kalyan-Dombivli', 'Kanpur', 'Kochi (Cochin)', 'Kolhapur', 
+    'Kolkata', 'Kollam', 'Kota', 'Kozhikode (Calicut)', 'Lucknow', 'Ludhiana', 'Madurai', 
+    'Mangalore (Mangaluru)', 'Meerut', 'Moradabad', 'Mumbai', 'Muzaffarnagar', 'Mysore (Mysuru)', 
+    'Nagpur', 'Nanded', 'Nashik', 'Navsari', 'Navi Mumbai', 'Nellore', 'Noida', 'Patna', 
+    'Pondicherry (Puducherry)', 'Pune', 'Raipur', 'Rajahmundry', 'Rajkot', 'Ranchi', 
+    'Rourkela', 'Saharanpur', 'Salem', 'Sangli', 'Shimla', 'Siliguri', 'Solapur', 
+    'Srinagar', 'Surat', 'Thane', 'Thiruvananthapuram (Trivandrum)', 'Thrissur', 
+    'Tiruchirappalli (Trichy)', 'Tirunelveli', 'Tirupati', 'Tiruppur', 'Udaipur', 
+    'Ujjain', 'Vadodara (Baroda)', 'Valsad', 'Vapi', 'Varanasi', 'Vasai-Virar', 
+    'Vijayawada', 'Visakhapatnam', 'Warangal'
+];
+
+$otherCities = array_values(array_diff($allIndianCities, $operatingCities));
+sort($otherCities);
 ?>
 <div class="container py-5">
     <div class="row justify-content-center">
@@ -13,6 +66,20 @@ $iconClass = ($role === 'chef') ? 'bi-shop text-warning' : 'bi-person-heart text
                         <i class="bi <?= $iconClass ?> display-4 mb-2"></i>
                         <h3 class="fw-bold">Join as <?= $roleName ?></h3>
                         <p class="text-muted">Create an account to <?= $role === 'chef' ? 'start your kitchen' : 'order food' ?></p>
+                    </div>
+
+                    <div class="d-flex justify-content-center mb-4">
+                        <div class="btn-group p-1 bg-light rounded-pill border" role="group">
+                            <a href="<?= url('/register?role=customer') ?>" class="btn btn-sm rounded-pill px-3 <?= $role === 'customer' ? 'btn-danger text-white shadow-sm fw-bold' : 'text-muted' ?>">
+                                <i class="bi bi-person-heart me-1"></i> Customer
+                            </a>
+                            <a href="<?= url('/register?role=chef') ?>" class="btn btn-sm rounded-pill px-3 <?= $role === 'chef' ? 'btn-warning text-dark shadow-sm fw-bold' : 'text-muted' ?>">
+                                <i class="bi bi-shop me-1"></i> Home Chef
+                            </a>
+                            <a href="<?= url('/delivery/register') ?>" class="btn btn-sm rounded-pill px-3 text-muted">
+                                <i class="bi bi-bicycle me-1"></i> Delivery Partner
+                            </a>
+                        </div>
                     </div>
 
                     <?php View::partial('alerts'); ?>
@@ -51,13 +118,31 @@ $iconClass = ($role === 'chef') ? 'bi-shop text-warning' : 'bi-person-heart text
                                 <span class="input-group-text bg-light border-end-0"><i class="bi bi-geo-alt text-muted"></i></span>
                                 <select class="form-select form-control-lg border-start-0" id="city" name="city" required>
                                     <option value="" selected disabled>Select your city</option>
-                                    <option value="Ahmedabad">Ahmedabad</option>
-                                    <option value="Bengaluru">Bengaluru</option>
-                                    <option value="Delhi">Delhi</option>
-                                    <option value="Mumbai">Mumbai</option>
-                                    <option value="Pune">Pune</option>
-                                    <option value="Surat">Surat</option>
+                                    <optgroup label="📍 Operating Cities (Active Kitchens & Delivery)">
+                                        <?php foreach ($operatingCities as $c): ?>
+                                            <option value="<?= htmlspecialchars($c, ENT_QUOTES) ?>">
+                                                <?= htmlspecialchars($cityLabels[$c] ?? $c, ENT_QUOTES) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                    <optgroup label="🏙️ All Other Cities across India">
+                                        <?php foreach ($otherCities as $c): ?>
+                                            <option value="<?= htmlspecialchars($c, ENT_QUOTES) ?>">
+                                                <?= htmlspecialchars($cityLabels[$c] ?? $c, ENT_QUOTES) ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </optgroup>
+                                    <optgroup label="✨ Can't find your city?">
+                                        <option value="__other__">➕ Other City (Type manually...)</option>
+                                    </optgroup>
                                 </select>
+                            </div>
+                            <div id="otherCityContainer" class="mt-2 d-none">
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light border-end-0"><i class="bi bi-pencil-square text-muted"></i></span>
+                                    <input type="text" class="form-control form-control-lg border-start-0" id="other_city" name="other_city" placeholder="Type your city or town name" maxlength="50">
+                                </div>
+                                <div class="form-text text-muted">We will set your account to your registered city.</div>
                             </div>
                         </div>
                         
@@ -102,12 +187,30 @@ $iconClass = ($role === 'chef') ? 'bi-shop text-warning' : 'bi-person-heart text
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const form       = document.getElementById('registerForm');
-    const btn        = document.getElementById('registerSubmitBtn');
-    const notice     = document.getElementById('registerNotice');
-    const pwd        = document.getElementById('password');
-    const confirmPwd = document.getElementById('confirm_password');
-    const matchMsg   = document.getElementById('passwordMatchMsg');
+    const form               = document.getElementById('registerForm');
+    const btn                = document.getElementById('registerSubmitBtn');
+    const notice             = document.getElementById('registerNotice');
+    const pwd                = document.getElementById('password');
+    const confirmPwd         = document.getElementById('confirm_password');
+    const matchMsg           = document.getElementById('passwordMatchMsg');
+    const citySelect         = document.getElementById('city');
+    const otherCityContainer = document.getElementById('otherCityContainer');
+    const otherCityInput     = document.getElementById('other_city');
+
+    if (citySelect && otherCityContainer && otherCityInput) {
+        citySelect.addEventListener('change', function () {
+            if (this.value === '__other__') {
+                otherCityContainer.classList.remove('d-none');
+                otherCityInput.setAttribute('required', 'required');
+                otherCityInput.focus();
+            } else {
+                otherCityContainer.classList.add('d-none');
+                otherCityInput.removeAttribute('required');
+                otherCityInput.classList.remove('is-invalid');
+                otherCityInput.value = '';
+            }
+        });
+    }
 
     function checkPasswordMatch() {
         if (!confirmPwd || !pwd || !matchMsg) return;
@@ -143,6 +246,28 @@ document.addEventListener('DOMContentLoaded', function () {
         form.addEventListener('submit', function (e) {
             if (!form.checkValidity()) {
                 return;
+            }
+
+            // Verify custom city if selected
+            if (citySelect && citySelect.value === '__other__') {
+                const customCity = (otherCityInput ? otherCityInput.value.trim() : '');
+                if (!customCity) {
+                    e.preventDefault();
+                    if (otherCityInput) {
+                        otherCityInput.classList.add('is-invalid');
+                        otherCityInput.focus();
+                    }
+                    return;
+                }
+                let customOption = citySelect.querySelector('option[data-custom="true"]');
+                if (!customOption) {
+                    customOption = document.createElement('option');
+                    customOption.setAttribute('data-custom', 'true');
+                    citySelect.appendChild(customOption);
+                }
+                customOption.value = customCity;
+                customOption.textContent = customCity;
+                citySelect.value = customCity;
             }
 
             // Verify password match

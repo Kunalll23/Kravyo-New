@@ -8,7 +8,8 @@ abstract class Model {
     protected string $primaryKey = 'id';
     protected PDO $db;
 
-    public function __construct() {
+    public function __construct()
+     {
         $this->db = Database::getInstance();
     }
 

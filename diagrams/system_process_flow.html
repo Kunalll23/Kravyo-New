@@ -18,7 +18,7 @@
 </style>
 </head>
 <body>
-<svg width="1200" height="1380" viewBox="0 0 1200 1380" xmlns="http://www.w3.org/2000/svg">
+<svg width="1260" height="2040" viewBox="0 0 1260 2040" xmlns="http://www.w3.org/2000/svg">
     
 <defs>
   <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -28,228 +28,321 @@
 
     
     <!-- Title -->
-    <text x="600" y="32" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="bold" fill="#000000">Kravyo Platform: End-to-End System Process Flow</text>
-    <text x="600" y="50" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#444444">(Cross-Actor Operational Flow: Customer, Home Chef, Smart Dispatch Engine, Courier & Admin Settlement)</text>
+    <text x="630" y="30" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="bold" fill="#000000">Figure 1.1: Kravyo End-to-End System Process Flow Diagram across All 4 Actors</text>
+    <text x="630" y="48" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11" fill="#444444">(Full Operational Architecture: On-Demand Food Orders &amp; Scheduled Multi-Tiffin Milk-Run Batch Logistics)</text>
     
     <!-- Swimlane Headers -->
-    <!-- Lane 1: Customer -->
-    <rect x="40" y="70" width="270" height="38" rx="6" fill="#f1f3f5" stroke="#000000" stroke-width="1.3"/>
-    <text x="175" y="94" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="bold">1. CUSTOMER</text>
+    <rect x="40" y="65" width="280" height="36" rx="6" fill="#f1f3f5" stroke="#000000" stroke-width="1.3"/>
+    <text x="180" y="88" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="bold">1. CUSTOMER PORTAL (/)</text>
     
-    <!-- Lane 2: Home Chef -->
-    <rect x="320" y="70" width="270" height="38" rx="6" fill="#f1f3f5" stroke="#000000" stroke-width="1.3"/>
-    <text x="455" y="94" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="bold">2. HOME CHEF (KITCHEN)</text>
+    <rect x="330" y="65" width="260" height="36" rx="6" fill="#f1f3f5" stroke="#000000" stroke-width="1.3"/>
+    <text x="460" y="88" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="bold">2. HOME CHEF (/chef)</text>
     
-    <!-- Lane 3: System / Dispatch Engine -->
-    <rect x="600" y="70" width="270" height="38" rx="6" fill="#f1f3f5" stroke="#000000" stroke-width="1.3"/>
-    <text x="735" y="94" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="bold">3. BACKEND & DISPATCH</text>
+    <rect x="600" y="65" width="280" height="36" rx="6" fill="#f1f3f5" stroke="#000000" stroke-width="1.3"/>
+    <text x="740" y="88" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="bold">3. BACKEND &amp; DISPATCH ENGINE</text>
     
-    <!-- Lane 4: Delivery Partner & Admin -->
-    <rect x="880" y="70" width="280" height="38" rx="6" fill="#f1f3f5" stroke="#000000" stroke-width="1.3"/>
-    <text x="1020" y="94" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="bold">4. COURIER & SETTLEMENT</text>
+    <rect x="890" y="65" width="310" height="36" rx="6" fill="#f1f3f5" stroke="#000000" stroke-width="1.3"/>
+    <text x="1040" y="88" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="bold">4. COURIER &amp; SETTLEMENT (/delivery &amp; /admin)</text>
     
-    <!-- Swimlane vertical divider lines (dashed) -->
-    <line x1="315" y1="110" x2="315" y2="1320" stroke="#cccccc" stroke-width="1" stroke-dasharray="4,4" />
-    <line x1="595" y1="110" x2="595" y2="1320" stroke="#cccccc" stroke-width="1" stroke-dasharray="4,4" />
-    <line x1="875" y1="110" x2="875" y2="1320" stroke="#cccccc" stroke-width="1" stroke-dasharray="4,4" />
+    <!-- Section Header A -->
+    <rect x="40" y="112" width="1160" height="26" fill="#e9ecef" stroke="#adb5bd" stroke-width="1"/>
+    <text x="630" y="129" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="bold" fill="#212529">PART A: ON-DEMAND INSTANT FOOD ORDER LIFECYCLE (STAGES 1 TO 5)</text>
+    
+    <!-- Swimlane dividers for Part A only (does not cross headers or Part B) -->
+    <line x1="325" y1="138" x2="325" y2="1420" stroke="#d0d7de" stroke-width="1.2" stroke-dasharray="5,5" />
+    <line x1="595" y1="138" x2="595" y2="1420" stroke="#d0d7de" stroke-width="1.2" stroke-dasharray="5,5" />
+    <line x1="885" y1="138" x2="885" y2="1420" stroke="#d0d7de" stroke-width="1.2" stroke-dasharray="5,5" />
     
     <!-- ========================================== -->
     <!-- STAGE 1: ORDER CREATION (CUSTOMER) -->
     <!-- ========================================== -->
-    <circle cx="175" cy="135" r="12" fill="#000000" stroke="#000000" stroke-width="1.2" />
-    <line x1="175" y1="147" x2="175" y2="175" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <circle cx="180" cy="160" r="11" fill="#000000" stroke="#000000" stroke-width="1.2" />
+    <line x1="180" y1="171" x2="180" y2="195" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
     
-    <rect x="65.0" y="176.0" width="220" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <rect x="65.0" y="196.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="175" y="195" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Browse Nearby Verified Kitchens</text>
-        <text x="175" y="210" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">(Diet Filter: Veg/Jain/Diabetic)</text>
+        <text x="180" y="215" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Browse Verified Nearby Kitchens</text>
+        <text x="180" y="230" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">(Filters: Veg, Jain, Diabetic, Distance)</text>
         
     
-    <line x1="175" y1="220" x2="175" y2="245" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="180" y1="240" x2="180" y2="265" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
     
-    <rect x="65.0" y="246.0" width="220" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <rect x="65.0" y="266.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="175" y="265" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Customize Cooking Preferences</text>
-        <text x="175" y="280" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">(Spice, Oil Level, Jain, Custom Notes)</text>
+        <text x="180" y="285" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Customize Cooking Health Badges</text>
+        <text x="180" y="300" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">(Spice, Oil Level, Jain, Custom Instructions)</text>
         
     
-    <line x1="175" y1="290" x2="175" y2="315" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="180" y1="310" x2="180" y2="335" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
     
-    <rect x="65.0" y="316.0" width="220" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <rect x="65.0" y="336.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="175" y="335" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Select Delivery Address &</text>
-        <text x="175" y="350" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Validate 15 km Radius (Haversine)</text>
+        <text x="180" y="355" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Select Delivery Address &</text>
+        <text x="180" y="370" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Validate 15 km Radius (Haversine)</text>
         
     
-    <line x1="175" y1="360" x2="175" y2="385" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="180" y1="380" x2="180" y2="405" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
     
-    <rect x="65.0" y="386.0" width="220" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <rect x="65.0" y="406.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="175" y="405" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Multi-Channel Checkout</text>
-        <text x="175" y="420" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">(COD / Dynamic UPI QR / Razorpay)</text>
+        <text x="180" y="425" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Multi-Channel Checkout</text>
+        <text x="180" y="440" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">(COD / Dynamic NPCI UPI QR / Razorpay)</text>
         
     
-    <line x1="175" y1="430" x2="175" y2="455" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="180" y1="450" x2="180" y2="475" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
     
-    <rect x="65.0" y="456.0" width="220" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <rect x="65.0" y="476.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="175" y="475" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Order Placed & Secret</text>
-        <text x="175" y="490" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">4-Digit Handover OTP Generated</text>
+        <text x="180" y="495" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Order Placed & Confidential</text>
+        <text x="180" y="510" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">4-Digit Handover OTP Generated</text>
         
     
     
-    <!-- Line from Customer to Chef: Order Dispatched -->
-    <line x1="175" y1="500" x2="175" y2="520" stroke="#000000" stroke-width="1.2" />
-    <line x1="175" y1="520" x2="455" y2="520" stroke="#000000" stroke-width="1.2" />
-    <line x1="455" y1="520" x2="455" y2="545" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" /><text x="463.0" y="532.5" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000" text-anchor="start">Order Notify (WebSocket)</text>
+    <!-- Customer to Chef: WebSocket Broadcast -->
+    <path d="M 180 520 L 180 545 L 460 545 L 460 568" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <text x="345" y="537" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000">[Order Alert via WebSockets]</text>
     
     <!-- ========================================== -->
     <!-- STAGE 2: KITCHEN OPERATIONS (HOME CHEF) -->
     <!-- ========================================== -->
     
-    <rect x="345.0" y="546.0" width="220" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <rect x="345.0" y="570.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="455" y="565" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Incoming Order Chime Alert</text>
-        <text x="455" y="580" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">(Continuous beep.wav via Web Audio)</text>
+        <text x="460" y="589" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Incoming Order Chime Alert</text>
+        <text x="460" y="604" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">(Continuous beep.wav via Web Audio API)</text>
         
     
-    <line x1="455" y1="590" x2="455" y2="615" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="460" y1="614" x2="460" y2="646" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
+    <polygon points="460,646.0 474.0,660 460,674.0 446.0,660" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-    <polygon points="455,616.0 535.0,642 455,668.0 375.0,642" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <!-- Chef Rejects -> Instant Razorpay Refund -->
+    <path d="M 446 660 L 180 660 L 180 695" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <text x="435" y="652" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000">[Order Rejected]</text>
     
-        <text x="455" y="639" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5" fill="#000000">Chef Accepts</text>
-        <text x="455" y="653" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5" fill="#000000">Order?</text>
+    <rect x="65.0" y="698.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    
+        <text x="180" y="717" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Automated Instant Refund</text>
+        <text x="180" y="732" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">via Razorpay REST API to Source</text>
         
     
+    <line x1="180" y1="742" x2="180" y2="770" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
-    <!-- Chef Rejects -> Instant Refund -->
-    <line x1="375" y1="642" x2="175" y2="642" stroke="#000000" stroke-width="1.2" />
-    <text x="275.0" y="632" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10" font-weight="bold" fill="#000000">No: Reject Order</text>
-    <line x1="175" y1="642" x2="175" y2="691" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <circle cx="180" cy="782" r="12" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <circle cx="180" cy="782" r="8" fill="#000000" />
     
-    <rect x="65.0" y="693.0" width="220" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="175" y="712" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Automated Instant Refund</text>
-        <text x="175" y="727" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">via Razorpay REST API to Source</text>
+    <!-- Chef Accepts -> Kitchen Preparation -->
+    <line x1="460" y1="674" x2="460" y2="715" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" /><text x="468.0" y="694.5" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000" text-anchor="start">[Order Accepted]</text>
+    
+    <rect x="345.0" y="716.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    
+        <text x="460" y="735" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Cook Culinary Dishes per Badges &</text>
+        <text x="460" y="750" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Pack in Sealed Containers</text>
         
     
-    <line x1="175" y1="737" x2="175" y2="765" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
-    
-    <circle cx="175" cy="777" r="12" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
-    <circle cx="175" cy="777" r="8" fill="#000000" />
+    <line x1="460" y1="760" x2="460" y2="788" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
     
-    <!-- Chef Accepts -> Cook -->
-    <line x1="455" y1="668" x2="455" y2="715" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" /><text x="463.0" y="691.5" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000" text-anchor="start">Yes: Accept</text>
+    <rect x="345.0" y="789.0" width="230" height="42" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-    <rect x="345.0" y="716.0" width="220" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
-    
-        <text x="455" y="735" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Kitchen Preparation &</text>
-        <text x="455" y="750" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Portion Packaging with Dietary Tags</text>
-        
-    
-    <line x1="455" y1="760" x2="455" y2="790" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
-    
-    
-    <rect x="345.0" y="790.0" width="220" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
-    
-        <text x="455" y="809" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Mark Order 'Ready for Pickup'</text>
-        <text x="455" y="824" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">in Chef Order Management Console</text>
+        <text x="460" y="807" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Mark Order 'Ready for Pickup'</text>
+        <text x="460" y="822" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">in Chef Seller Console</text>
         
     
     
-    <!-- Line from Chef to Backend Dispatch Engine -->
-    <line x1="455" y1="834" x2="455" y2="855" stroke="#000000" stroke-width="1.2" />
-    <line x1="455" y1="855" x2="735" y2="855" stroke="#000000" stroke-width="1.2" />
-    <line x1="735" y1="855" x2="735" y2="880" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" /><text x="743.0" y="867.5" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000" text-anchor="start">Trigger DispatchService</text>
+    <!-- Chef to Backend Dispatch Engine -->
+    <path d="M 460 831 L 460 850 L 740 850 L 740 875" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <text x="615" y="842" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000">[Trigger Dispatch]</text>
     
     <!-- ========================================== -->
     <!-- STAGE 3: SMART CASCADE DISPATCH (BACKEND) -->
     <!-- ========================================== -->
     
-    <rect x="620.0" y="880.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <rect x="620.0" y="876.0" width="240" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="735" y="899" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">4-Stage Smart Cascade Dispatch</text>
-        <text x="735" y="914" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Stage 1: Active Corridor Batching</text>
+        <text x="740" y="895" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">4-Stage Cascade Dispatch Engine</text>
+        <text x="740" y="910" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Stage 1: Active Corridor Batching Check</text>
         
     
-    <line x1="735" y1="924" x2="735" y2="948" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="740" y1="920" x2="740" y2="945" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
     
-    <rect x="620.0" y="948.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <rect x="620.0" y="946.0" width="240" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="735" y="967" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Stage 2: 25-Second Targeted Ping</text>
-        <text x="735" y="982" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">to Nearest Idle Online Courier</text>
+        <text x="740" y="965" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Stage 2: Targeted 25-Second Ping</text>
+        <text x="740" y="980" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">to Nearest Idle Courier (within 5 km)</text>
         
     
-    <line x1="735" y1="992" x2="735" y2="1016" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="740" y1="990" x2="740" y2="1026" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
+    <polygon points="740,1026.0 754.0,1040 740,1054.0 726.0,1040" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-    <polygon points="735,1017.0 815.0,1042 735,1067.0 655.0,1042" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
-    
-        <text x="735" y="1039" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5" fill="#000000">Courier Accepts</text>
-        <text x="735" y="1053" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5" fill="#000000">in 25s?</text>
-        
-    
-    
-    <!-- Courier Timeout / Reject -> Cascade to 2nd nearest -->
-    <line x1="655" y1="1042" x2="608" y2="1042" stroke="#000000" stroke-width="1.2" />
-    <line x1="608" y1="1042" x2="608" y2="970" stroke="#000000" stroke-width="1.2" />
-    <text x="604" y="1010" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="9" font-weight="bold" fill="#000000">No: Cascade / Timeout</text>
-    <line x1="608" y1="970" x2="620" y2="970" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <!-- Courier Timeout / Reject -> Loop back to cascade -->
+    <path d="M 726 1040 L 608 1040 L 608 968 L 620 968" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <text x="722" y="1032" text-anchor="end" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000">[Timeout / Retry]</text>
     
     <!-- Courier Accepts -> Handoff to Courier Lane -->
-    <line x1="815" y1="1042" x2="1020" y2="1042" stroke="#000000" stroke-width="1.2" />
-    <line x1="1020" y1="1042" x2="1020" y2="1070" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" /><text x="1028.0" y="1056.0" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000" text-anchor="start">Yes: Lock Rider</text>
+    <path d="M 754 1040 L 1040 1040 L 1040 1068" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <text x="760" y="1032" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000">[Offer Accepted]</text>
     
     <!-- =================================================== -->
     <!-- STAGE 4: COURIER TRANSIT & VERIFIED OTP HANDOVER -->
     <!-- =================================================== -->
     
-    <rect x="905.0" y="1070.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <rect x="915.0" y="1070.0" width="250" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="1020" y="1089" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Turn-by-Turn Navigation to Kitchen</text>
-        <text x="1020" y="1104" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">(Google Routes API v2 & Collect Package)</text>
+        <text x="1040" y="1089" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Navigate to Kitchen & Pick Up Meal</text>
+        <text x="1040" y="1104" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">(Google Routes API v2 Navigation)</text>
         
     
-    <line x1="1020" y1="1114" x2="1020" y2="1138" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="1040" y1="1114" x2="1040" y2="1140" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
     
-    <rect x="905.0" y="1138.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <rect x="915.0" y="1140.0" width="250" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="1020" y="1157" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Live GPS Streaming via WebSockets</text>
-        <text x="1020" y="1172" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">(Pusher + Animated Bike on Customer Map)</text>
+        <text x="1040" y="1159" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Live GPS Streaming over WebSockets</text>
+        <text x="1040" y="1174" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">(HTML5 watchPosition to Customer Screen)</text>
         
     
-    <line x1="1020" y1="1182" x2="1020" y2="1206" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="1040" y1="1184" x2="1040" y2="1210" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
     
-    <rect x="905.0" y="1206.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <rect x="915.0" y="1210.0" width="250" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="1020" y="1225" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Doorstep Arrival & 4-Digit OTP</text>
-        <text x="1020" y="1240" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Handshake Verification via Rider Portal</text>
+        <text x="1040" y="1229" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Doorstep Arrival & Prompt for</text>
+        <text x="1040" y="1244" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Confidential 4-Digit Delivery OTP</text>
         
     
-    <line x1="1020" y1="1250" x2="1020" y2="1275" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="1040" y1="1254" x2="1040" y2="1286" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
+    <polygon points="1040,1286.0 1054.0,1300 1040,1314.0 1026.0,1300" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    
+    <!-- OTP Invalid loop -->
+    <path d="M 1054 1300 L 1180 1300 L 1180 1232 L 1165 1232" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <text x="1060" y="1292" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000">[OTP Invalid]</text>
+    
+    <!-- OTP Verified -> Stage 5 -->
+    <line x1="1040" y1="1314" x2="1040" y2="1342" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" /><text x="1048.0" y="1328.0" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000" text-anchor="start">[OTP Verified]</text>
+    
+    <!-- ========================================== -->
     <!-- STAGE 5: SETTLEMENT & REVIEW -->
+    <!-- ========================================== -->
     
-    <rect x="905.0" y="1276.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <rect x="915.0" y="1343.0" width="250" height="42" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
     
-        <text x="1020" y="1295" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Delivery Complete, 10% Platform Cut,</text>
-        <text x="1020" y="1310" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11"  fill="#000000">Net Vendor Payout & Customer Review</text>
+        <text x="1040" y="1361" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Delivery Complete, 10% Platform Cut,</text>
+        <text x="1040" y="1376" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Vendor Net Payout & Customer Rating</text>
         
     
-    <line x1="1020" y1="1320" x2="1020" y2="1345" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <line x1="1040" y1="1385" x2="1040" y2="1408" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
     
-    <circle cx="1020" cy="1357" r="12" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
-    <circle cx="1020" cy="1357" r="8" fill="#000000" />
+    <circle cx="1040" cy="1420" r="12" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <circle cx="1040" cy="1420" r="8" fill="#000000" />
+    
+    
+    <!-- ========================================================================= -->
+    <!-- SECTION HEADER B: SCHEDULED MULTI-TIFFIN MILK-RUN BATCH LOGISTICS (STAGE 6) -->
+    <!-- ========================================================================= -->
+    <rect x="40" y="1455" width="1160" height="26" fill="#e9ecef" stroke="#adb5bd" stroke-width="1"/>
+    <text x="630" y="1472" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="11" font-weight="bold" fill="#212529">PART B: SCHEDULED MULTI-TIFFIN MILK-RUN BATCH LOGISTICS &amp; DOORSTEP HANDOVER (STAGE 6)</text>
+    
+    <!-- Swimlane dividers for Part B only -->
+    <line x1="325" y1="1481" x2="325" y2="1980" stroke="#d0d7de" stroke-width="1.2" stroke-dasharray="5,5" />
+    <line x1="595" y1="1481" x2="595" y2="1980" stroke="#d0d7de" stroke-width="1.2" stroke-dasharray="5,5" />
+    <line x1="885" y1="1481" x2="885" y2="1980" stroke="#d0d7de" stroke-width="1.2" stroke-dasharray="5,5" />
+    
+    <!-- Milk Run Flow Start: Midnight Cron in Backend -->
+    <circle cx="740" cy="1505" r="11" fill="#000000" stroke="#000000" stroke-width="1.2" />
+    <line x1="740" y1="1516" x2="740" y2="1538" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    
+    
+    <rect x="615.0" y="1539.0" width="250" height="42" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    
+        <text x="740" y="1557" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Midnight Cron: Scan Active Subscriptions</text>
+        <text x="740" y="1572" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Generate subscription_deliveries Roster</text>
+        
+    
+    <line x1="740" y1="1581" x2="740" y2="1608" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    
+    
+    <rect x="615.0" y="1609.0" width="250" height="42" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    
+        <text x="740" y="1627" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Cluster by Corridor & Meal Window</text>
+        <text x="740" y="1642" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Generate Consolidated delivery_runs Batches</text>
+        
+    
+    
+    <!-- Split after Corridor Clustering: to Chef and to Courier TSP -->
+    <path d="M 740 1651 L 740 1665 L 460 1665 L 460 1705" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <text x="475" y="1657" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000">[Daily Prep Roster]</text>
+    
+    <rect x="345.0" y="1706.0" width="230" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    
+        <text x="460" y="1725" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Home Chef Prepares Batch Meals &</text>
+        <text x="460" y="1740" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Loads Thermal Carrying Carriers</text>
+        
+    
+    
+    <!-- Continue TSP in Backend -->
+    <path d="M 740 1665 L 740 1705" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    
+    <rect x="615.0" y="1706.0" width="250" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    
+        <text x="740" y="1725" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Execute Nearest-Neighbor TSP Heuristic</text>
+        <text x="740" y="1740" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">optimizeDeliverySequence() (Haversine)</text>
+        
+    
+    
+    <!-- Rider claims batch -->
+    <path d="M 740 1750 L 740 1770 L 1040 1770 L 1040 1795" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <text x="905" y="1762" text-anchor="start" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000">[Claim Batch Run]</text>
+    
+    <rect x="915.0" y="1796.0" width="250" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    
+        <text x="1040" y="1815" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Rider Inspects Available Runs on /delivery/runs</text>
+        <text x="1040" y="1830" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Claims Batch & Navigates to Kitchen Cluster</text>
+        
+    
+    <line x1="1040" y1="1840" x2="1040" y2="1865" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    
+    
+    <rect x="915.0" y="1866.0" width="250" height="44" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    
+        <text x="1040" y="1885" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Phase 1: Pick Up Tiffins from Kitchens</text>
+        <text x="1040" y="1900" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Phase 2: Traverse Sequential Drop-Off Waypoints</text>
+        
+    
+    
+    <!-- Customer Broadcast: In lane 2 center with NO collisions -->
+    <path d="M 915 1888 L 895 1888 L 895 1925 L 180 1925 L 180 1948" fill="none" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    <text x="460" y="1917" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="9.5" font-weight="bold" fill="#000000">[Real-Time Leg Broadcast]</text>
+    
+    <rect x="60.0" y="1949.0" width="240" height="42" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    
+        <text x="180" y="1967" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Queue-Aware Live Tracking Map</text>
+        <text x="180" y="1982" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">(e.g. 'You are Stop #3, Rider at Stop #2')</text>
+        
+    
+    
+    <!-- Doorstep Drop in Lane 4 -->
+    <line x1="1040" y1="1910" x2="1040" y2="1948" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    
+    <rect x="915.0" y="1949.0" width="250" height="42" rx="6" ry="6" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    
+        <text x="1040" y="1967" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Fulfill Contactless Doorstep Drop (No OTP)</text>
+        <text x="1040" y="1982" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="10.5"  fill="#000000">Bulk Fixed Payout Credited to Courier Wallet</text>
+        
+    
+    <line x1="1040" y1="1991" x2="1040" y2="2012" stroke="#000000" stroke-width="1.2" marker-end="url(#arrow)" />
+    
+    <circle cx="1040" cy="2024" r="12" fill="#ffffff" stroke="#000000" stroke-width="1.3" />
+    <circle cx="1040" cy="2024" r="8" fill="#000000" />
     
     
     </svg>

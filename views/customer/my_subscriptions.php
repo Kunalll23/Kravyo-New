@@ -94,6 +94,20 @@
                                     </div>
                                 </div>
 
+                                <?php if (!empty($sub['today_order_id'])): ?>
+                                    <div class="alert alert-light border shadow-sm p-3 mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                        <div>
+                                            <div class="small text-muted mb-0">Today's Delivery:</div>
+                                            <span class="badge bg-dark">#<?= sanitize($sub['today_order_number']) ?></span>
+                                            <span class="badge bg-info text-dark ms-1"><?= ucfirst(str_replace('_', ' ', $sub['today_order_status'] ?? 'dispatched')) ?></span>
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle ms-1"><i class="bi bi-shield-check me-1"></i>Contactless / No OTP</span>
+                                        </div>
+                                        <a href="<?= url('/order/track/' . $sub['today_order_id']) ?>" class="btn btn-sm btn-primary rounded-pill px-3 fw-semibold">
+                                            <i class="bi bi-geo-alt-fill me-1"></i>Track Tiffin
+                                        </a>
+                                    </div>
+                                <?php endif; ?>
+
                                 <!-- Meal Delivery Timings -->
                                 <?php $mySchedule = Subscription::getMealSchedule($sub); ?>
                                 <div class="d-flex flex-wrap gap-2 mb-3">

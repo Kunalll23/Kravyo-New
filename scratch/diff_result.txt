@@ -1,0 +1,22 @@
+--- GoogleDocs
++++ MainDoc
+@@ -573,6 +573,10 @@
+ Data To (Data Out): Updates `orders.order_status`. When marked `ready_for_pickup`, triggers `DispatchService` to initiate rider matching.
+ Data Validation: Chefs can only modify orders assigned to their kitchen. State transitions follow strict workflow rules (cannot mark ready before accepted).
+ 
++
++
++
++
+ 4.2.2.3 Menu Management & Dish Creator Screen
+ Description / Purpose of the UI: Allows home chefs to manage their food catalog, add new dishes, upload appetizing photos, specify dietary preferences (Veg, Jain, Diabetic), set prices, and toggle in-stock availability.
+ Figure 4.12: Menu Management & Dish Creator Screen
+@@ -587,6 +591,8 @@
+ Data From (Data In): Chef form inputs and existing menu records from `menu_items`.
+ Data To (Data Out): Inserts or updates records in `menu_items`; saves uploaded photos to `uploads/dishes/`.
+ Data Validation: Dish name is required, max 50 characters. Price must be positive (₹10.00 to ₹5,000.00). Images must be .jpg, .jpeg, or .png, max 3 MB.
++
++
+ 
+ 4.2.2.4 Chef Tiffin Subscription & Zero-Waste Deal Publisher
+ Description / Purpose of the UI: Enables chefs to create recurring meal subscription plans (Weekly/Monthly) and publish end-of-day surplus dishes at promotional discounts to minimize food waste.

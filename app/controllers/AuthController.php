@@ -185,7 +185,14 @@ class AuthController extends Controller {
     public function showRegisterForm(): void {
         // Always show the registration form regardless of existing sessions.
         // Another role being logged in must not block registration.
-        $this->render('auth/register', ['title' => 'Create a Kravyo Account'], 'public_portal');
+        $role = $_GET['role'] ?? 'customer';
+        $title = ($role === 'chef') ? 'Join as Home Chef — Kravyo' : 'Create a Kravyo Account';
+        $this->render('auth/register', ['title' => $title, 'role' => $role], 'public_portal');
+    }
+
+    public function showChefRegisterForm(): void {
+        $_GET['role'] = 'chef';
+        $this->render('auth/register', ['title' => 'Join as Home Chef — Kravyo', 'role' => 'chef'], 'public_portal');
     }
 
     public function register(): void {
@@ -195,7 +202,14 @@ class AuthController extends Controller {
         $fullName = sanitize($rawFullName);
         $email    = strtolower(trim($_POST['email']    ?? ''));
         $phone    = sanitize(trim($_POST['phone']      ?? ''));
-        $city            = sanitize(trim($_POST['city']       ?? ''));
+        $rawCity  = trim($_POST['city'] ?? '');
+        if ($rawCity === '__other__' || empty($rawCity)) {
+            $rawCity = trim($_POST['other_city'] ?? '');
+        }
+        $city = sanitize($rawCity);
+        if (strcasecmp($city, 'bengaluru') === 0 || strcasecmp($city, 'bangalore (bengaluru)') === 0) {
+            $city = 'Bangalore';
+        }
         $password        = $_POST['password']  ?? '';
         $confirmPassword = $_POST['confirm_password'] ?? '';
         $role            = sanitize($_POST['role'] ?? ROLE_CUSTOMER);
@@ -292,8 +306,9 @@ class AuthController extends Controller {
                 $plainOtp
             );
 
-            // Store pending email in session for the verify-email page
+            // Store pending email in session and root cookie for cross-portal OTP verification
             Session::set('_pending_verification_email', $email);
+            setcookie('kravyo_pending_email', $email, time() + 3600, '/', '', false, true);
 
             if ($emailSent) {
                 Session::setFlash('success',
@@ -317,7 +332,11 @@ class AuthController extends Controller {
     // ─── Email Verification ───────────────────────────────────────────────────
 
     public function showVerifyEmail(): void {
-        $pendingEmail = Session::get('_pending_verification_email', '');
+        $pendingEmail = Session::get('_pending_verification_email', '') ?: ($_COOKIE['kravyo_pending_email'] ?? '');
+
+        if (!empty($pendingEmail)) {
+            Session::set('_pending_verification_email', $pendingEmail);
+        }
 
         if (empty($pendingEmail)) {
             Session::setFlash('warning', 'No pending verification found. Please register or log in.');
@@ -329,6 +348,7 @@ class AuthController extends Controller {
 
         if (!$pendingRecord) {
             Session::remove('_pending_verification_email');
+setcookie('kravyo_pending_email', '', time() - 3600, '/', '', false, true);
             Session::setFlash('danger', 'Registration session expired. Please register again.');
             $this->redirect('/register');
             return;
@@ -349,7 +369,10 @@ class AuthController extends Controller {
     public function verifyEmail(): void {
         Middleware::verifyCsrf();
 
-        $pendingEmail = Session::get('_pending_verification_email', '');
+        $pendingEmail = Session::get('_pending_verification_email', '') ?: ($_COOKIE['kravyo_pending_email'] ?? '');
+        if (!empty($pendingEmail)) {
+            Session::set('_pending_verification_email', $pendingEmail);
+        }
 
         if (empty($pendingEmail)) {
             Session::setFlash('danger', 'Session expired. Please register again.');
@@ -419,9 +442,34 @@ class AuthController extends Controller {
                         ]);
                     }
 
+                    // If Delivery Partner, create delivery_partners profile
+                    if ($userData['role'] === ROLE_DELIVERY) {
+                        require_once APP_PATH . '/models/DeliveryPartner.php';
+                        $partnerModel = new DeliveryPartner();
+                        $partnerModel->create([
+                            'user_id'                => $userId,
+                            'city'                   => $userData['city'] ?? 'Surat',
+                            'vehicle_type'           => $userData['vehicle_type'] ?? 'scooter',
+                            'vehicle_number'         => $userData['vehicle_number'] ?? 'N/A',
+                            'driving_license_number' => $userData['driving_license_number'] ?? 'N/A',
+                            'verification_status'    => DELIVERY_VERIFICATION_PENDING,
+                            'is_online'              => 0,
+                        ]);
+
+                        // Clean up pending registration
+                        $this->emailVerModel->deletePendingRegistration($pendingEmail);
+                        Session::remove('_pending_verification_email');
+setcookie('kravyo_pending_email', '', time() - 3600, '/', '', false, true);
+
+                        Session::setFlash('success', '🎉 Email verified! Your delivery partner application has been submitted and is pending admin approval.');
+                        $this->redirect('/delivery/login');
+                        return;
+                    }
+
                     // Clean up pending registration
                     $this->emailVerModel->deletePendingRegistration($pendingEmail);
                     Session::remove('_pending_verification_email');
+setcookie('kravyo_pending_email', '', time() - 3600, '/', '', false, true);
 
                     // Auto login — switch to correct session cookie FIRST
                     Session::switchToRole($userData['role']);
@@ -429,6 +477,9 @@ class AuthController extends Controller {
                     Session::set('user_id',   $userId);
                     Session::set('user_name', $userData['full_name']);
                     Session::set('user_role', $userData['role']);
+                    if (!empty($userData['city'])) {
+                        Session::set('selected_city', $userData['city']);
+                    }
 
                     Session::setFlash('success', '🎉 Email verified! Your account has been created.');
                     $this->redirectBasedOnRole($userData['role']);
@@ -466,7 +517,10 @@ class AuthController extends Controller {
     public function resendOtp(): void {
         Middleware::verifyCsrf();
 
-        $pendingEmail = Session::get('_pending_verification_email', '');
+        $pendingEmail = Session::get('_pending_verification_email', '') ?: ($_COOKIE['kravyo_pending_email'] ?? '');
+        if (!empty($pendingEmail)) {
+            Session::set('_pending_verification_email', $pendingEmail);
+        }
 
         if (empty($pendingEmail)) {
             Session::setFlash('danger', 'Session expired. Please register again.');
@@ -478,6 +532,7 @@ class AuthController extends Controller {
 
         if (!$pendingRecord) {
             Session::remove('_pending_verification_email');
+setcookie('kravyo_pending_email', '', time() - 3600, '/', '', false, true);
             Session::setFlash('danger', 'Registration session expired. Please register again.');
             $this->redirect('/register');
             return;

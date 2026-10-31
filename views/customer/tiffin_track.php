@@ -35,14 +35,9 @@
                                 <i class="bi bi-check-lg"></i>
                             </div>
                             <h4 class="fw-bold text-success mb-1">Tiffin Delivered!</h4>
-                            <p class="text-muted small mb-3">
+                            <p class="text-muted small mb-0">
                                 Delivered at <?= date('h:i A', strtotime($tracking['completed_at'])) ?>. Enjoy your home-cooked meal!
                             </p>
-                            <?php if (!empty($tracking['container_returned'])): ?>
-                                <span class="badge bg-success-subtle text-success border border-success px-3 py-2 rounded-pill small">
-                                    <i class="bi bi-arrow-repeat me-1"></i> Yesterday's Empty Dabba Exchanged Successfully
-                                </span>
-                            <?php endif; ?>
                         </div>
 
                     <?php elseif ($tracking['run_status'] === 'in_progress'): ?>
@@ -88,13 +83,13 @@
                             </div>
                         <?php endif; ?>
 
-                        <!-- OTP Box for Handover -->
-                        <div class="card border border-warning bg-warning bg-opacity-10 rounded-4 p-4 text-center mb-4">
-                            <span class="text-muted small fw-bold text-uppercase d-block mb-1">YOUR DELIVERY OTP</span>
-                            <div class="display-6 fw-bold font-monospace text-dark tracking-widest mb-1" style="letter-spacing: 6px;">
-                                <?= sanitize($tracking['delivery_otp']) ?>
-                            </div>
-                            <small class="text-muted">Share this 4-digit code with your rider when they reach your doorstep.</small>
+                        <!-- Seamless Contactless Handover Banner -->
+                        <div class="card border border-success bg-success bg-opacity-10 rounded-4 p-4 text-center mb-4">
+                            <span class="badge bg-success bg-opacity-25 text-success fw-bold text-uppercase mx-auto mb-2 px-3 py-1">
+                                <i class="bi bi-shield-check me-1"></i>Contactless Daily Handover
+                            </span>
+                            <h5 class="fw-bold text-dark mb-1">No OTP Required</h5>
+                            <small class="text-muted">Your rider will leave the fresh tiffin at your doorstep or handover directly. Enjoy your fresh home-cooked meal!</small>
                         </div>
 
                     <?php else: ?>
@@ -109,15 +104,6 @@
                             </p>
                         </div>
                     <?php endif; ?>
-
-                    <!-- Zero Waste Empty Box Reminder -->
-                    <div class="alert alert-light border rounded-3 p-3 mb-4 d-flex align-items-center gap-3">
-                        <i class="bi bi-recycle text-success fs-3"></i>
-                        <div class="small">
-                            <strong class="text-success">Zero-Waste Exchange:</strong>
-                            <span class="text-muted">Please keep yesterday's clean empty container ready to swap when today's fresh lunch arrives!</span>
-                        </div>
-                    </div>
 
                     <!-- Rider Info (if assigned) -->
                     <?php if (!empty($tracking['rider_name'])): ?>

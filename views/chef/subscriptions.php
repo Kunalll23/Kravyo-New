@@ -393,7 +393,350 @@
         </div>
     <?php endif; ?>
 
-    <!-- Today's Deliveries Manifest -->
+    <!-- Today's Grouped Tiffin Batch Runs (Milk-Runs) -->
+    <?php if (!empty($todayRuns)): ?>
+        <div class="card kravyo-card border-0 mb-4 shadow-sm" style="border-left: 4px solid #0d6efd !important;">
+            <div class="card-header bg-transparent border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                        <i class="bi bi-boxes fs-5"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold mb-0">Grouped Tiffin Delivery Runs (Milk-Runs)</h5>
+                        <small class="text-muted">Multi-tiffin batches collected from your kitchen in a single pickup</small>
+                    </div>
+                </div>
+                <span class="badge bg-primary rounded-pill px-3 py-2"><?= count($todayRuns) ?> Active Runs (Full Day: Breakfast, Lunch, Dinner)</span>
+            </div>
+            <div class="card-body p-4">
+                <div class="row g-3">
+                    <?php 
+                        $runCount = count($todayRuns);
+                        $colClass = match($runCount) {
+                            1 => 'col-12',
+                            2 => 'col-12 col-md-6',
+                            3 => 'col-12 col-md-6 col-xl-4',
+                            default => 'col-12 col-md-6 col-xl-3'
+                        };
+                    ?>
+                    <?php foreach ($todayRuns as $run): ?>
+                        <div class="<?= $colClass ?>">
+                            <div class="card border rounded-3 p-3 h-100 bg-light shadow-sm">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="fw-bold text-dark fs-6">Run #<?= sanitize($run['run_code']) ?></span>
+                                        </div>
+                                        <?php
+                                            $mType = strtolower($run['meal_type']);
+                                            $mIcon = match($mType) {
+                                                'breakfast' => 'bi-sunrise-fill text-warning',
+                                                'lunch'     => 'bi-sun-fill text-primary',
+                                                'dinner'    => 'bi-moon-stars-fill text-info',
+                                                default     => 'bi-clock-fill text-secondary'
+                                            };
+                                            $mWindow = match($mType) {
+                                                'breakfast' => '08:00 AM – 09:00 AM',
+                                                'lunch'     => '12:30 PM – 01:30 PM',
+                                                'dinner'    => '07:30 PM – 08:30 PM',
+                                                default     => 'Delivery Window'
+                                            };
+                                        ?>
+                                        <div class="small text-muted text-capitalize mt-1">
+                                            <i class="bi <?= $mIcon ?> me-1"></i><?= ucfirst($run['meal_type']) ?> <span class="badge bg-white text-secondary border rounded-pill px-2 py-0 ms-1 fw-normal" style="font-size: 0.72rem;"><?= $mWindow ?></span>
+                                        </div>
+                                        <div class="text-muted" style="font-size: 0.78rem;">
+                                            <i class="bi bi-geo-alt me-1 text-secondary"></i><?= sanitize($run['city']) ?>
+                                        </div>
+                                    </div>
+                                    <?php
+                                        $rBadge = match($run['status']) {
+                                            'in_progress' => 'bg-info text-dark',
+                                            'completed'   => 'bg-success text-white',
+                                            'assigned'    => 'bg-primary text-white',
+                                            'draft', 'pending' => 'bg-warning text-dark',
+                                            default       => 'bg-secondary text-white'
+                                        };
+                                        $statusLabel = match($run['status']) {
+                                            'draft' => 'Pending',
+                                            default => ucwords(str_replace('_', ' ', $run['status']))
+                                        };
+                                    ?>
+                                    <span class="badge <?= $rBadge ?> rounded-pill px-2 py-1 small fw-semibold">
+                                        <?= $statusLabel ?>
+                                    </span>
+                                </div>
+                                <div class="p-3 bg-white rounded-3 border mb-2">
+                                    <div class="d-flex justify-content-between align-items-center small mb-1">
+                                        <span class="text-muted"><i class="bi bi-box-seam me-2 text-warning"></i>Kitchen Pickup:</span>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <span class="fw-bold text-dark fs-6"><?= $run['kitchen_items_count'] ?> Tiffins</span>
+                                            <span class="run-prep-badge badge bg-light text-secondary border rounded-pill px-2 py-0 fw-semibold" 
+                                                  id="runPrepBadge_<?= $run['id'] ?>" 
+                                                  data-run-id="<?= $run['id'] ?>" 
+                                                  data-run-shift="<?= strtolower($run['meal_type']) ?>" 
+                                                  data-run-code="<?= sanitize($run['run_code']) ?>"
+                                                  data-total="<?= (int)$run['kitchen_items_count'] ?>"
+                                                  style="font-size: 0.72rem;">
+                                                (0/<?= $run['kitchen_items_count'] ?> Prepared)
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div class="progress mb-2" style="height: 4px;">
+                                        <div class="progress-bar bg-light" 
+                                             id="runProgressBar_<?= $run['id'] ?>" 
+                                             role="progressbar" 
+                                             style="width: 0%;" 
+                                             aria-valuenow="0" 
+                                             aria-valuemin="0" 
+                                             aria-valuemax="<?= (int)$run['kitchen_items_count'] ?>">
+                                        </div>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center small mb-2">
+                                        <span class="text-muted"><i class="bi bi-geo-alt me-2 text-danger"></i>Total Corridor Stops:</span>
+                                        <span class="fw-semibold text-dark"><?= $run['total_orders'] ?> Customers</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between align-items-center small">
+                                        <span class="text-muted"><i class="bi bi-check-circle me-2 text-success"></i>Pickup Status:</span>
+                                        <span class="badge <?= ($run['pickup_status'] ?? '') === 'completed' ? 'bg-success' : 'bg-warning text-dark' ?> py-1 px-2 rounded-pill">
+                                            <?= ucfirst($run['pickup_status'] ?? 'pending') ?>
+                                        </span>
+                                    </div>
+                                </div>
+                                <?php if ($run['status'] === 'completed'): ?>
+                                    <!-- Run fully delivered and completed! -->
+                                    <div class="mt-auto pt-2 border-top text-center">
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-2 rounded-pill fw-bold w-100 d-inline-flex align-items-center justify-content-center gap-1 shadow-sm">
+                                            <i class="bi bi-check-circle-fill"></i> Completed &bull; All Tiffins Delivered
+                                        </span>
+                                        <?php if (!empty($run['rider_name'])): ?>
+                                            <div class="text-muted mt-1" style="font-size: 0.74rem;">
+                                                <i class="bi bi-person-check me-1"></i>Delivered by <?= sanitize($run['rider_name']) ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php elseif ($run['status'] === 'in_progress'): ?>
+                                    <!-- Run actively out for delivery -->
+                                    <div class="d-flex justify-content-between align-items-center small mt-auto pt-2 border-top">
+                                        <div class="text-truncate me-2">
+                                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill px-2 py-1 fw-bold me-1" style="font-size: 0.7rem;">
+                                                <i class="bi bi-truck me-1"></i>Out for Delivery
+                                            </span>
+                                            <span class="fw-semibold text-dark"><?= sanitize($run['rider_name'] ?: 'Rider') ?></span>
+                                        </div>
+                                        <?php if (!empty($run['rider_phone'])): ?>
+                                            <a href="tel:<?= sanitize($run['rider_phone']) ?>" class="btn btn-outline-success btn-sm py-1 px-3 rounded-pill fw-semibold shadow-sm" style="font-size: 0.78rem;">
+                                                <i class="bi bi-telephone-fill me-1"></i><?= sanitize($run['rider_phone']) ?>
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php elseif (!empty($run['rider_name'])): ?>
+                                    <!-- Rider has accepted the run, awaiting pickup -->
+                                    <div class="d-flex justify-content-between align-items-center small mt-auto pt-2 border-top">
+                                        <div class="text-truncate me-2">
+                                            <i class="bi bi-bicycle text-primary me-1 fs-6"></i>
+                                            <span class="fw-semibold text-dark"><?= sanitize($run['rider_name']) ?></span>
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2 py-0 ms-1" style="font-size: 0.68rem;">Accepted</span>
+                                        </div>
+                                        <?php if (!empty($run['rider_phone'])): ?>
+                                            <a href="tel:<?= sanitize($run['rider_phone']) ?>" class="btn btn-outline-success btn-sm py-1 px-3 rounded-pill fw-semibold shadow-sm" style="font-size: 0.78rem;">
+                                                <i class="bi bi-telephone-fill me-1"></i><?= sanitize($run['rider_phone']) ?>
+                                            </a>
+                                        <?php endif; ?>
+                                    </div>
+                                <?php elseif ($run['status'] === 'assigned'): ?>
+                                    <!-- Run dispatched, awaiting rider acceptance via cascade -->
+                                    <div class="mt-auto pt-2 border-top">
+                                        <div class="btn btn-warning btn-sm w-100 fw-bold rounded-pill py-2 d-flex align-items-center justify-content-center gap-2 disabled" style="opacity: 0.9;">
+                                            <div class="spinner-border spinner-border-sm text-dark" role="status">
+                                                <span class="visually-hidden">Searching...</span>
+                                            </div>
+                                            <span>Broadcasting to nearby riders...</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between align-items-center mt-2 px-1 text-muted" style="font-size: 0.72rem;">
+                                            <span><i class="bi bi-broadcast-pin text-warning me-1"></i>Cascade active</span>
+                                            <span><i class="bi bi-clock-history text-info me-1"></i>Awaiting acceptance</span>
+                                        </div>
+                                    </div>
+                                <?php else: ?>
+                                    <!-- Run not yet dispatched — show Prepared & Find Delivery button -->
+                                    <div class="mt-auto pt-2 border-top">
+                                        <form action="<?= url('/chef/subscription/delivery/batch-dispatch') ?>" method="POST" onsubmit="return confirm('Confirm all <?= $run['kitchen_items_count'] ?> tiffins for Run #<?= sanitize($run['run_code']) ?> are prepared and broadcast delivery request to nearby riders?');">
+                                            <?= csrf_field() ?>
+                                            <input type="hidden" name="run_id" value="<?= $run['id'] ?>">
+                                            <button type="submit" 
+                                                    class="btn btn-primary btn-sm w-100 fw-bold rounded-pill shadow-sm py-2 d-flex align-items-center justify-content-center gap-2 btn-run-dispatch" 
+                                                    id="btnRunDispatch_<?= $run['id'] ?>">
+                                                <i class="bi bi-bicycle fs-6"></i> Prepared &amp; Find Delivery
+                                            </button>
+                                        </form>
+                                        <div class="d-flex justify-content-between align-items-center mt-2 px-1 text-muted" style="font-size: 0.72rem;">
+                                            <span><i class="bi bi-hourglass-split text-warning me-1"></i>Awaiting rider</span>
+                                            <span><i class="bi bi-broadcast text-primary me-1"></i>Broadcast ready</span>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    <?php endif; ?>
+
+    <!-- Daily Kitchen Cooking & Plan Preparation Summary -->
+    <?php
+        // Build Cooking Quantity Summary with exact per-box customer and delivery run mapping
+        $prepSummary = [
+            'breakfast' => ['total' => 0, 'plans' => []],
+            'lunch'     => ['total' => 0, 'plans' => []],
+            'dinner'    => ['total' => 0, 'plans' => []]
+        ];
+
+        foreach ($todaysDeliveries as $deliv) {
+            $mKey = strtolower($deliv['meal_type']);
+            if (!isset($prepSummary[$mKey])) continue;
+
+            $pName = $deliv['plan_name'];
+            if (!isset($prepSummary[$mKey]['plans'][$pName])) {
+                $prepSummary[$mKey]['plans'][$pName] = [
+                    'plan_name'   => $pName,
+                    'plan_type'   => $deliv['plan_type'],
+                    'description' => $deliv['plan_description'] ?? '',
+                    'time_window' => $deliv['delivery_time'] ?? '',
+                    'boxes'       => []
+                ];
+            }
+
+            // Derive short corridor name
+            $corridorTag = 'Corridor';
+            if (!empty($deliv['run_code'])) {
+                if (str_contains($deliv['run_code'], 'BRKF')) $corridorTag = 'Central Run';
+                elseif (str_contains($deliv['run_code'], 'NORT')) $corridorTag = 'North Run';
+                elseif (str_contains($deliv['run_code'], 'SOUT')) $corridorTag = 'South Run';
+                elseif (str_contains($deliv['run_code'], 'DINN')) $corridorTag = 'Express Run';
+            }
+
+            $prepSummary[$mKey]['plans'][$pName]['boxes'][] = [
+                'delivery_id'   => (int)$deliv['id'],
+                'run_id'        => (int)($deliv['run_id'] ?? 0),
+                'run_code'      => $deliv['run_code'] ?? '',
+                'corridor_tag'  => $corridorTag,
+                'customer_name' => $deliv['customer_name'] ?? 'Customer',
+                'customer_phone'=> $deliv['customer_phone'] ?? '',
+                'instructions'  => $deliv['special_instructions'] ?? ''
+            ];
+
+            $prepSummary[$mKey]['total']++;
+        }
+    ?>
+    <div class="card kravyo-card border-0 mb-4 shadow-sm" style="border-left: 4px solid #198754 !important;">
+        <div class="card-header bg-transparent border-bottom py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div class="d-flex align-items-center gap-2">
+                <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 38px; height: 38px;">
+                    <i class="bi bi-fire fs-5"></i>
+                </div>
+                <div>
+                    <h5 class="fw-bold mb-0">Kitchen Cooking &amp; Preparation Summary (Prep Sheet)</h5>
+                    <small class="text-muted">Exact meal plans, customer orders &amp; delivery corridor mapping</small>
+                </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-success rounded-pill px-3 py-2 fw-semibold">
+                    <i class="bi bi-check2-all me-1"></i><?= count($todaysDeliveries) ?> Total Tiffins to Cook Today
+                </span>
+            </div>
+        </div>
+        <div class="card-body p-4">
+            <div class="row g-3">
+                <?php foreach (['breakfast', 'lunch', 'dinner'] as $shiftKey): ?>
+                    <?php
+                        $shiftConfig = match($shiftKey) {
+                            'breakfast' => ['title' => 'Breakfast Prep', 'icon' => 'bi-sunrise-fill text-warning', 'border' => '#ffc107', 'time' => '08:00 AM – 09:00 AM Window'],
+                            'lunch'     => ['title' => 'Lunch Prep',     'icon' => 'bi-sun-fill text-primary',     'border' => '#0d6efd', 'time' => '12:30 PM – 01:30 PM Window'],
+                            'dinner'    => ['title' => 'Dinner Prep',    'icon' => 'bi-moon-stars-fill text-info', 'border' => '#0dcaf0', 'time' => '07:30 PM – 08:30 PM Window']
+                        };
+                        $shiftData = $prepSummary[$shiftKey];
+                    ?>
+                    <div class="col-12 col-lg-4 prep-shift-col" data-prep-shift="<?= $shiftKey ?>">
+                        <div class="card border rounded-3 p-3 h-100 bg-light shadow-sm" style="border-top: 3px solid <?= $shiftConfig['border'] ?> !important;">
+                            <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                                <span class="fw-bold text-dark fs-6">
+                                    <i class="bi <?= $shiftConfig['icon'] ?> me-1"></i><?= $shiftConfig['title'] ?>
+                                </span>
+                                <span class="badge bg-light text-secondary border rounded-pill px-3 py-1 fw-bold" id="shiftPrepBadge_<?= $shiftKey ?>" data-total="<?= (int)$shiftData['total'] ?>">
+                                    0/<?= $shiftData['total'] ?> Prepared
+                                </span>
+                            </div>
+                            <div class="small text-muted mb-3">
+                                <i class="bi bi-clock me-1 text-secondary"></i><?= $shiftConfig['time'] ?>
+                            </div>
+                            <?php if (empty($shiftData['plans'])): ?>
+                                <div class="text-muted small py-3 text-center">No orders for this shift today.</div>
+                            <?php else: ?>
+                                <div class="d-flex flex-column gap-2">
+                                    <?php foreach ($shiftData['plans'] as $pData): ?>
+                                        <?php $pKey = $shiftKey . '_' . md5($pData['plan_name']); ?>
+                                        <div class="bg-white p-2 rounded-2 border prep-plan-card" 
+                                             id="planCard_<?= $pKey ?>" 
+                                             data-plan-key="<?= $pKey ?>" 
+                                             data-shift="<?= $shiftKey ?>" 
+                                             data-box-count="<?= count($pData['boxes']) ?>">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <div>
+                                                    <span class="fw-bold text-dark small"><?= sanitize($pData['plan_name']) ?></span>
+                                                    <span class="badge bg-light text-dark border rounded-pill px-2 py-0 fw-semibold ms-1" style="font-size: 0.72rem;">
+                                                        <?= count($pData['boxes']) ?> <?= count($pData['boxes']) === 1 ? 'Box' : 'Boxes' ?>
+                                                    </span>
+                                                </div>
+                                                <!-- Single Button For The Plan -->
+                                                <button type="button" 
+                                                        class="btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 d-flex align-items-center gap-1 btn-plan-toggle" 
+                                                        id="btnPlan_<?= $pKey ?>" 
+                                                        onclick="togglePlanPrepared('<?= $pKey ?>')" 
+                                                        style="font-size: 0.74rem;">
+                                                    <i class="bi bi-circle"></i> <span>Mark Packed</span>
+                                                </button>
+                                            </div>
+                                            <?php if (!empty($pData['description'])): ?>
+                                                <div class="text-muted small mb-2" style="font-size: 0.72rem; line-height: 1.25;">
+                                                    <i class="bi bi-egg-fried me-1 text-success"></i><?= sanitize($pData['description']) ?>
+                                                </div>
+                                            <?php endif; ?>
+
+                                            <!-- Clean Customer & Corridor Tags (No individual buttons!) -->
+                                            <div class="d-flex flex-wrap gap-1 pt-1 border-top" style="font-size: 0.72rem;">
+                                                <?php foreach ($pData['boxes'] as $box): ?>
+                                                    <?php
+                                                        $badgeTheme = match($box['corridor_tag']) {
+                                                            'North Run'   => 'bg-primary-subtle text-primary border-primary-subtle',
+                                                            'South Run'   => 'bg-info-subtle text-info-emphasis border-info-subtle',
+                                                            'Central Run' => 'bg-warning-subtle text-dark border-warning-subtle',
+                                                            'Express Run' => 'bg-success-subtle text-success border-success-subtle',
+                                                            default       => 'bg-light text-secondary border'
+                                                        };
+                                                    ?>
+                                                    <span class="badge <?= $badgeTheme ?> rounded-pill px-2 py-1 fw-normal d-inline-flex align-items-center gap-1 plan-box-chip" 
+                                                          id="boxChip_<?= $box['delivery_id'] ?>" 
+                                                          data-delivery-id="<?= $box['delivery_id'] ?>" 
+                                                          data-run-id="<?= $box['run_id'] ?>" 
+                                                          data-shift="<?= $shiftKey ?>"
+                                                          data-plan-key="<?= $pKey ?>">
+                                                        <i class="bi bi-person-fill"></i> <?= sanitize($box['customer_name']) ?> <small class="opacity-75">(<?= $box['corridor_tag'] ?>)</small>
+                                                    </span>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+        <!-- Today's Deliveries Manifest -->
     <?php
         $bCount = count(array_filter($todaysDeliveries, fn($d) => strtolower($d['meal_type']) === 'breakfast'));
         $lCount = count(array_filter($todaysDeliveries, fn($d) => strtolower($d['meal_type']) === 'lunch'));
@@ -411,6 +754,16 @@
                     <i class="bi bi-bicycle text-primary me-2"></i>Today's Tiffin Deliveries
                     <span class="badge bg-primary ms-2" id="deliveriesCountBadge"><?= count($todaysDeliveries) ?></span>
                 </h5>
+
+                <?php if ($pendingCount > 0): ?>
+                    <form action="<?= url('/chef/subscription/delivery/batch-dispatch') ?>" method="POST" class="d-inline" onsubmit="return confirm('Prepare & dispatch all <?= $pendingCount ?> pending tiffin deliveries to nearby riders now?');">
+                        <?= csrf_field() ?>
+                        <input type="hidden" name="meal_type" value="all">
+                        <button type="submit" class="btn btn-warning btn-sm text-dark fw-bold rounded-pill px-3 shadow-sm ms-2">
+                            <i class="bi bi-send-check-fill me-1"></i> Batch Dispatch All Pending (<?= $pendingCount ?>)
+                        </button>
+                    </form>
+                <?php endif; ?>
             </div>
 
             <!-- Meal Type Filter Option Buttons -->
@@ -445,7 +798,7 @@
                                 <th>Tiffin Details</th>
                                 <th>Address</th>
                                 <th>Instructions</th>
-                                <th>Status</th>
+                                <th>Delivery Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -480,13 +833,51 @@
                                         <?php endif; ?>
                                     </td>
                                     <td>
-                                        <?php
-                                            $badgeClass = 'bg-secondary';
-                                            if ($delivery['status'] === 'pending') $badgeClass = 'bg-warning text-dark';
-                                            if ($delivery['status'] === 'dispatched') $badgeClass = 'bg-info text-dark';
-                                            if ($delivery['status'] === 'delivered') $badgeClass = 'bg-success';
-                                        ?>
-                                        <span class="badge <?= $badgeClass ?>"><?= ucfirst($delivery['status']) ?></span>
+                                        <?php if (!empty($delivery['order_status'])): ?>
+                                            <?php
+                                                $oStatus = $delivery['order_status'];
+                                                $badgeClass = match($oStatus) {
+                                                    'preparing'        => 'bg-primary',
+                                                    'ready_for_pickup' => 'bg-info text-dark',
+                                                    'out_for_delivery' => 'bg-success',
+                                                    'delivered'        => 'bg-success',
+                                                    'delivery_failed'  => 'bg-danger',
+                                                    default            => 'bg-secondary'
+                                                };
+                                                $icon = match($oStatus) {
+                                                    'preparing'        => 'bi-fire',
+                                                    'ready_for_pickup' => 'bi-box-seam',
+                                                    'out_for_delivery' => 'bi-bicycle',
+                                                    'delivered'        => 'bi-check2-all',
+                                                    default            => 'bi-circle'
+                                                };
+                                            ?>
+                                            <span class="badge <?= $badgeClass ?> px-2 py-1 rounded-pill">
+                                                <i class="bi <?= $icon ?> me-1"></i> <?= ucwords(str_replace('_', ' ', $oStatus)) ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <?php
+                                                $badgeClass = 'bg-secondary';
+                                                if ($delivery['status'] === 'pending') $badgeClass = 'bg-warning text-dark';
+                                                if ($delivery['status'] === 'dispatched') $badgeClass = 'bg-info text-dark';
+                                                if ($delivery['status'] === 'delivered') $badgeClass = 'bg-success';
+                                            ?>
+                                            <span class="badge <?= $badgeClass ?> px-2 py-1 rounded-pill"><?= ucfirst($delivery['status']) ?></span>
+                                        <?php endif; ?>
+
+                                        <?php if (!empty($delivery['order_number'])): ?>
+                                            <div class="small text-muted mt-1 fw-semibold">
+                                                <i class="bi bi-receipt me-1 text-primary"></i>#<?= sanitize($delivery['order_number']) ?>
+                                            </div>
+                                        <?php endif; ?>
+
+                                        <?php if (!empty($delivery['run_code'])): ?>
+                                            <div class="mt-1">
+                                                <span class="badge bg-dark text-white rounded-pill px-2 py-1" style="font-size: 0.72rem;" title="Batched in Run #<?= sanitize($delivery['run_code']) ?>">
+                                                    <i class="bi bi-diagram-3-fill me-1 text-warning"></i>Run #<?= sanitize($delivery['run_code']) ?> &bull; Stop #<?= $delivery['stop_number'] ?>
+                                                </span>
+                                            </div>
+                                        <?php endif; ?>
                                     </td>
                                     <td>
                                         <?php if ($delivery['status'] === 'pending'): ?>
@@ -494,14 +885,29 @@
                                                 <?= csrf_field() ?>
                                                 <input type="hidden" name="delivery_id" value="<?= $delivery['id'] ?>">
                                                 <input type="hidden" name="status" value="dispatched">
-                                                <button type="submit" class="btn btn-sm btn-info text-white shadow-sm" title="Prepare & Dispatch single order">
-                                                    <i class="bi bi-bicycle me-1"></i>Prepare &amp; Dispatch Rider
+                                                <button type="submit" class="btn btn-sm btn-info text-white shadow-sm rounded-pill px-3" title="Prepare & Dispatch single order">
+                                                    <i class="bi bi-bicycle me-1"></i>Prepare &amp; Dispatch
                                                 </button>
                                             </form>
-                                        <?php elseif ($delivery['status'] === 'dispatched'): ?>
-                                            <span class="text-info small fw-bold"><i class="bi bi-broadcast me-1"></i> Dispatched to Rider</span>
                                         <?php else: ?>
-                                            <span class="text-muted small"><i class="bi bi-check-all text-success fs-5"></i> Delivered</span>
+                                            <?php if (!empty($delivery['rider_name'])): ?>
+                                                <div class="small fw-semibold text-dark mb-1">
+                                                    <i class="bi bi-person-badge text-primary me-1"></i><?= sanitize($delivery['rider_name']) ?>
+                                                </div>
+                                                <?php if (!empty($delivery['rider_phone'])): ?>
+                                                    <a href="tel:<?= sanitize($delivery['rider_phone']) ?>" class="btn btn-outline-secondary btn-sm py-0 px-2 rounded-pill small" style="font-size: 0.72rem;">
+                                                        <i class="bi bi-telephone text-success me-1"></i><?= sanitize($delivery['rider_phone']) ?>
+                                                    </a>
+                                                <?php endif; ?>
+                                            <?php else: ?>
+                                                <span class="text-info small fw-bold d-block mb-1"><i class="bi bi-broadcast me-1"></i> Dispatched</span>
+                                            <?php endif; ?>
+
+                                            <?php if (!empty($delivery['order_id'])): ?>
+                                                <a href="<?= url('/chef/order/track/' . $delivery['order_id']) ?>" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 mt-1 d-inline-block small" style="font-size:0.75rem;">
+                                                    <i class="bi bi-geo-alt-fill me-1"></i> Track Rider
+                                                </a>
+                                            <?php endif; ?>
                                         <?php endif; ?>
                                     </td>
                                 </tr>
@@ -621,6 +1027,23 @@ function filterDeliveries(mealType, btnElement) {
     });
     btnElement.classList.add('active');
 
+    // Sync Kitchen Preparation Summary columns
+    document.querySelectorAll('.prep-shift-col').forEach(col => {
+        const shift = col.getAttribute('data-prep-shift');
+        const card = col.querySelector('.card');
+        if (currentActiveMealFilter === 'all' || currentActiveMealFilter === shift) {
+            col.style.opacity = '1';
+            if (currentActiveMealFilter === shift && card) {
+                card.classList.add('border-2', 'border-primary', 'shadow');
+            } else if (card) {
+                card.classList.remove('border-2', 'border-primary', 'shadow');
+            }
+        } else {
+            col.style.opacity = '0.45';
+            if (card) card.classList.remove('border-2', 'border-primary', 'shadow');
+        }
+    });
+
     const rows = document.querySelectorAll('.delivery-row');
     let visibleCount = 0;
 
@@ -645,4 +1068,155 @@ function filterDeliveries(mealType, btnElement) {
         badge.textContent = visibleCount;
     }
 }
+
+// Interactive Tiffin Packing: 1-Button per Plan with Exact Customer & Corridor Run Mapping
+const PACKED_PLANS_KEY = 'kravyo_packed_plan_cards_' + new Date().toISOString().slice(0, 10);
+
+function getPackedPlans() {
+    try {
+        const stored = localStorage.getItem(PACKED_PLANS_KEY);
+        return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function savePackedPlans(data) {
+    try {
+        localStorage.setItem(PACKED_PLANS_KEY, JSON.stringify(data));
+    } catch (e) {}
+}
+
+function togglePlanPrepared(planKey) {
+    const packed = getPackedPlans();
+    
+    if (!packed[planKey]) {
+        packed[planKey] = true;
+    } else {
+        delete packed[planKey];
+    }
+    
+    savePackedPlans(packed);
+    renderPackedPlansState();
+}
+
+function renderPackedPlansState() {
+    const packed = getPackedPlans();
+    
+    // Accurate counters per exact delivery Run ID: { "4": count, "5": count, "6": count, "7": count }
+    const runPackedCounts = {};
+    // Accurate counters per meal shift: { breakfast: count, lunch: count, dinner: count }
+    const shiftPackedCounts = { breakfast: 0, lunch: 0, dinner: 0 };
+    
+    // 1. Process each plan card
+    document.querySelectorAll('.prep-plan-card').forEach(card => {
+        const pKey = card.getAttribute('data-plan-key');
+        const shift = card.getAttribute('data-shift');
+        const boxCount = parseInt(card.getAttribute('data-box-count'), 10) || 1;
+        const btn = card.querySelector('.btn-plan-toggle');
+        const isPlanPacked = !!packed[pKey];
+        
+        // Find all boxes inside this plan
+        const boxChips = card.querySelectorAll('.plan-box-chip');
+        
+        if (isPlanPacked) {
+            card.classList.add('border-success', 'bg-success-subtle');
+            card.classList.remove('bg-white');
+            if (btn) {
+                btn.className = 'btn btn-sm btn-success text-white rounded-pill px-2 py-0 d-flex align-items-center gap-1 btn-plan-toggle shadow-sm';
+                btn.innerHTML = '<i class="bi bi-check-circle-fill"></i> <span>Packed (' + boxCount + ')</span>';
+            }
+            
+            // Credit each box to its EXACT destination run_id!
+            boxChips.forEach(chip => {
+                const runId = chip.getAttribute('data-run-id');
+                runPackedCounts[runId] = (runPackedCounts[runId] || 0) + 1;
+                shiftPackedCounts[shift] = (shiftPackedCounts[shift] || 0) + 1;
+                chip.classList.add('border-success');
+            });
+        } else {
+            card.classList.remove('border-success', 'bg-success-subtle');
+            card.classList.add('bg-white');
+            if (btn) {
+                btn.className = 'btn btn-sm btn-outline-secondary rounded-pill px-2 py-0 d-flex align-items-center gap-1 btn-plan-toggle';
+                btn.innerHTML = '<i class="bi bi-circle"></i> <span>Mark Packed</span>';
+            }
+            boxChips.forEach(chip => {
+                chip.classList.remove('border-success');
+            });
+        }
+    });
+    
+    // 2. Update the Shift Prep Badges in the Prep Sheet headers
+    ['breakfast', 'lunch', 'dinner'].forEach(shift => {
+        const badge = document.getElementById('shiftPrepBadge_' + shift);
+        if (!badge) return;
+        
+        const total = parseInt(badge.getAttribute('data-total'), 10) || 0;
+        const currentPacked = shiftPackedCounts[shift] || 0;
+        
+        if (currentPacked >= total && total > 0) {
+            badge.className = 'badge bg-success text-white rounded-pill px-3 py-1 fw-bold shadow-sm';
+            badge.innerHTML = '<i class="bi bi-check2-all me-1"></i>' + currentPacked + '/' + total + ' Prepared (Ready!)';
+        } else if (currentPacked > 0) {
+            badge.className = 'badge bg-warning text-dark rounded-pill px-3 py-1 fw-bold';
+            badge.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>' + currentPacked + '/' + total + ' Prepared';
+        } else {
+            badge.className = 'badge bg-light text-secondary border rounded-pill px-3 py-1 fw-bold';
+            badge.innerHTML = '0/' + total + ' Prepared';
+        }
+    });
+    
+    // 3. Update the EXACT Grouped Tiffin Delivery Runs cards above!
+    document.querySelectorAll('.run-prep-badge').forEach(badge => {
+        const runId = badge.getAttribute('data-run-id');
+        const runTotal = parseInt(badge.getAttribute('data-total'), 10) || 5;
+        const pBar = document.getElementById('runProgressBar_' + runId);
+        const dispatchBtn = document.getElementById('btnRunDispatch_' + runId);
+        
+        // Exact count of packed dishes belonging to this specific run!
+        const runPacked = runPackedCounts[runId] || 0;
+        const pct = runTotal > 0 ? Math.round((runPacked / runTotal) * 100) : 0;
+        
+        // Progress Bar
+        if (pBar) {
+            pBar.style.width = pct + '%';
+            if (pct >= 100) {
+                pBar.className = 'progress-bar bg-success';
+            } else if (pct > 0) {
+                pBar.className = 'progress-bar bg-warning';
+            } else {
+                pBar.className = 'progress-bar bg-light';
+            }
+        }
+        
+        // Run Card Badge
+        if (runPacked >= runTotal && runTotal > 0) {
+            badge.className = 'run-prep-badge badge bg-success text-white rounded-pill px-2 py-1 ms-1 fw-bold shadow-sm';
+            badge.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>(' + runPacked + '/' + runTotal + ' Prepared)';
+            if (dispatchBtn) {
+                dispatchBtn.className = 'btn btn-success btn-sm w-100 fw-bold rounded-pill shadow py-2 d-flex align-items-center justify-content-center gap-2 btn-run-dispatch';
+                dispatchBtn.innerHTML = '<i class="bi bi-send-check-fill fs-6"></i> All ' + runTotal + ' Prepared &bull; Find Delivery';
+            }
+        } else if (runPacked > 0) {
+            badge.className = 'run-prep-badge badge bg-warning text-dark rounded-pill px-2 py-1 ms-1 fw-bold';
+            badge.innerHTML = '(' + runPacked + '/' + runTotal + ' Prepared)';
+            if (dispatchBtn) {
+                dispatchBtn.className = 'btn btn-primary btn-sm w-100 fw-bold rounded-pill shadow-sm py-2 d-flex align-items-center justify-content-center gap-2 btn-run-dispatch';
+                dispatchBtn.innerHTML = '<i class="bi bi-bicycle fs-6"></i> Prepared (' + runPacked + '/' + runTotal + ') &bull; Find Delivery';
+            }
+        } else {
+            badge.className = 'run-prep-badge badge bg-light text-secondary border rounded-pill px-2 py-0 fw-semibold';
+            badge.innerHTML = '(0/' + runTotal + ') Prepared';
+            if (dispatchBtn) {
+                dispatchBtn.className = 'btn btn-primary btn-sm w-100 fw-bold rounded-pill shadow-sm py-2 d-flex align-items-center justify-content-center gap-2 btn-run-dispatch';
+                dispatchBtn.innerHTML = '<i class="bi bi-bicycle fs-6"></i> Prepared &amp; Find Delivery';
+            }
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    renderPackedPlansState();
+});
 </script>

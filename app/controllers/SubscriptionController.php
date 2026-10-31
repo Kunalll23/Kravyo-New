@@ -231,7 +231,16 @@ class SubscriptionController extends Controller {
         foreach ($allSubscriptions as $sub) {
             if (in_array($sub['status'], [SUBSCRIPTION_STATUS_ACTIVE, SUBSCRIPTION_STATUS_PENDING])) {
                 if ($sub['status'] === SUBSCRIPTION_STATUS_ACTIVE) {
-                    $sub['today_status'] = $todaysStatuses[(int) $sub['id']] ?? null;
+                    $todayData = $todaysStatuses[(int) $sub['id']] ?? null;
+                    if (is_array($todayData)) {
+                        $sub['today_status']       = $todayData['status'];
+                        $sub['today_order_id']     = $todayData['order_id'];
+                        $sub['today_order_number'] = $todayData['order_number'];
+                        $sub['today_delivery_otp'] = $todayData['delivery_otp'];
+                        $sub['today_order_status'] = $todayData['order_status'];
+                    } else {
+                        $sub['today_status'] = $todayData;
+                    }
                 }
                 $activeSubscriptions[] = $sub;
             } else {

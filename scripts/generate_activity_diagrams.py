@@ -146,8 +146,7 @@ def build_act_1():
     cx_right = 720
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {DEFS}
-    <text x="{cx}" y="{h - 30}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.3.1 Customer Registration and Login Activity Diagram</text>
-    
+
     {draw_start_node(cx, 40)}
     {draw_arrow(cx, 51, cx, 80)}
     {draw_action(cx, 105, 220, 48, "Open Kravyo Web Application")}
@@ -217,8 +216,7 @@ def build_act_2():
     rx = 630
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {DEFS}
-    <text x="{cx}" y="{h - 30}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.3.2 Subscription Plan Selection and Customization Activity Diagram</text>
-    
+
     {draw_start_node(cx, 35)}
     {draw_arrow(cx, 46, cx, 75)}
     {draw_action(cx, 100, 240, 48, "Browse Verified Home Kitchen", "Tiffin Subscriptions")}
@@ -282,8 +280,7 @@ def build_act_3():
     rx = 760
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {DEFS}
-    <text x="{cx}" y="{h - 30}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.3.3 Payment Processing Activity Diagram</text>
-    
+
     {draw_start_node(cx, 35)}
     {draw_arrow(cx, 46, cx, 75)}
     {draw_action(cx, 100, 250, 48, "Customer Confirms Items in Cart &", "Selects Delivery Address")}
@@ -367,8 +364,7 @@ def build_act_4():
     rx_dispatch = 730
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {DEFS}
-    <text x="{cx}" y="{h - 30}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.3.4 Order Processing and Kitchen Management Activity Diagram</text>
-    
+
     {draw_start_node(cx, 35)}
     {draw_arrow(cx, 46, cx, 75)}
     {draw_action(cx, 100, 240, 48, "Home Chef Receives Incoming Order", "with Alert Notification")}
@@ -467,8 +463,7 @@ def build_act_5():
     rx = 710
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {DEFS}
-    <text x="{cx}" y="{h - 30}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.3.5 Daily Menu and Inventory Management Activity Diagram</text>
-    
+
     {draw_start_node(cx, 40)}
     {draw_arrow(cx, 51, cx, 80)}
     {draw_action(cx, 105, 220, 48, "Home Chef Logs in to", "Seller Dashboard")}
@@ -531,8 +526,7 @@ def build_act_6():
     rx_f = 510
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {DEFS}
-    <text x="{w/2}" y="{h - 30}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.3.6 Home Chef Onboarding and FSSAI Verification Activity Diagram</text>
-    
+
     {draw_start_node(cx, 40)}
     {draw_arrow(cx, 51, cx, 80)}
     {draw_action(cx, 105, 230, 48, "Submit Home Chef Application", "with Contact Details")}
@@ -593,8 +587,7 @@ def build_act_7():
     rx_w = 630
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {DEFS}
-    <text x="{cx}" y="{h - 30}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.3.7 Delivery Partner Onboarding, Duty & Mission Activity Diagram</text>
-    
+
     {draw_start_node(cx, 35)}
     {draw_arrow(cx, 46, cx, 75)}
     {draw_action(cx, 100, 240, 48, "Submit Delivery Partner Profile,", "Vehicle Details & Driving License")}
@@ -662,8 +655,7 @@ def build_act_8():
     rx_r = 520
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {DEFS}
-    <text x="{w/2}" y="{h - 30}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.3.8 Dispute Resolution and Order Refund Activity Diagram</text>
-    
+
     {draw_start_node(cx, 40)}
     {draw_arrow(cx, 51, cx, 80)}
     {draw_action(cx, 105, 230, 48, "Customer Accesses Order History &", "Clicks Report an Issue")}
@@ -728,8 +720,7 @@ def build_act_9():
     rx = 760
     svg = f"""<svg width="{w}" height="{h}" viewBox="0 0 {w} {h}" xmlns="http://www.w3.org/2000/svg">
     {DEFS}
-    <text x="{w/2}" y="{h - 30}" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="bold" fill="#000000">Figure : 3.3.9 Platform Analytics and Commission Management Activity Diagram</text>
-    
+
     {draw_start_node(cx, 40)}
     {draw_arrow(cx, 51, cx, 80)}
     {draw_action(cx, 105, 220, 48, "Administrator Logs in to", "Admin Command Console")}

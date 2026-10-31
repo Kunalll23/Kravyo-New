@@ -45,8 +45,8 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Unique address ID |
-| `user_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `customers.id`) | Customer owner ID |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Unique address ID |
+| `user_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `customers.id`) | Customer owner ID |
 | `address_type` | `enum('Home','Work','Other')` | YES | `'Home'` | | Label category |
 | `apartment` | `varchar(150)` | YES | `NULL` | | Flat / Suite / Floor |
 | `street_address` | `text` | NO | *None* | | Full street address |
@@ -66,7 +66,7 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Admin account ID |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Admin account ID |
 | `full_name` | `varchar(50)` | NO | *None* | | Full administrative name |
 | `email` | `varchar(50)` | NO | *None* | `UNIQUE KEY` | Admin login email |
 | `phone` | `char(10)` | NO | *None* | `INDEX` | 10-digit mobile number |
@@ -93,7 +93,7 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Category ID |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Category ID |
 | `category_name` | `varchar(50)` | NO | *None* | `INDEX` | Category display name |
 | `description` | `text` | YES | `NULL` | | Category description |
 | `image` | `varchar(255)` | YES | `NULL` | | Image filename in `uploads/categories` |
@@ -107,7 +107,7 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Chef user ID |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Chef user ID |
 | `full_name` | `varchar(50)` | NO | *None* | | Chef name |
 | `email` | `varchar(50)` | NO | *None* | `UNIQUE KEY` | Login email address |
 | `phone` | `char(10)` | NO | *None* | `INDEX` | 10-digit mobile number |
@@ -143,10 +143,10 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Report ID |
-| `customer_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `customers.id`) | Submitting customer ID |
-| `kitchen_id` | `int(11)` | YES | `NULL` | `INDEX` (FK &rarr; `kitchens.id`) | Reported kitchen (if applicable) |
-| `order_id` | `int(11)` | YES | `NULL` | `INDEX` (FK &rarr; `orders.id`) | Associated order ID |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Report ID |
+| `customer_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `customers.id`) | Submitting customer ID |
+| `kitchen_id` | `int(5)` | YES | `NULL` | `INDEX` (FK &rarr; `kitchens.id`) | Reported kitchen (if applicable) |
+| `order_id` | `int(5)` | YES | `NULL` | `INDEX` (FK &rarr; `orders.id`) | Associated order ID |
 | `report_type` | `enum('kitchen','dish','delivery','general')` | NO | `'general'` | | Category of issue |
 | `subject` | `varchar(150)` | NO | *None* | | Issue headline |
 | `description` | `text` | NO | *None* | | Full customer statement |
@@ -163,11 +163,11 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Subscription ID |
-| `customer_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `customers.id`) | Subscribed customer |
-| `plan_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `tiffin_subscriptions.id`) | Tiffin plan ID |
-| `kitchen_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Fulfilling kitchen |
-| `address_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `addresses.id`) | Delivery address |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Subscription ID |
+| `customer_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `customers.id`) | Subscribed customer |
+| `plan_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `tiffin_subscriptions.id`) | Tiffin plan ID |
+| `kitchen_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Fulfilling kitchen |
+| `address_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `addresses.id`) | Delivery address |
 | `start_date` | `date` | NO | *None* | | First delivery date |
 | `end_date` | `date` | NO | *None* | | Final delivery date |
 | `status` | `enum('active','paused','completed','cancelled')` | NO | `'active'` | | Plan status |
@@ -182,9 +182,9 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Offer ID |
-| `order_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `orders.id`) | Dispatched order ID |
-| `delivery_partner_id`| `int(11)`| NO | *None* | `INDEX` (FK &rarr; `delivery_partners.id`)| Targeted rider ID |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Offer ID |
+| `order_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `orders.id`) | Dispatched order ID |
+| `delivery_partner_id`| `int(5)`| NO | *None* | `INDEX` (FK &rarr; `delivery_partners.id`)| Targeted rider ID |
 | `status` | `enum('offered','accepted','rejected','expired')` | NO | `'offered'` | | Offer state |
 | `offered_at` | `datetime` | NO | *None* | | Dispatch timestamp |
 | `expires_at` | `datetime` | NO | *None* | | Expiry countdown timestamp |
@@ -199,8 +199,8 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Rider profile ID |
-| `user_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `delivery_users.id`) | User login account |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Rider profile ID |
+| `user_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `delivery_users.id`) | User login account |
 | `vehicle_type` | `enum('bicycle','motorcycle','scooter','ev')` | NO | `'motorcycle'` | | Vehicle transport mode |
 | `vehicle_number` | `varchar(20)`| YES | `NULL` | | License plate number |
 | `driving_license_number`| `varchar(50)`| YES | `NULL` | | Driving license ID |
@@ -210,7 +210,7 @@ erDiagram
 | `current_lng` | `decimal(11,8)`| YES | `NULL` | | Live GPS longitude |
 | `location_updated_at` | `datetime` | YES | `NULL` | | Timestamp of last GPS ping |
 | `rating` | `decimal(3,2)`| NO | `5.00` | | Rider average rating |
-| `total_deliveries` | `int(11)` | NO | `0` | | Completed delivery count |
+| `total_deliveries` | `int(5)` | NO | `0` | | Completed delivery count |
 | `approval_status` | `enum('pending','approved','rejected')` | NO | `'pending'` | | Admin verification status |
 | `created_at` | `timestamp` | NO | `CURRENT_TIMESTAMP` | | Registration timestamp |
 | `updated_at` | `timestamp` | NO | `CURRENT_TIMESTAMP` | `ON UPDATE CURRENT_TIMESTAMP` | Last updated timestamp |
@@ -231,8 +231,8 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Kitchen ID |
-| `user_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `chefs.id`) | Chef owner ID |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Kitchen ID |
+| `user_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `chefs.id`) | Chef owner ID |
 | `kitchen_name` | `varchar(50)` | NO | *None* | | Kitchen display name |
 | `personal_story` | `text` | YES | `NULL` | | Chef culinary bio & story |
 | `address` | `text` | NO | *None* | | Physical address |
@@ -258,9 +258,9 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Dish ID |
-| `kitchen_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Kitchen ID |
-| `category_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `categories.id`)| Food category ID |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Dish ID |
+| `kitchen_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Kitchen ID |
+| `category_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `categories.id`)| Food category ID |
 | `item_name` | `varchar(50)` | NO | *None* | | Dish title |
 | `description` | `text` | YES | `NULL` | | Ingredients & details |
 | `price` | `decimal(6,2)` | NO | *None* | | Price in INR (₹) |
@@ -280,8 +280,8 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Notification ID |
-| `user_id` | `int(11)` | YES | `NULL` | `INDEX` | Recipient user ID |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Notification ID |
+| `user_id` | `int(5)` | YES | `NULL` | `INDEX` | Recipient user ID |
 | `user_type` | `enum('customer','chef','delivery','admin')` | NO | *None* | | Recipient portal role |
 | `title` | `varchar(100)` | NO | *None* | | Notification header |
 | `message` | `varchar(500)` | NO | *None* | | Notification content |
@@ -298,9 +298,9 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Line item ID |
-| `order_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `orders.id`) | Order ID |
-| `menu_item_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `menu_items.id`)| Dish ID |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Line item ID |
+| `order_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `orders.id`) | Order ID |
+| `menu_item_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `menu_items.id`)| Dish ID |
 | `quantity` | `smallint(5) unsigned`| NO | *None* | | Quantity ordered |
 | `unit_price` | `decimal(6,2)` | NO | *None* | | Price per unit |
 | `subtotal` | `decimal(8,2)` | NO | *None* | | Total line price |
@@ -319,13 +319,13 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Order ID |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Order ID |
 | `order_number` | `varchar(30)` | NO | *None* | `UNIQUE KEY` | Human-readable ID (e.g. `KRV-20261016-C84DE`) |
 | `order_type` | `enum('standard','tiffin')` | NO | `'standard'` | | Order classification |
-| `subscription_delivery_id`| `int(11)`| YES | `NULL` | | Tiffin delivery reference |
-| `customer_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `customers.id`) | Ordering customer |
-| `kitchen_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Preparing kitchen |
-| `address_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `addresses.id`) | Delivery destination address |
+| `subscription_delivery_id`| `int(5)`| YES | `NULL` | | Tiffin delivery reference |
+| `customer_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `customers.id`) | Ordering customer |
+| `kitchen_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Preparing kitchen |
+| `address_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `addresses.id`) | Delivery destination address |
 | `delivery_latitude` | `decimal(10,8)`| YES | `NULL` | | Customer destination latitude |
 | `delivery_longitude`| `decimal(11,8)`| YES | `NULL` | | Customer destination longitude |
 | `total_amount` | `decimal(8,2)` | NO | *None* | | Final paid amount |
@@ -333,8 +333,8 @@ erDiagram
 | `payment_status` | `enum('pending','completed','failed','refunded')`| YES | `'pending'` | | Settlement status |
 | `razorpay_payment_id` | `varchar(50)`| YES | `NULL` | | Razorpay gateway payment reference |
 | `order_status` | `enum('pending','accepted','preparing','ready_for_pickup','out_for_delivery','delivered','cancelled','delivery_failed')` | YES | `'pending'` | `INDEX` | Kitchen prep status |
-| `delivery_partner_id`| `int(11)`| YES | `NULL` | `INDEX` (FK &rarr; `delivery_partners.id`)| Assigned rider |
-| `offered_driver_id` | `int(11)` | YES | `NULL` | | Currently targeted candidate |
+| `delivery_partner_id`| `int(5)`| YES | `NULL` | `INDEX` (FK &rarr; `delivery_partners.id`)| Assigned rider |
+| `offered_driver_id` | `int(5)` | YES | `NULL` | | Currently targeted candidate |
 | `offer_expires_at` | `datetime` | YES | `NULL` | | Single-ping expiry timestamp |
 | `rejected_by_drivers` | `longtext` | YES | `NULL` | | JSON array of rider IDs who declined |
 | `delivery_otp` | `char(4)` | YES | `NULL` | | Secure 4-digit customer handover OTP |
@@ -378,10 +378,10 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Review ID |
-| `order_id` | `int(11)` | NO | *None* | `UNIQUE KEY` (FK &rarr; `orders.id`) | 1 review per order |
-| `customer_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `customers.id`) | Reviewer |
-| `kitchen_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Reviewed kitchen |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Review ID |
+| `order_id` | `int(5)` | NO | *None* | `UNIQUE KEY` (FK &rarr; `orders.id`) | 1 review per order |
+| `customer_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `customers.id`) | Reviewer |
+| `kitchen_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Reviewed kitchen |
 | `rating` | `tinyint(3) unsigned`| NO | *None* | | Score (1 to 5) |
 | `review_text` | `varchar(500)`| NO | *None* | | Feedback text |
 | `created_at` | `timestamp` | NO | `CURRENT_TIMESTAMP` | | Review timestamp |
@@ -394,9 +394,9 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Delivery slot ID |
-| `customer_subscription_id`| `int(11)`| NO | *None* | `INDEX` (FK &rarr; `customer_subscriptions.id`) | Parent subscription |
-| `kitchen_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Kitchen supplier |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Delivery slot ID |
+| `customer_subscription_id`| `int(5)`| NO | *None* | `INDEX` (FK &rarr; `customer_subscriptions.id`) | Parent subscription |
+| `kitchen_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Kitchen supplier |
 | `delivery_date` | `date` | NO | *None* | | Scheduled date |
 | `meal_type` | `enum('breakfast','lunch','dinner')`| NO | `'lunch'` | | Scheduled meal window |
 | `delivery_time` | `varchar(50)` | YES | `NULL` | | Window string (e.g. 12:30–1:30 PM) |
@@ -412,8 +412,8 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Plan ID |
-| `kitchen_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Provider kitchen |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Plan ID |
+| `kitchen_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Provider kitchen |
 | `plan_name` | `varchar(50)` | NO | *None* | | Package title |
 | `plan_type` | `enum('weekly','monthly')`| NO | *None* | | Period type |
 | `price` | `decimal(8,2)` | NO | *None* | | Subscription price |
@@ -433,9 +433,9 @@ erDiagram
 
 | Attribute | Type | Nullable | Default | Constraints / Extra | Description |
 |---|---|---|---|---|---|
-| `id` | `int(11)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Deal ID |
-| `menu_item_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `menu_items.id`) | Source dish |
-| `kitchen_id` | `int(11)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Kitchen owner |
+| `id` | `int(5)` | NO | *None* | `PRIMARY KEY`, `AUTO_INCREMENT` | Deal ID |
+| `menu_item_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `menu_items.id`) | Source dish |
+| `kitchen_id` | `int(5)` | NO | *None* | `INDEX` (FK &rarr; `kitchens.id`) | Kitchen owner |
 | `original_price` | `decimal(6,2)` | NO | *None* | | Standard menu price |
 | `discounted_price`| `decimal(6,2)`| NO | *None* | | Discounted deal price |
 | `quantity_available`| `smallint(5) unsigned`| NO | *None* | | Available portions |

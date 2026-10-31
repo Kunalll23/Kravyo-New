@@ -333,6 +333,14 @@ class DispatchService {
                 $this->orderModel->assignDeliveryPartner($orderId, $partnerId);
                 $this->orderModel->updateDeliveryStatus($orderId, 'accepted');
                 $this->orderModel->setDispatchStatus($orderId, 'assigned');
+                // Link to delivery_runs if this is a grouped tiffin milk-run
+                $orderData = $this->orderModel->find($orderId);
+                if ($orderData && !empty($orderData['order_number']) && str_starts_with($orderData['order_number'], 'RUN-')) {
+                    $runCode = substr($orderData['order_number'], 4);
+                    $db = Database::getInstance();
+                    $rStmt = $db->prepare("UPDATE delivery_runs SET delivery_partner_id = :dp_id, status = 'assigned' WHERE run_code = :run_code");
+                    $rStmt->execute(['dp_id' => $partnerId, 'run_code' => $runCode]);
+                }
             }
             // If not claimed, all writes above are skipped; transaction commits cleanly
         });

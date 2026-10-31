@@ -5,6 +5,12 @@
  */
 
 return [
+    // --- Dev Screenshot Authentication Routes ---
+    'GET /chef/auto-login'      => 'DevAuthController@chef',
+    'GET /delivery/auto-login'  => 'DevAuthController@delivery',
+    'GET /admin/auto-login'     => 'DevAuthController@admin',
+    'GET /customer/auto-login'  => 'DevAuthController@customer',
+
     // --- Public / General Routes ---
     'GET /'                     => 'HomeController@index',
     'GET /about'                => 'HomeController@about',
@@ -20,6 +26,8 @@ return [
     // --- Chef Authentication Routes ---
     'GET /chef/login'           => 'AuthController@showChefLoginForm',
     'POST /chef/login'          => 'AuthController@chefLogin',
+    'GET /chef/register'        => 'AuthController@showChefRegisterForm',
+    'POST /chef/register'       => 'AuthController@register',
     'POST /chef/logout'         => 'AuthController@logout',
 
     'GET /forgot-password'      => 'AuthController@showForgotPasswordForm',
@@ -168,6 +176,7 @@ return [
     'GET /admin/notifications/latest'         => 'NotificationController@latest',
     'GET /admin/api/notifications/unread'     => 'NotificationController@apiUnread',
     'GET /admin/users'          => 'AdminController@users',
+    'GET /admin/users/suggest'  => 'AdminController@suggestUsers',
     'POST /admin/user/toggle'   => 'AdminController@toggleUserStatus',
     'GET /admin/chefs'          => 'AdminController@chefs',
     'POST /admin/chef/verify'   => 'AdminController@verifyChef',
@@ -185,6 +194,7 @@ return [
     'GET /admin/reviews'        => 'AdminController@reviews',
     'POST /admin/review/delete/{id}' => 'AdminController@deleteReview',
     'GET /admin/reports-center' => 'AdminController@reportsCenter',
+    'GET /admin/system-tests'   => 'AdminController@systemTests',
     'GET /admin/zero-waste'               => 'AdminController@zeroWaste',
     'GET /admin/zero-waste/export'        => 'AdminController@exportZeroWaste',
     'POST /admin/zero-waste/delete/{id}'  => 'AdminController@deleteZeroWasteListing',

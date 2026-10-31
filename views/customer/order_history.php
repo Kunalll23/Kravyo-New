@@ -81,15 +81,22 @@
 
                                 <div class="d-flex align-items-center gap-2 mb-2">
                                     <i class="bi bi-shop text-warning"></i>
-                                    <span class="small fw-600 text-dark"><?= sanitize($order['kitchen_name']) ?></span>
+                                    <span class="small fw-600 text-dark"><?= html_entity_decode(sanitize($order['kitchen_name']), ENT_QUOTES, 'UTF-8') ?></span>
                                 </div>
 
                                 <div class="d-flex justify-content-between align-items-center">
-                                    <span class="small text-muted">
-                                        <i class="bi bi-bag me-1"></i>
-                                        <?= (int) ($order['item_count'] ?? 0) ?> item<?= ($order['item_count'] ?? 0) != 1 ? 's' : '' ?>
-                                    </span>
-                                    <span class="fw-bold text-dark fs-6"><?= format_currency($order['total_amount']) ?></span>
+                                    <?php if (($order['order_type'] ?? 'standard') === 'tiffin'): ?>
+                                        <span class="badge bg-warning bg-opacity-10 text-dark border border-warning">
+                                            <i class="bi bi-box2-heart-fill me-1 text-warning"></i> Daily Tiffin Package
+                                        </span>
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle">Prepaid Plan</span>
+                                    <?php else: ?>
+                                        <span class="small text-muted">
+                                            <i class="bi bi-bag me-1"></i>
+                                            <?= (int) ($order['item_count'] ?? 0) ?> item<?= ($order['item_count'] ?? 0) != 1 ? 's' : '' ?>
+                                        </span>
+                                        <span class="fw-bold text-dark fs-6"><?= format_currency($order['total_amount']) ?></span>
+                                    <?php endif; ?>
                                 </div>
 
                                 <div class="order-history-arrow">

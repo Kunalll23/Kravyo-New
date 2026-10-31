@@ -158,6 +158,11 @@ switch ($_sessionCtx) {
                                 <?php
                                 require_once APP_PATH . '/models/Kitchen.php';
                                 $cityList = (new Kitchen())->getDistinctCities();
+                                $currentSelectedCity = Session::get('selected_city');
+                                if (!empty($currentSelectedCity) && !in_array($currentSelectedCity, $cityList, true)) {
+                                    $cityList[] = $currentSelectedCity;
+                                    sort($cityList);
+                                }
                                 foreach ($cityList as $cityOption):
                                 ?>
                                 <li><a class="dropdown-item py-2 <?= (Session::get('selected_city') === $cityOption) ? 'bg-light text-danger fw-bold' : '' ?>" href="javascript:void(0)" onclick="setGlobalCity('<?= htmlspecialchars($cityOption, ENT_QUOTES) ?>')"><i class="bi bi-geo-alt text-danger me-2"></i> <?= sanitize($cityOption) ?></a></li>
@@ -229,6 +234,7 @@ switch ($_sessionCtx) {
                                 <?php if ($_userRole === ROLE_CUSTOMER): ?>
                                     <li><a class="dropdown-item" href="<?= url('/profile') ?>"><i class="bi bi-person me-2"></i> My Profile</a></li>
                                     <li><a class="dropdown-item" href="<?= url('/orders/history') ?>"><i class="bi bi-bag-check me-2"></i> My Orders</a></li>
+                                    <li><a class="dropdown-item" href="<?= url('/my-subscriptions') ?>"><i class="bi bi-calendar2-heart me-2 text-warning"></i> My Subscriptions</a></li>
                                 <?php elseif ($_userRole === ROLE_CHEF || $_sessionCtx === Session::CHEF_SESSION): ?>
                                     <li><a class="dropdown-item" href="<?= url('/chef/dashboard') ?>"><i class="bi bi-speedometer2 me-2"></i> Chef Dashboard</a></li>
                                     <li><a class="dropdown-item" href="<?= url('/chef/menu') ?>"><i class="bi bi-egg-fried me-2"></i> Manage Menu</a></li>
@@ -253,7 +259,7 @@ switch ($_sessionCtx) {
                         <!-- Guest Navigation Links -->
                         <?php if ($_sessionCtx === Session::CHEF_SESSION): ?>
                             <a href="<?= url('/chef/login') ?>" class="btn btn-warning text-dark btn-sm px-3 fw-bold">Chef Login</a>
-                            <a href="<?= url('/register') ?>" class="btn btn-outline-light btn-sm px-3">Join as Chef</a>
+                            <a href="<?= url('/register?role=chef') ?>" class="btn btn-outline-light btn-sm px-3">Join as Chef</a>
                         <?php elseif ($_sessionCtx === Session::DELIVERY_SESSION): ?>
                             <a href="<?= url('/delivery/login') ?>" class="btn btn-warning text-dark btn-sm px-3 fw-bold">Delivery Login</a>
                             <a href="<?= url('/delivery/register') ?>" class="btn btn-outline-light btn-sm px-3">Join as Rider</a>

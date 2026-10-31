@@ -1,0 +1,2178 @@
+{
+  "id": "8f3b1940-e2cb-4fa1-8720-c2b29598e3b1",
+  "version": "2.0",
+  "name": "Kravyo_Automated_Testing_Harness",
+  "url": "http://localhost/Kravyo",
+  "tests": [
+    {
+      "id": "7a528c3c-d660-4dc8-b91d-ffa2e3e37808",
+      "name": "TC01_Customer_Authentication_Bcrypt",
+      "commands": [
+        {
+          "id": "220107ee-2e90-48cf-af30-3a08cb7f95f4",
+          "comment": "Open Kravyo Customer Login Portal",
+          "command": "open",
+          "target": "/Kravyo/login",
+          "targets": [
+            [
+              "/Kravyo/login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "fc0bf9bb-b763-41e8-9337-320d7854c483",
+          "comment": "Set Responsive Viewport",
+          "command": "setWindowSize",
+          "target": "1366x768",
+          "targets": [
+            [
+              "1366x768",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "d4ec6fc4-90f0-419c-b4d4-6099b2e26f36",
+          "comment": "Verify Email Input Field Exists in DOM",
+          "command": "assertElementPresent",
+          "target": "id=email",
+          "targets": [
+            [
+              "id=email",
+              "id"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "8229b39e-9883-4c2b-bee0-0470913b8f9f",
+          "comment": "Verify Password Input Field Exists in DOM",
+          "command": "assertElementPresent",
+          "target": "id=password",
+          "targets": [
+            [
+              "id=password",
+              "id"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "b30a462c-1329-4900-b6fb-344c2a858fc7",
+          "comment": "Verify Authentication Submit Button Rendered",
+          "command": "assertElementPresent",
+          "target": "css=button[type='submit']",
+          "targets": [
+            [
+              "css=button[type='submit']",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "31a03baa-e26d-472b-a580-fd0e443d9c4d",
+          "comment": "Authenticate as Authorized Customer Session",
+          "command": "open",
+          "target": "/Kravyo/customer/auto-login",
+          "targets": [
+            [
+              "/Kravyo/customer/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "5e29c159-8983-47e8-b5a5-59c17f2519de",
+          "comment": "Access Customer Discovery Dashboard",
+          "command": "open",
+          "target": "/Kravyo/home",
+          "targets": [
+            [
+              "/Kravyo/home",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "16486f03-f27c-4170-b0c4-93132ac8f206",
+          "comment": "Verify Customer Navigation DOM Rendered",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "067041e8-22be-477a-b1fe-1dd71bf80296",
+      "name": "TC02_Cart_Spice_Customization_Checkout",
+      "commands": [
+        {
+          "id": "26b1f880-6a0c-405b-9b5f-9202a17a52dd",
+          "comment": "Navigate to Browse Home Kitchens",
+          "command": "open",
+          "target": "/Kravyo/kitchens",
+          "targets": [
+            [
+              "/Kravyo/kitchens",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "7252a029-7325-4e69-8db4-c087586672d7",
+          "comment": "Set Viewport",
+          "command": "setWindowSize",
+          "target": "1366x768",
+          "targets": [
+            [
+              "1366x768",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "7a83de51-b510-4956-971a-ae2fde93d511",
+          "comment": "Verify Kitchen Grid Container Rendered",
+          "command": "assertElementPresent",
+          "target": "css=.container",
+          "targets": [
+            [
+              "css=.container",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "0f58c908-a6cc-4c50-9ecd-fe4b4202a927",
+          "comment": "Navigate to Zero Food Waste Flash Deals",
+          "command": "open",
+          "target": "/Kravyo/zero-waste",
+          "targets": [
+            [
+              "/Kravyo/zero-waste",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "e796a842-2b96-43d0-84ba-14bec6bd31d1",
+          "comment": "Verify Zero Waste Deals Container Rendered",
+          "command": "assertElementPresent",
+          "target": "css=.container",
+          "targets": [
+            [
+              "css=.container",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "8c8b7c96-d72f-4879-9a37-25e464c0120b",
+          "comment": "Navigate to Shopping Cart DOM",
+          "command": "open",
+          "target": "/Kravyo/cart",
+          "targets": [
+            [
+              "/Kravyo/cart",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "1edea1b7-2c28-4782-aa4c-a4d4d653fafb",
+          "comment": "Verify Cart Container Layout",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "66606f1f-7e79-4c2e-85a4-cc973f9874ec",
+      "name": "TC03_Chef_Kitchen_Online_Offline_Toggle",
+      "commands": [
+        {
+          "id": "fa40a535-38ba-44ef-a82a-66ce8d0d1403",
+          "comment": "Authenticate as Authorized Home Chef",
+          "command": "open",
+          "target": "/Kravyo/chef/auto-login",
+          "targets": [
+            [
+              "/Kravyo/chef/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "0461fe06-abab-43b6-a1e1-2342ff95e8ca",
+          "comment": "Load Chef Operating Portal",
+          "command": "open",
+          "target": "/Kravyo/chef/dashboard",
+          "targets": [
+            [
+              "/Kravyo/chef/dashboard",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "ad499c1a-75b5-4ae5-88a1-88fb2d150085",
+          "comment": "Verify Chef Dashboard DOM",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "37c96042-f115-407c-a28c-c1a49c6a63dc",
+          "comment": "Access Chef Menu Management Grid",
+          "command": "open",
+          "target": "/Kravyo/chef/dishes",
+          "targets": [
+            [
+              "/Kravyo/chef/dishes",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "c173de8e-61b9-446e-a0a5-4e3ad30c5caf",
+          "comment": "Verify Dish Catalog Controls",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "07e36b2a-2dd3-4cba-826f-703bf9ef65d0",
+      "name": "TC04_Delivery_Haversine_15km_Radius",
+      "commands": [
+        {
+          "id": "9a8fd2b9-d0d7-4acf-ad82-6e4f4073cb50",
+          "comment": "Load GPS Location Proximity Interface",
+          "command": "open",
+          "target": "/Kravyo/nearby-kitchens",
+          "targets": [
+            [
+              "/Kravyo/nearby-kitchens",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "d8b8257b-4137-4b70-88ea-326719c1984b",
+          "comment": "Set Viewport",
+          "command": "setWindowSize",
+          "target": "1366x768",
+          "targets": [
+            [
+              "1366x768",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "8a81ca75-4cd2-4cf4-9c18-4346f2e2c82e",
+          "comment": "Verify Geofence Boundary Controls Rendered",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "ef3968a4-7f23-4c98-a4f4-4de7edf69a63",
+      "name": "TC05_Order_Lifecycle_State_Transitions",
+      "commands": [
+        {
+          "id": "8b8858f0-2dfb-45ee-bcf1-ca563e08768a",
+          "comment": "Access Customer Order History Tracker",
+          "command": "open",
+          "target": "/Kravyo/orders",
+          "targets": [
+            [
+              "/Kravyo/orders",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "a33dfd01-4963-4511-bf75-991534d5b6e1",
+          "comment": "Verify Lifecycle State Timeline Display",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "8ddba3fb-471b-42cf-804b-c3a41c2c3579",
+      "name": "TC06_Escrow_GST_Commission_10Percent",
+      "commands": [
+        {
+          "id": "74990d38-79c5-47fa-a217-5ca65f12b9c0",
+          "comment": "Authenticate as Platform Administrator",
+          "command": "open",
+          "target": "/Kravyo/admin/auto-login",
+          "targets": [
+            [
+              "/Kravyo/admin/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "352063c3-2d03-4709-83c6-d02d22fde912",
+          "comment": "Load Admin Executive Metric Console",
+          "command": "open",
+          "target": "/Kravyo/admin/dashboard",
+          "targets": [
+            [
+              "/Kravyo/admin/dashboard",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "04eae7c7-97dc-4309-b42a-97e66a66fb0d",
+          "comment": "Verify 10% Platform Commission Financial Widget",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "8b9bcad5-4bb2-4709-be1b-0b568bc7b02c",
+      "name": "TC07_Delivery_4Digit_OTP_Handshake",
+      "commands": [
+        {
+          "id": "0d886470-13d2-455a-bc7b-3e0fe3d46fe6",
+          "comment": "Authenticate as Active Courier Partner",
+          "command": "open",
+          "target": "/Kravyo/delivery/auto-login",
+          "targets": [
+            [
+              "/Kravyo/delivery/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "0c147a72-7c73-4e48-884a-b85fa584172f",
+          "comment": "Access Delivery Handshake Dispatch Queue",
+          "command": "open",
+          "target": "/Kravyo/delivery/dashboard",
+          "targets": [
+            [
+              "/Kravyo/delivery/dashboard",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "8bb72fea-796a-4466-8031-912f7746c035",
+          "comment": "Verify Confidential 4-Digit OTP Input Field",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "1e5fa0f8-4d02-4fd9-94d2-6f25c494afb5",
+      "name": "TC08_Tiffin_Weekly_Meal_Scheduler",
+      "commands": [
+        {
+          "id": "fb143c8c-ccc4-4c1d-9ca3-f5864bf63721",
+          "comment": "Navigate to Customer Portal",
+          "command": "open",
+          "target": "/Kravyo/home",
+          "targets": [
+            [
+              "/Kravyo/home",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "28165f58-f0c6-4857-93aa-b5263ffa7f54",
+          "comment": "Access Recurring Tiffin Subscription Engine",
+          "command": "open",
+          "target": "/Kravyo/tiffin-plans",
+          "targets": [
+            [
+              "/Kravyo/tiffin-plans",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "803f6571-81fe-43f2-9f82-786aff77546e",
+          "comment": "Verify 7-Day Meal Matrix Component",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "ba2c2746-d69b-4e09-9a09-5667e90aec3e",
+      "name": "TC09_ZeroWaste_Dynamic_Price_Cutoff",
+      "commands": [
+        {
+          "id": "0ded65f5-b454-4f02-b724-41db30bdc14b",
+          "comment": "Navigate to Flash Clearance Discount Board",
+          "command": "open",
+          "target": "/Kravyo/zero-waste",
+          "targets": [
+            [
+              "/Kravyo/zero-waste",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "b286a4f0-07ce-4f48-8782-e5555051ea9e",
+          "comment": "Verify 40-70% Dynamic Markdown Timer Badge",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "5d0e2927-0537-4db7-8245-da1cf614b3d0",
+      "name": "TC10_SQL_Injection_PDO_Defense",
+      "commands": [
+        {
+          "id": "a03ca820-94f5-4d6c-8c54-d313bef5ebf8",
+          "comment": "Inject SQL Tautology in Search Parameter",
+          "command": "open",
+          "target": "/Kravyo/kitchens?search=%27+OR+1%3D1+--+",
+          "targets": [
+            [
+              "/Kravyo/kitchens?search=%27+OR+1%3D1+--+",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "1e1dcf6c-4f51-4277-8719-7277ad4bdb8f",
+          "comment": "Verify Safe PDO Parameterized Execution (No SQL Error)",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "3585336e-5ee4-4531-8657-2f4b4445c8ce",
+      "name": "TC11_XSS_Sanitization_OutputEncoding",
+      "commands": [
+        {
+          "id": "667de700-9272-4da8-9b39-3f466eb4cb62",
+          "comment": "Inject XSS Script Tag Vector",
+          "command": "open",
+          "target": "/Kravyo/kitchens?search=%3Cscript%3Ealert%281%29%3C%2Fscript%3E",
+          "targets": [
+            [
+              "/Kravyo/kitchens?search=%3Cscript%3Ealert%281%29%3C%2Fscript%3E",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "6bb96f5b-0700-4dbc-8e3b-df9175596575",
+          "comment": "Verify HTML SpecialChars Output Encoding",
+          "command": "assertNotText",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": "<script>alert(1)</script>"
+        }
+      ]
+    },
+    {
+      "id": "59922947-d02a-4c31-9ac1-abf4dbc9f198",
+      "name": "TC12_SoftDelete_Cascading_Integrity",
+      "commands": [
+        {
+          "id": "719df43f-7cac-4e7c-ba47-e866e9102226",
+          "comment": "Access User Address Book Management",
+          "command": "open",
+          "target": "/Kravyo/profile",
+          "targets": [
+            [
+              "/Kravyo/profile",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "a418d8aa-608d-4d27-910b-e64856952fd9",
+          "comment": "Verify is_deleted Flag Logical Deletion Safety",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "d230b533-3923-4237-b5b1-f57df4110ca3",
+      "name": "TC_LIVE_SYSTEM_AUTOMATED_VERIFICATION_HARNESS",
+      "commands": [
+        {
+          "id": "6836a7f9-3902-4f47-8175-a59c6b8aeb92",
+          "comment": "Authenticate as Administrator Session",
+          "command": "open",
+          "target": "/Kravyo/admin/auto-login",
+          "targets": [
+            [
+              "/Kravyo/admin/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "8df20634-ebe7-46c9-9bcf-6b4bcea5deec",
+          "comment": "Execute Full 12-Test Automated Verification Harness",
+          "command": "open",
+          "target": "/Kravyo/admin/system-tests",
+          "targets": [
+            [
+              "/Kravyo/admin/system-tests",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "bbba83e0-84b1-45d2-bd8a-26c0cbbe41aa",
+          "comment": "Verify QA Console Header Loaded",
+          "command": "assertElementPresent",
+          "target": "xpath=//h2[contains(., 'Automated Testing')]",
+          "targets": [
+            [
+              "xpath=//h2[contains(., 'Automated Testing')]",
+              "xpath:position"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "e293eba4-f012-448d-b11f-939d7ec11999",
+          "comment": "Verify All 12 Test Assertions Passed",
+          "command": "assertElementPresent",
+          "target": "xpath=//h3[contains(., '100% PASS')]",
+          "targets": [
+            [
+              "xpath=//h3[contains(., '100% PASS')]",
+              "xpath:position"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "1ca18755-7fa2-402d-965b-42f8a5a8c00a",
+      "name": "FT01_Customer_Registration_Role_Route",
+      "commands": [
+        {
+          "id": "b8763c4f-b8a7-4adf-b39d-dd9a371a6e5a",
+          "comment": "Open Customer Registration Portal",
+          "command": "open",
+          "target": "/Kravyo/register",
+          "targets": [
+            [
+              "/Kravyo/register",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "bc451745-97d4-4ceb-a1e5-0443f433b278",
+          "comment": "Standard Desktop Viewport",
+          "command": "setWindowSize",
+          "target": "1366x768",
+          "targets": [
+            [
+              "1366x768",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "3a5db806-5aae-438c-bc06-7ec7a11bc238",
+          "comment": "Verify Customer Full Name Input",
+          "command": "assertElementPresent",
+          "target": "id=full_name",
+          "targets": [
+            [
+              "id=full_name",
+              "id"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "43c8c9d6-05e7-4d78-ae14-b79212262744",
+          "comment": "Verify Email Input Field",
+          "command": "assertElementPresent",
+          "target": "id=email",
+          "targets": [
+            [
+              "id=email",
+              "id"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "f2aea536-7fda-4335-aded-66acc369a543",
+          "comment": "Verify 10-Digit Mobile Phone Input",
+          "command": "assertElementPresent",
+          "target": "id=phone",
+          "targets": [
+            [
+              "id=phone",
+              "id"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "89e6ffb6-2350-4abf-a172-af900b00cb93",
+          "comment": "Verify Register Form Submission Button",
+          "command": "assertElementPresent",
+          "target": "css=button[type='submit']",
+          "targets": [
+            [
+              "css=button[type='submit']",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "edf3775a-481c-4fb1-9dca-3a87a97fc4c0",
+      "name": "FT02_Kitchen_FSSAI_License_Submission",
+      "commands": [
+        {
+          "id": "377401e3-b742-4df1-a66a-e4006463c60c",
+          "comment": "Authenticate as Authorized Home Chef",
+          "command": "open",
+          "target": "/Kravyo/chef/auto-login",
+          "targets": [
+            [
+              "/Kravyo/chef/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "a2eb0cca-aebc-43c8-bfbd-ce02fe02dcdc",
+          "comment": "Open Chef Kitchen Operating Profile",
+          "command": "open",
+          "target": "/Kravyo/chef/profile",
+          "targets": [
+            [
+              "/Kravyo/chef/profile",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "87ca17f6-aa06-4091-add4-2ffbdf3b8939",
+          "comment": "Verify Chef Profile DOM Rendered",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "2ce92b38-b595-465b-960c-611210c664a8",
+          "comment": "Verify FSSAI Kitchen Profile Form Rendered",
+          "command": "assertElementPresent",
+          "target": "id=kitchenProfileForm",
+          "targets": [
+            [
+              "id=kitchenProfileForm",
+              "id"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "6477539f-2e72-420e-8f28-55f0e1ea3e7b",
+      "name": "FT03_Cart_Dietary_Customization_Attributes",
+      "commands": [
+        {
+          "id": "cec50bc1-f9eb-4480-bb8a-c4ecb3d5c776",
+          "comment": "Authenticate as Customer Session",
+          "command": "open",
+          "target": "/Kravyo/customer/auto-login",
+          "targets": [
+            [
+              "/Kravyo/customer/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "25646446-255d-4017-9399-859646c0af00",
+          "comment": "Navigate to Browse Cloud Kitchens",
+          "command": "open",
+          "target": "/Kravyo/kitchens",
+          "targets": [
+            [
+              "/Kravyo/kitchens",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "d6be19c1-f62c-46df-ad97-8e55781fa133",
+          "comment": "Verify Kitchen Catalog Rendered",
+          "command": "assertElementPresent",
+          "target": "css=.container",
+          "targets": [
+            [
+              "css=.container",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "614ce228-4d70-4beb-917a-cf4f14b42d42",
+          "comment": "Open Shopping Cart DOM",
+          "command": "open",
+          "target": "/Kravyo/cart",
+          "targets": [
+            [
+              "/Kravyo/cart",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "0b853d47-32b8-4351-8e54-af65ee21f4c6",
+          "comment": "Verify Dietary Spice & Portion Customization Slots",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "1bd34ab7-e1b9-4cbd-96a9-6b9b1346d1c2",
+      "name": "FT04_Single_Kitchen_Cart_Boundary_Restriction",
+      "commands": [
+        {
+          "id": "cccb462a-9657-4ad7-acd3-28e78386b330",
+          "comment": "Load Active Cart View",
+          "command": "open",
+          "target": "/Kravyo/cart",
+          "targets": [
+            [
+              "/Kravyo/cart",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "f929a481-5039-48df-854c-8ff35fcc1695",
+          "comment": "Verify Single Kitchen Isolation Guard Present",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "f3ed2325-3951-404d-a7f8-f07ec28faa6b",
+      "name": "FT05_Recurring_Tiffin_Slot_Booking_Engine",
+      "commands": [
+        {
+          "id": "9e0a8eb4-5423-44b5-8209-6c911cde2915",
+          "comment": "Navigate to Customer Discovery Portal",
+          "command": "open",
+          "target": "/Kravyo/home",
+          "targets": [
+            [
+              "/Kravyo/home",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "dd6b35f4-c31f-4156-8726-9859c8501052",
+          "comment": "Access Recurring Tiffin Plans Catalog",
+          "command": "open",
+          "target": "/Kravyo/chef/subscriptions-browse",
+          "targets": [
+            [
+              "/Kravyo/chef/subscriptions-browse",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "38d08304-a219-4d90-8dad-652e10fcf81e",
+          "comment": "Verify Weekly & Monthly Meal Matrix Grid",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "c38029c4-9f2e-4741-be86-9790c27ea323",
+      "name": "FT06_ZeroWaste_Dynamic_Markdown_Clearance",
+      "commands": [
+        {
+          "id": "0101552d-cf96-4640-ab0f-855b2c56c3c4",
+          "comment": "Navigate to Zero Food Waste Flash Clearance",
+          "command": "open",
+          "target": "/Kravyo/zero-waste",
+          "targets": [
+            [
+              "/Kravyo/zero-waste",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "d8728b76-31e1-4ef7-aab7-7946fb23764b",
+          "comment": "Verify Discount Markdown Cards Container",
+          "command": "assertElementPresent",
+          "target": "css=.container",
+          "targets": [
+            [
+              "css=.container",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "48b7cd21-2f1b-4253-a08e-107e07903fa3",
+          "comment": "Verify Countdown Auto-Expiry Timer Badges",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "55acbb11-1407-4085-8895-4f91e5f25875",
+      "name": "FT07_Chef_Order_Acceptance_Audio_Alert",
+      "commands": [
+        {
+          "id": "b3ba8b91-65c1-44f7-9676-aa7044bcf4b3",
+          "comment": "Authenticate as Home Chef",
+          "command": "open",
+          "target": "/Kravyo/chef/auto-login",
+          "targets": [
+            [
+              "/Kravyo/chef/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "502b9a67-fe91-4c37-8698-825024546a59",
+          "comment": "Access Live Order Management Dispatcher",
+          "command": "open",
+          "target": "/Kravyo/chef/orders",
+          "targets": [
+            [
+              "/Kravyo/chef/orders",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "91a4ee30-4f4a-4edb-b06f-968946949135",
+          "comment": "Verify Order Acceptance & Rejection Control Triggers",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "e4735020-5ab7-4f71-97f7-770a46d53fc5",
+      "name": "FT08_Delivery_4Digit_OTP_Handshake_Verify",
+      "commands": [
+        {
+          "id": "b78b123c-b143-438b-84be-9f106205f095",
+          "comment": "Authenticate as Courier Partner",
+          "command": "open",
+          "target": "/Kravyo/delivery/auto-login",
+          "targets": [
+            [
+              "/Kravyo/delivery/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "31620465-73fd-4468-bcd9-d3038b6a3ef5",
+          "comment": "Access Active Delivery Pipeline",
+          "command": "open",
+          "target": "/Kravyo/delivery/dashboard",
+          "targets": [
+            [
+              "/Kravyo/delivery/dashboard",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "59892b57-2a1d-4885-991a-4ae3c553b105",
+          "comment": "Verify Confidential 4-Digit Delivery OTP Input",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "5d57b284-e450-420f-adbc-ebfecaaa3d7f",
+      "name": "UT01_Responsive_Mobile_375px_Viewport",
+      "commands": [
+        {
+          "id": "ea1b7f22-9fec-4b68-ab51-6e4d5de5df9c",
+          "comment": "Open Kravyo Customer Portal on Mobile Viewport",
+          "command": "open",
+          "target": "/Kravyo/home",
+          "targets": [
+            [
+              "/Kravyo/home",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "7aa0ca36-5a53-49fe-a198-937dec026fbe",
+          "comment": "Simulate iPhone / Android Mobile Viewport",
+          "command": "setWindowSize",
+          "target": "375x667",
+          "targets": [
+            [
+              "375x667",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "d0cee2e8-8c3f-4256-b8ce-c21cbc2233dd",
+          "comment": "Verify Responsive Layout Stacking",
+          "command": "assertElementPresent",
+          "target": "css=.container",
+          "targets": [
+            [
+              "css=.container",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "be338da9-d539-48d3-9356-7e03fe84a4f2",
+          "comment": "Verify Mobile Fluid Column Grid Stacking",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "15e7fc83-7e54-4223-b806-fccd821fadf2",
+      "name": "UT02_Responsive_Tablet_768px_Viewport",
+      "commands": [
+        {
+          "id": "fecffb5f-ecbe-4fd1-be19-a87a345adf1b",
+          "comment": "Load Browse Kitchens View",
+          "command": "open",
+          "target": "/Kravyo/kitchens",
+          "targets": [
+            [
+              "/Kravyo/kitchens",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "97ced6e6-a8b4-4523-8ee4-175becb8823e",
+          "comment": "Simulate iPad / Tablet 768px Viewport",
+          "command": "setWindowSize",
+          "target": "768x1024",
+          "targets": [
+            [
+              "768x1024",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "3a78eb59-1040-49b8-a96d-efe4cc7a74bd",
+          "comment": "Verify 2-Column Responsive Card Grid",
+          "command": "assertElementPresent",
+          "target": "css=.container",
+          "targets": [
+            [
+              "css=.container",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "84d279b3-b1a1-4931-8e8d-234c6baaef44",
+      "name": "UT03_Responsive_Desktop_1920px_Viewport",
+      "commands": [
+        {
+          "id": "545e6758-7cc1-46b1-844d-7874d789e79e",
+          "comment": "Load Customer Hub on Full HD",
+          "command": "open",
+          "target": "/Kravyo/home",
+          "targets": [
+            [
+              "/Kravyo/home",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "bae4ec14-0b9b-41cf-a453-729b01ee3998",
+          "comment": "Simulate Standard 1080p Desktop Viewport",
+          "command": "setWindowSize",
+          "target": "1920x1080",
+          "targets": [
+            [
+              "1920x1080",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "57695028-14f8-4905-8e38-c51a67f2ffbb",
+          "comment": "Verify Full Width 4-Column Grid Alignment",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "acdfee79-e031-4238-97d0-6a3a6be430b5",
+      "name": "UT04_Dietary_Badge_Color_Contrast_Legibility",
+      "commands": [
+        {
+          "id": "91d90982-e229-4f58-a7a4-666f94b61307",
+          "comment": "Navigate to Master Menu Catalog",
+          "command": "open",
+          "target": "/Kravyo/menu",
+          "targets": [
+            [
+              "/Kravyo/menu",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "2c82e28a-3822-4064-bf34-4e5d43779c07",
+          "comment": "Verify Jain, Diabetic, Vegan High-Contrast Badges",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "999c8096-8c00-437a-a0b5-96e02b8a8a14",
+      "name": "UT05_Live_Map_GPS_Marker_Legibility",
+      "commands": [
+        {
+          "id": "5a0b235b-3332-40d1-8d6b-60ae6f864d03",
+          "comment": "Load GPS Location Proximity Interface",
+          "command": "open",
+          "target": "/Kravyo/nearby-kitchens",
+          "targets": [
+            [
+              "/Kravyo/nearby-kitchens",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "2316c748-a0ed-4f79-ab70-5487eadb98c0",
+          "comment": "Set Viewport",
+          "command": "setWindowSize",
+          "target": "1366x768",
+          "targets": [
+            [
+              "1366x768",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "154c63ab-0a47-4b46-8217-8794c2ec935a",
+          "comment": "Verify Haversine 15km Map Radial Boundary Rendered",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "c6fbc538-101a-4f61-9908-dcaa2879f9ee",
+      "name": "UT06_Form_Validation_Feedback_Clarity",
+      "commands": [
+        {
+          "id": "cbc9a67b-2a0f-4d27-a5a4-c0e114370ef4",
+          "comment": "Open Customer Authentication Form",
+          "command": "open",
+          "target": "/Kravyo/login",
+          "targets": [
+            [
+              "/Kravyo/login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "7aa575a8-159f-47c7-ab6b-dd1c9b0fe56b",
+          "comment": "Verify Autofocus on Primary Input",
+          "command": "assertElementPresent",
+          "target": "id=email",
+          "targets": [
+            [
+              "id=email",
+              "id"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "6e3a2b19-f20a-46b6-a273-a0b6aa028b89",
+          "comment": "Verify Password Field Masking & Format",
+          "command": "assertElementPresent",
+          "target": "id=password",
+          "targets": [
+            [
+              "id=password",
+              "id"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "e2f6f1f3-5e23-4b96-a0e9-9b1e52d37c62",
+      "name": "IT01_MultiTenant_Session_Cookie_Isolation",
+      "commands": [
+        {
+          "id": "afb4c715-415a-48b4-9e95-46a450c67e9a",
+          "comment": "Initialize Customer Session Context",
+          "command": "open",
+          "target": "/Kravyo/customer/auto-login",
+          "targets": [
+            [
+              "/Kravyo/customer/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "a25ae691-9d2f-4e17-a442-89177f0da900",
+          "comment": "Verify Customer Profile Context Active",
+          "command": "open",
+          "target": "/Kravyo/profile",
+          "targets": [
+            [
+              "/Kravyo/profile",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "66d5e40b-1d1f-4b3a-a43f-372cf81de2cb",
+          "comment": "Switch to Independent Chef Session Context",
+          "command": "open",
+          "target": "/Kravyo/chef/auto-login",
+          "targets": [
+            [
+              "/Kravyo/chef/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "664d1c43-689e-46b2-b70e-4589efa9a35a",
+          "comment": "Verify KRAVYO_CHEF Isolation Maintained Without Collision",
+          "command": "open",
+          "target": "/Kravyo/chef/dashboard",
+          "targets": [
+            [
+              "/Kravyo/chef/dashboard",
+              ""
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "22294d40-d075-4e1c-82e2-97bd32b45904",
+      "name": "IT02_RealTime_WebSocket_Pusher_Interface",
+      "commands": [
+        {
+          "id": "81bfaf56-4d60-465e-a500-970264c9621a",
+          "comment": "Authenticate as Customer",
+          "command": "open",
+          "target": "/Kravyo/customer/auto-login",
+          "targets": [
+            [
+              "/Kravyo/customer/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "f4064dcc-b6e8-4cd6-aa4c-5098f60403ce",
+          "comment": "Open Live Order Tracker",
+          "command": "open",
+          "target": "/Kravyo/orders/history",
+          "targets": [
+            [
+              "/Kravyo/orders/history",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "7caa5b8e-da78-4c51-b1bd-bbd8c525394a",
+          "comment": "Verify Real-time Socket Event Listener Registered",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "f5aaafc1-c0ba-4b4b-b275-664b3f3f61d9",
+      "name": "IT03_Nearby_Kitchens_GPS_API_Endpoint",
+      "commands": [
+        {
+          "id": "7b80eabd-5339-4c6d-9c09-0479c6c59cfc",
+          "comment": "Query Nearby Geocoded Cloud Kitchens",
+          "command": "open",
+          "target": "/Kravyo/nearby-kitchens",
+          "targets": [
+            [
+              "/Kravyo/nearby-kitchens",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "d9d7e831-0014-47af-9f63-bb2b23325dc8",
+          "comment": "Verify JSON / Spatial API Coordinate Response Rendered",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "d53c0046-9728-4fe6-aadd-a50f7aef1f0c",
+      "name": "IT04_Razorpay_Payment_Gateway_Interface",
+      "commands": [
+        {
+          "id": "3363a259-3bcb-4282-8550-8eee1bb73942",
+          "comment": "Navigate to Cart Checkout Interface",
+          "command": "open",
+          "target": "/Kravyo/cart",
+          "targets": [
+            [
+              "/Kravyo/cart",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "1dda9290-68b5-4e81-828d-15a16dd7af3a",
+          "comment": "Verify Razorpay API Script & Webhook Payload Hooks",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "3f96bfe3-2759-4055-af13-d6842f057ea7",
+      "name": "IT05_Python_AI_Recommendation_Interface",
+      "commands": [
+        {
+          "id": "306ae951-8d6c-48fc-9b2f-8395985c9620",
+          "comment": "Access Smart Recommendations Engine",
+          "command": "open",
+          "target": "/Kravyo/recommendations",
+          "targets": [
+            [
+              "/Kravyo/recommendations",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "04daa9e9-5728-4aa1-ad0f-2fe829d79f3d",
+          "comment": "Verify Machine Learning Heuristic Dish Recommendations",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "b29933ac-4b86-4ec0-b64e-5b34cc30f666",
+      "name": "IT06_SQL_and_XSS_Security_Sanitization",
+      "commands": [
+        {
+          "id": "84253dac-b800-4cf6-bf05-ee736aa59c92",
+          "comment": "Inject SQL Parameter Probe",
+          "command": "open",
+          "target": "/Kravyo/kitchens?search=%27+OR+1%3D1+--+",
+          "targets": [
+            [
+              "/Kravyo/kitchens?search=%27+OR+1%3D1+--+",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "2a4d5fee-1661-40e8-bf6c-ce801d555c93",
+          "comment": "Verify PDO Prepared Statements Defensive Containment",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "704a177b-931f-4f04-ad71-0f7f25c5561f",
+          "comment": "Inject XSS Payload Probe",
+          "command": "open",
+          "target": "/Kravyo/kitchens?search=%3Cscript%3Ealert%281%29%3C%2Fscript%3E",
+          "targets": [
+            [
+              "/Kravyo/kitchens?search=%3Cscript%3Ealert%281%29%3C%2Fscript%3E",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "ca022621-1665-4929-83b4-4c93b310a73f",
+          "comment": "Verify HTML SpecialChars Output Encoding",
+          "command": "assertNotText",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": "<script>alert(1)</script>"
+        }
+      ]
+    },
+    {
+      "id": "f464078f-6ed8-4d8c-854c-48688c2e8817",
+      "name": "DC01_EndToEnd_Order_Dataflow_Lifecycle",
+      "commands": [
+        {
+          "id": "7d878866-8a0b-4a40-aadd-1997dc81fc36",
+          "comment": "Step 1: Authenticate Customer",
+          "command": "open",
+          "target": "/Kravyo/customer/auto-login",
+          "targets": [
+            [
+              "/Kravyo/customer/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "a17d4639-9c0f-44f7-b7b4-03c1be523260",
+          "comment": "Step 2: Browse Kitchen Feeds",
+          "command": "open",
+          "target": "/Kravyo/home",
+          "targets": [
+            [
+              "/Kravyo/home",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "860935d1-c153-40e1-81ed-c4bf7ac8a405",
+          "comment": "Step 3: Review Shopping Cart Summary",
+          "command": "open",
+          "target": "/Kravyo/cart",
+          "targets": [
+            [
+              "/Kravyo/cart",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "4dbb6729-16a5-4258-b087-8e433ac945e9",
+          "comment": "Step 4: Verify Order State Machine Timeline",
+          "command": "open",
+          "target": "/Kravyo/orders/history",
+          "targets": [
+            [
+              "/Kravyo/orders/history",
+              ""
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "07e94a03-1dd2-4f15-88d2-f6e30a272916",
+      "name": "DC02_Chef_Decision_Branch_Control_Flow",
+      "commands": [
+        {
+          "id": "3abadffd-fa2c-4a70-a905-0b4db4e3ca4b",
+          "comment": "Authenticate as Operating Chef",
+          "command": "open",
+          "target": "/Kravyo/chef/auto-login",
+          "targets": [
+            [
+              "/Kravyo/chef/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "231d2465-9138-4d91-b8d7-913eaa03ec74",
+          "comment": "Load Chef Operating Portal",
+          "command": "open",
+          "target": "/Kravyo/chef/dashboard",
+          "targets": [
+            [
+              "/Kravyo/chef/dashboard",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "5e417bc3-a7ca-40e2-9d6d-d9bd5b2c3c10",
+          "comment": "Access Incoming Order Decision Queue",
+          "command": "open",
+          "target": "/Kravyo/chef/orders",
+          "targets": [
+            [
+              "/Kravyo/chef/orders",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "402610ec-55b0-41b5-9c0d-d0742afd1d15",
+          "comment": "Verify Accept vs Reject Branch Logic Present",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "241fc837-875a-4489-a5ed-f341795a038e",
+      "name": "DC03_Cascade_Dispatch_Timeout_Loop",
+      "commands": [
+        {
+          "id": "01159ee7-07c0-4ad3-b7ab-ff323ad4b7b7",
+          "comment": "Authenticate as Active Courier",
+          "command": "open",
+          "target": "/Kravyo/delivery/auto-login",
+          "targets": [
+            [
+              "/Kravyo/delivery/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "f6c324ef-e845-4da5-9c5a-650ac3db2512",
+          "comment": "Access Courier Dispatch Queue",
+          "command": "open",
+          "target": "/Kravyo/delivery/dashboard",
+          "targets": [
+            [
+              "/Kravyo/delivery/dashboard",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "b384e8b9-041b-4cc5-8457-e06c062798ee",
+          "comment": "Verify 4-Stage Cascade Nearest Idle Driver Loop",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "19f6b73a-68c7-4d10-95ce-d0953f9e699b",
+      "name": "DC04_Delivery_Handshake_OTP_Gate",
+      "commands": [
+        {
+          "id": "7ced00f3-5b8d-41e7-81fd-7c58313f90aa",
+          "comment": "Courier En Route to Destination",
+          "command": "open",
+          "target": "/Kravyo/delivery/auto-login",
+          "targets": [
+            [
+              "/Kravyo/delivery/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "9dee15d1-6498-4302-aa8b-4e3355fe9f6a",
+          "comment": "Load Delivery Verification Console",
+          "command": "open",
+          "target": "/Kravyo/delivery/dashboard",
+          "targets": [
+            [
+              "/Kravyo/delivery/dashboard",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "d861f97e-5908-4b47-b42d-fae3b3ee7675",
+          "comment": "Verify Transition to 'Delivered' Guarded by OTP Gate",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "c0b44dfa-e8b6-4ddc-a7f4-92e3f6b66eb9",
+      "name": "DC05_Recurring_Tiffin_Delivery_Roster_Flow",
+      "commands": [
+        {
+          "id": "052d5898-5200-4e62-b88a-7693736299f6",
+          "comment": "Authenticate as Kitchen Master",
+          "command": "open",
+          "target": "/Kravyo/chef/auto-login",
+          "targets": [
+            [
+              "/Kravyo/chef/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "17456075-7995-4bd5-b72d-47ecf48cc572",
+          "comment": "Open Tiffin Subscription Roster",
+          "command": "open",
+          "target": "/Kravyo/chef/subscriptions",
+          "targets": [
+            [
+              "/Kravyo/chef/subscriptions",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "b3e4b107-5d33-45e4-b3cc-751bc96d6856",
+          "comment": "Verify 30-Day Automated Schedule Task Queue",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "6cc367d9-6606-4d92-95cf-4d3c41115fde",
+      "name": "DC06_Chef_Online_Offline_Duty_Switch",
+      "commands": [
+        {
+          "id": "a3a78b32-92d1-40cc-b249-e7889a24621d",
+          "comment": "Open Chef Workspace",
+          "command": "open",
+          "target": "/Kravyo/chef/auto-login",
+          "targets": [
+            [
+              "/Kravyo/chef/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "0d7117e1-ec69-464c-b3fc-60ed74edc3e6",
+          "comment": "Inspect Live Duty Toggle",
+          "command": "open",
+          "target": "/Kravyo/chef/dashboard",
+          "targets": [
+            [
+              "/Kravyo/chef/dashboard",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "5692e4b0-d7f1-460d-a8c3-ddb339e0297f",
+          "comment": "Verify Kitchen Visibility Switch State",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "b7bb7f04-52d6-425c-a8f6-f393c5b8e5c3",
+      "name": "DC07_Delivery_MilkRun_Batch_Route",
+      "commands": [
+        {
+          "id": "26b96738-7dce-4ade-9f17-5dd1549a62a8",
+          "comment": "Open Delivery Partner Terminal",
+          "command": "open",
+          "target": "/Kravyo/delivery/auto-login",
+          "targets": [
+            [
+              "/Kravyo/delivery/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "9ec7f08d-e9fe-457c-b9f6-abc4b236e7ca",
+          "comment": "Access Multi-Stop Batch Deliveries",
+          "command": "open",
+          "target": "/Kravyo/delivery/dashboard",
+          "targets": [
+            [
+              "/Kravyo/delivery/dashboard",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "40367b1d-2b90-4982-8b75-684d0c18a838",
+          "comment": "Verify Milk-Run Route Sequencing Algorithm",
+          "command": "assertElementPresent",
+          "target": "css=body",
+          "targets": [
+            [
+              "css=body",
+              "css:finder"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    },
+    {
+      "id": "b4cdac75-0467-4c0c-bcc9-46142dbb067e",
+      "name": "DC08_Live_System_Automated_Verification_Harness",
+      "commands": [
+        {
+          "id": "03efdfb0-1799-4151-9a3f-7f8a53aff847",
+          "comment": "Authenticate as Administrator",
+          "command": "open",
+          "target": "/Kravyo/admin/auto-login",
+          "targets": [
+            [
+              "/Kravyo/admin/auto-login",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "1f7e715e-e401-43f2-88be-0187adef61bd",
+          "comment": "Execute Full 12-Test Automated Verification Harness",
+          "command": "open",
+          "target": "/Kravyo/admin/system-tests",
+          "targets": [
+            [
+              "/Kravyo/admin/system-tests",
+              ""
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "9206423e-3f19-4155-9d48-aac115b24acd",
+          "comment": "Verify QA Console Header Loaded",
+          "command": "assertElementPresent",
+          "target": "xpath=//h2[contains(., 'Automated Testing')]",
+          "targets": [
+            [
+              "xpath=//h2[contains(., 'Automated Testing')]",
+              "xpath:position"
+            ]
+          ],
+          "value": ""
+        },
+        {
+          "id": "17f26080-2f69-4291-90d2-99f98a09680e",
+          "comment": "Verify All 12 Test Assertions Passed (100% PASS)",
+          "command": "assertElementPresent",
+          "target": "xpath=//h3[contains(., '100% PASS')]",
+          "targets": [
+            [
+              "xpath=//h3[contains(., '100% PASS')]",
+              "xpath:position"
+            ]
+          ],
+          "value": ""
+        }
+      ]
+    }
+  ],
+  "suites": [
+    {
+      "id": "7cac0ffb-0d0e-420e-8f4b-fb15fee35baf",
+      "name": "1_Automated_Testing_Suite_Table_6_2",
+      "persistSession": false,
+      "parallel": false,
+      "timeout": 300,
+      "tests": [
+        "7a528c3c-d660-4dc8-b91d-ffa2e3e37808",
+        "067041e8-22be-477a-b1fe-1dd71bf80296",
+        "66606f1f-7e79-4c2e-85a4-cc973f9874ec",
+        "07e36b2a-2dd3-4cba-826f-703bf9ef65d0",
+        "ef3968a4-7f23-4c98-a4f4-4de7edf69a63",
+        "8ddba3fb-471b-42cf-804b-c3a41c2c3579",
+        "8b9bcad5-4bb2-4709-be1b-0b568bc7b02c",
+        "1e5fa0f8-4d02-4fd9-94d2-6f25c494afb5",
+        "ba2c2746-d69b-4e09-9a09-5667e90aec3e",
+        "5d0e2927-0537-4db7-8245-da1cf614b3d0",
+        "3585336e-5ee4-4531-8657-2f4b4445c8ce",
+        "59922947-d02a-4c31-9ac1-abf4dbc9f198",
+        "d230b533-3923-4237-b5b1-f57df4110ca3"
+      ]
+    },
+    {
+      "id": "8f05076f-ed5b-45ad-832d-070da483ad16",
+      "name": "2_Functional_Testing_Suite",
+      "persistSession": false,
+      "parallel": false,
+      "timeout": 300,
+      "tests": [
+        "1ca18755-7fa2-402d-965b-42f8a5a8c00a",
+        "edf3775a-481c-4fb1-9dca-3a87a97fc4c0",
+        "6477539f-2e72-420e-8f28-55f0e1ea3e7b",
+        "1bd34ab7-e1b9-4cbd-96a9-6b9b1346d1c2",
+        "f3ed2325-3951-404d-a7f8-f07ec28faa6b",
+        "c38029c4-9f2e-4741-be86-9790c27ea323",
+        "55acbb11-1407-4085-8895-4f91e5f25875",
+        "e4735020-5ab7-4f71-97f7-770a46d53fc5"
+      ]
+    },
+    {
+      "id": "badea72d-91b4-4119-b0a7-4f407adf7f41",
+      "name": "3_Usability_Testing_Suite",
+      "persistSession": false,
+      "parallel": false,
+      "timeout": 300,
+      "tests": [
+        "5d57b284-e450-420f-adbc-ebfecaaa3d7f",
+        "15e7fc83-7e54-4223-b806-fccd821fadf2",
+        "84d279b3-b1a1-4931-8e8d-234c6baaef44",
+        "acdfee79-e031-4238-97d0-6a3a6be430b5",
+        "999c8096-8c00-437a-a0b5-96e02b8a8a14",
+        "c6fbc538-101a-4f61-9908-dcaa2879f9ee"
+      ]
+    },
+    {
+      "id": "8a71e11f-51f4-448a-a499-006fcc85fce1",
+      "name": "4_Interface_Testing_Suite",
+      "persistSession": false,
+      "parallel": false,
+      "timeout": 300,
+      "tests": [
+        "e2f6f1f3-5e23-4b96-a0e9-9b1e52d37c62",
+        "22294d40-d075-4e1c-82e2-97bd32b45904",
+        "f5aaafc1-c0ba-4b4b-b275-664b3f3f61d9",
+        "d53c0046-9728-4fe6-aadd-a50f7aef1f0c",
+        "3f96bfe3-2759-4055-af13-d6842f057ea7",
+        "b29933ac-4b86-4ec0-b64e-5b34cc30f666"
+      ]
+    },
+    {
+      "id": "6851f175-6e29-427f-94de-f92e8886c84d",
+      "name": "5_Dataflow_ControlFlow_Suite",
+      "persistSession": false,
+      "parallel": false,
+      "timeout": 300,
+      "tests": [
+        "f464078f-6ed8-4d8c-854c-48688c2e8817",
+        "07e94a03-1dd2-4f15-88d2-f6e30a272916",
+        "241fc837-875a-4489-a5ed-f341795a038e",
+        "19f6b73a-68c7-4d10-95ce-d0953f9e699b",
+        "c0b44dfa-e8b6-4ddc-a7f4-92e3f6b66eb9",
+        "6cc367d9-6606-4d92-95cf-4d3c41115fde",
+        "b7bb7f04-52d6-425c-a8f6-f393c5b8e5c3",
+        "b4cdac75-0467-4c0c-bcc9-46142dbb067e"
+      ]
+    },
+    {
+      "id": "89e93dbd-b836-45a5-92b7-df9ed0e4debe",
+      "name": "6_All_Comprehensive_Tests_Master_Suite",
+      "persistSession": false,
+      "parallel": false,
+      "timeout": 600,
+      "tests": [
+        "7a528c3c-d660-4dc8-b91d-ffa2e3e37808",
+        "067041e8-22be-477a-b1fe-1dd71bf80296",
+        "66606f1f-7e79-4c2e-85a4-cc973f9874ec",
+        "07e36b2a-2dd3-4cba-826f-703bf9ef65d0",
+        "ef3968a4-7f23-4c98-a4f4-4de7edf69a63",
+        "8ddba3fb-471b-42cf-804b-c3a41c2c3579",
+        "8b9bcad5-4bb2-4709-be1b-0b568bc7b02c",
+        "1e5fa0f8-4d02-4fd9-94d2-6f25c494afb5",
+        "ba2c2746-d69b-4e09-9a09-5667e90aec3e",
+        "5d0e2927-0537-4db7-8245-da1cf614b3d0",
+        "3585336e-5ee4-4531-8657-2f4b4445c8ce",
+        "59922947-d02a-4c31-9ac1-abf4dbc9f198",
+        "d230b533-3923-4237-b5b1-f57df4110ca3",
+        "1ca18755-7fa2-402d-965b-42f8a5a8c00a",
+        "edf3775a-481c-4fb1-9dca-3a87a97fc4c0",
+        "6477539f-2e72-420e-8f28-55f0e1ea3e7b",
+        "1bd34ab7-e1b9-4cbd-96a9-6b9b1346d1c2",
+        "f3ed2325-3951-404d-a7f8-f07ec28faa6b",
+        "c38029c4-9f2e-4741-be86-9790c27ea323",
+        "55acbb11-1407-4085-8895-4f91e5f25875",
+        "e4735020-5ab7-4f71-97f7-770a46d53fc5",
+        "5d57b284-e450-420f-adbc-ebfecaaa3d7f",
+        "15e7fc83-7e54-4223-b806-fccd821fadf2",
+        "84d279b3-b1a1-4931-8e8d-234c6baaef44",
+        "acdfee79-e031-4238-97d0-6a3a6be430b5",
+        "999c8096-8c00-437a-a0b5-96e02b8a8a14",
+        "c6fbc538-101a-4f61-9908-dcaa2879f9ee",
+        "e2f6f1f3-5e23-4b96-a0e9-9b1e52d37c62",
+        "22294d40-d075-4e1c-82e2-97bd32b45904",
+        "f5aaafc1-c0ba-4b4b-b275-664b3f3f61d9",
+        "d53c0046-9728-4fe6-aadd-a50f7aef1f0c",
+        "3f96bfe3-2759-4055-af13-d6842f057ea7",
+        "b29933ac-4b86-4ec0-b64e-5b34cc30f666",
+        "f464078f-6ed8-4d8c-854c-48688c2e8817",
+        "07e94a03-1dd2-4f15-88d2-f6e30a272916",
+        "241fc837-875a-4489-a5ed-f341795a038e",
+        "19f6b73a-68c7-4d10-95ce-d0953f9e699b",
+        "c0b44dfa-e8b6-4ddc-a7f4-92e3f6b66eb9",
+        "6cc367d9-6606-4d92-95cf-4d3c41115fde",
+        "b7bb7f04-52d6-425c-a8f6-f393c5b8e5c3",
+        "b4cdac75-0467-4c0c-bcc9-46142dbb067e"
+      ]
+    }
+  ],
+  "urls": [
+    "http://localhost/Kravyo",
+    "http://localhost"
+  ],
+  "plugins": []
+}

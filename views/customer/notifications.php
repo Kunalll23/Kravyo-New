@@ -89,6 +89,7 @@
                     <?php endforeach; ?>
                 </div>
 
+            
                 <!-- Pagination -->
                 <?php if ($totalPages > 1): ?>
                 <nav class="mt-4">

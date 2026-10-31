@@ -78,6 +78,7 @@ def add_image_placeholder(doc, caption, figure_id=None, hint="(File Reference / 
     if hint:
         raw_hint = hint.replace("File Reference: ", "").strip()
         potential_paths.append(os.path.join(r"c:\xampp\htdocs\Kravyo", raw_hint))
+        potential_paths.append(os.path.join(r"c:\xampp\htdocs\Kravyo\screenshots", os.path.basename(raw_hint)))
         potential_paths.append(os.path.join(r"c:\xampp\htdocs\Kravyo\diagrams", os.path.basename(raw_hint)))
         potential_paths.append(raw_hint)
     
@@ -258,7 +259,7 @@ def add_bullet(doc, text, bold_prefix=None):
     run.font.color.rgb = RGBColor(0, 0, 0)
     return p
 
-def setup_header_footer(section, is_roman=False):
+def setup_header_footer(section, is_roman=False, start_num=None):
     # Setup page size A4 & 1 inch margins
     section.page_width = Inches(8.27)
     section.page_height = Inches(11.69)
@@ -267,15 +268,19 @@ def setup_header_footer(section, is_roman=False):
     section.left_margin = Inches(1.0)
     section.right_margin = Inches(1.0)
     
-    # Set page numbering format
+    # Set page numbering format: STRICTLY DECIMAL / NUMERICAL ACROSS ALL PAGES
     sectPr = section._sectPr
     pgNum = sectPr.find(qn('w:pgNumType'))
     if pgNum is None:
         pgNum = OxmlElement('w:pgNumType')
         sectPr.append(pgNum)
-    pgNum.set(qn('w:fmt'), 'lowerRoman' if is_roman else 'decimal')
-    if not is_roman:
-        pgNum.set(qn('w:start'), '1')
+    pgNum.set(qn('w:fmt'), 'decimal')
+    if start_num is not None:
+        pgNum.set(qn('w:start'), str(start_num))
+    else:
+        # Seamlessly continue continuous page numbering from preceding section
+        if qn('w:start') in pgNum.attrib:
+            del pgNum.attrib[qn('w:start')]
         
     # Header: Project title in solid black (Bold Italic Cambria)
     header = section.header
@@ -285,7 +290,7 @@ def setup_header_footer(section, is_roman=False):
     p_head.alignment = WD_ALIGN_PARAGRAPH.RIGHT
     p_head.paragraph_format.space_before = Pt(0)
     p_head.paragraph_format.space_after = Pt(0)
-    r_head = p_head.add_run("Kravyo: A Multi-Tenant Cloud Kitchen & Meal Subscription Platform")
+    r_head = p_head.add_run("Kravyo: A Cloud Kitchen Platform for Homemakers and Small Food Businesses")
     r_head.font.name = 'Cambria'
     r_head.font.size = Pt(9.5)
     r_head.font.italic = True
