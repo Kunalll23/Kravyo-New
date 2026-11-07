@@ -6,9 +6,17 @@
 // Load Configurations
 require_once __DIR__ . '/../config/app.php';
 require_once __DIR__ . '/../config/constants.php';
-require_once __DIR__ . '/../config/smtp.php';
+
+if (file_exists(__DIR__ . '/../config/smtp.php')) {
+    require_once __DIR__ . '/../config/smtp.php';
+} elseif (file_exists(__DIR__ . '/../config/smtp.example.php')) {
+    require_once __DIR__ . '/../config/smtp.example.php';
+}
+
 if (file_exists(__DIR__ . '/../config/google_maps.php')) {
     require_once __DIR__ . '/../config/google_maps.php';
+} elseif (file_exists(__DIR__ . '/../config/google_maps.example.php')) {
+    require_once __DIR__ . '/../config/google_maps.example.php';
 }
 
 // Autoload Core Framework Classes

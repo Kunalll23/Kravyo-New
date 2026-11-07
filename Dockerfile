@@ -34,6 +34,10 @@ RUN echo '<Directory /var/www/html/public>\n\
 WORKDIR /var/www/html
 COPY . /var/www/html
 
+# Ensure configuration fallbacks exist
+RUN [ -f config/smtp.php ] || cp config/smtp.example.php config/smtp.php
+RUN [ -f config/google_maps.php ] || cp config/google_maps.example.php config/google_maps.php
+
 # Create required directories if not exist & set permissions for Apache
 RUN mkdir -p /var/www/html/public/uploads /var/www/html/storage/cache/maps \
     && chown -R www-data:www-data /var/www/html/public/uploads /var/www/html/storage \

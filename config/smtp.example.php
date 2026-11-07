@@ -11,15 +11,15 @@
  *   3. Use that 16-character App Password as SMTP_PASSWORD
  */
 
-define('SMTP_HOST',       'smtp.gmail.com');
-define('SMTP_PORT',       587);
-define('SMTP_ENCRYPTION', 'tls');
+define('SMTP_HOST',       getenv('SMTP_HOST') ?: 'smtp.gmail.com');
+define('SMTP_PORT',       (int)(getenv('SMTP_PORT') ?: 587));
+define('SMTP_ENCRYPTION', getenv('SMTP_ENCRYPTION') ?: 'tls');
 
-define('SMTP_USERNAME',   'your_email@gmail.com');
-define('SMTP_PASSWORD',   'your_app_password_here');  // 16-char Gmail App Password
+define('SMTP_USERNAME',   getenv('SMTP_USERNAME') ?: 'your_email@gmail.com');
+define('SMTP_PASSWORD',   getenv('SMTP_PASSWORD') ?: 'your_app_password_here');  // 16-char Gmail App Password
 
-define('SMTP_FROM_EMAIL', 'your_email@gmail.com');
-define('SMTP_FROM_NAME',  'Kravyo');
+define('SMTP_FROM_EMAIL', getenv('SMTP_FROM_EMAIL') ?: (getenv('SMTP_USERNAME') ?: 'your_email@gmail.com'));
+define('SMTP_FROM_NAME',  getenv('SMTP_FROM_NAME') ?: 'Kravyo');
 
 define('OTP_EXPIRY_MINUTES',  5);
 define('OTP_RESEND_COOLDOWN', 60);
