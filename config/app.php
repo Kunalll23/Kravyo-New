@@ -7,10 +7,12 @@
 define('APP_NAME', 'Kravyo');
 define('APP_TAGLINE', 'Cloud Kitchen Platform for Homemakers & Small Food Businesses');
 define('APP_VERSION', '1.0.0-dev');
-define('APP_ENV', 'development'); // 'development' or 'production'
+define('APP_ENV', getenv('APP_ENV') ?: 'development'); // 'development' or 'production'
 
-// Base URL configuration (automatic detection for XAMPP / custom domains / PHP dev server)
-$protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
+// Base URL configuration (automatic detection for XAMPP / custom domains / PHP dev server / reverse proxies)
+$isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') 
+    || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+$protocol = $isHttps ? 'https' : 'http';
 $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $scriptDir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME']));
 

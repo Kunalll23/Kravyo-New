@@ -1,0 +1,10 @@
+.git
+.gitignore
+.vscode
+scratch/
+tests/
+screenshots/
+diagrams/
+*.docx
+*.pptx
+*.bat
