@@ -33,6 +33,10 @@ class Database {
                     $config['password'],
                     $config['options']
                 );
+                // Ensure compatibility with MySQL 8 & TiDB Cloud by removing ONLY_FULL_GROUP_BY
+                try {
+                    self::$instance->exec("SET SESSION sql_mode = (SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))");
+                } catch (Throwable $ignored) {}
             } catch (PDOException $e) {
                 if (APP_ENV === 'development') {
                     die("Database Connection Error: " . $e->getMessage());
